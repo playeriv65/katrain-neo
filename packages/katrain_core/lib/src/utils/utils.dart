@@ -1,4 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/core/utils.py.
+// Small helpers: grids from KataGo's arrays, evaluation classes, half-precision floats, visit counts.
 
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -26,7 +26,7 @@ int evaluationClass(double pointsLost, List<num> evalThresholds) {
   return i;
 }
 
-/// `struct.pack(f"{n}e", ...)`: IEEE half precision, little endian (KaTrain packs analysis data like this).
+/// IEEE half precision floats, little endian, as analysis is packed into SGF files.
 Uint8List packFloats(List<double>? values) {
   if (values == null) return Uint8List(0);
   final data = ByteData(values.length * 2);
@@ -36,7 +36,7 @@ Uint8List packFloats(List<double>? values) {
   return data.buffer.asUint8List();
 }
 
-/// `struct.unpack(f"{num}e", data)`; null for empty data, as in KaTrain.
+/// Unpacks [num] half precision floats; null for empty data.
 List<double>? unpackFloats(List<int> data, int num) {
   if (data.isEmpty) return null;
   if (data.length != num * 2) {
@@ -46,7 +46,7 @@ List<double>? unpackFloats(List<int> data, int num) {
   return [for (var i = 0; i < num; i++) _fromHalf(bytes.getUint16(i * 2, Endian.little))];
 }
 
-/// Double to half-precision bits, rounding to nearest even like CPython's PyFloat_Pack2.
+/// Double to half-precision bits, rounding to nearest even.
 int _toHalf(double x) {
   if (x.isNaN) return 0x7E00;
   final sign = (x < 0 || (x == 0 && x.isNegative)) ? 0x8000 : 0;
@@ -106,7 +106,7 @@ double _fromHalf(int h) {
   return sign * (1 + f / 1024.0) * math.pow(2.0, e - 15);
 }
 
-/// Visits as KaTrain shows them: 950, 1.2k, 120k, 3M.
+/// Visits, shortened: 950, 1.2k, 120k, 3M.
 String formatVisits(num n) {
   if (n < 1000) return '$n';
   if (n < 1e5) return '${formatFixed(n / 1000, 1)}k';

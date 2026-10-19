@@ -1,9 +1,7 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/core/engine.py (KataGoEngine) and
-// katrain/core/remote_engine.py (RemoteKataGoEngine). This is the protocol; the process and WebSocket transports
-// are in package:katrain_core/io.dart.
+// KataGo's JSON analysis protocol; the process and WebSocket transports are in package:katrain_core/io.dart.
 //
-// KaTrain uses three threads and a write queue; here everything runs on one event loop, so queries are written as
-// soon as they are requested. The bookkeeping (ids, generations, pondering) is the same.
+// Everything runs on one event loop: queries are written as soon as they are requested, in order, and results are
+// matched to their queries by id. Generations drop the results of queries made before a restart or a new game.
 
 import 'dart:convert';
 import 'dart:math' as math;
@@ -17,17 +15,17 @@ import '../utils/format.dart';
 import '../utils/template.dart';
 import 'analysis_engine.dart';
 
-/// What the engine needs from the application (KaTrain's `host` object).
+/// What the engine needs from the application.
 abstract interface class EngineHost {
   void log(String message, num level);
 
-  /// An engine error the user should know about; KaTrain opens its engine recovery popup when [allowPopup].
+  /// An engine error the user should know about; the app may offer to fix the engine settings when [allowPopup].
   void onEngineError(String message, Object? code, {required bool allowPopup, required String engineType});
 
-  /// Called after every line from KataGo (KaTrain's `update_state`).
+  /// Called after every line from KataGo.
   void onEngineUpdate();
 
-  /// A short status message (KaTrain's `controls.set_status(..., STATUS_INFO)`).
+  /// A short status message.
   void setStatus(String message);
 }
 
@@ -56,7 +54,7 @@ class _Query {
   _Query(this.callback, this.errorCallback, this.startTime, this.nextMove, this.node);
 }
 
-/// Talks KataGo's JSON analysis protocol for KaTrain: builds queries from nodes, keeps track of them, and hands the
+/// Talks KataGo's JSON analysis protocol: builds queries from nodes, keeps track of them, and hands the
 /// results to the callbacks.
 class KataGoEngine implements AnalysisEngine<GameNode> {
   static const ponderKey = '_kt_continuous';
@@ -79,11 +77,11 @@ class KataGoEngine implements AnalysisEngine<GameNode> {
 
   EngineConnection? connection;
 
-  // KaTrain's write queue: queries requested while one is being written go out after it, in order
+  // queries requested while one is being written go out after it, in order
   final List<(Map<String, dynamic>, AnalysisCallback?, AnalysisErrorCallback?, Move?, GameNode?, int)> _pending = [];
   bool _flushing = false;
 
-  // KaTrain's reader threads stop after an uncaught KataGo exception
+  // reading stops after an uncaught KataGo exception
   bool _stdoutStopped = false;
   bool _stderrStopped = false;
 
@@ -137,7 +135,7 @@ class KataGoEngine implements AnalysisEngine<GameNode> {
     }
   }
 
-  /// Forgets all outstanding queries (KaTrain clears its `queries` dict on restart).
+  /// Forgets all outstanding queries (on restart).
   void clearQueries() => _queries.clear();
 
   void clearSentPayloads() => _sentPayloads.clear();
@@ -149,7 +147,7 @@ class KataGoEngine implements AnalysisEngine<GameNode> {
   /// Ids of the queries waiting for results.
   Iterable<String> get outstandingQueries => _queries.keys;
 
-  /// Queues a query (KaTrain's `send_query`) and writes the queue.
+  /// Queues a query and writes the queue.
   void sendQuery(
     Map<String, dynamic> query,
     AnalysisCallback? callback,
@@ -163,7 +161,7 @@ class KataGoEngine implements AnalysisEngine<GameNode> {
     try {
       while (_pending.isNotEmpty) {
         final conn = connection;
-        if (conn == null || !conn.alive) return; // KaTrain keeps them queued; a restart drops them
+        if (conn == null || !conn.alive) return; // kept queued; a restart drops them
         final (q, cb, ecb, move, n, generation) = _pending.removeAt(0);
         if (generation != queryGeneration) continue;
         _write(conn, q, cb, ecb, move, n);
@@ -173,10 +171,10 @@ class KataGoEngine implements AnalysisEngine<GameNode> {
     }
   }
 
-  /// Drops queries that were not written yet (KaTrain's `_drain_write_queue`).
+  /// Drops queries that were not written yet.
   void drainPending() => _pending.clear();
 
-  /// What KaTrain's writer thread does with one query: id, pondering, registration, write.
+  /// Writes one query: id, pondering, registration, write.
   void _write(
     EngineConnection conn,
     Map<String, dynamic> query,
@@ -213,7 +211,7 @@ class KataGoEngine implements AnalysisEngine<GameNode> {
     conn.send(payload);
   }
 
-  /// Python's `==` on JSON-like values (1 == 1.0, dicts regardless of key order).
+  /// Equality of JSON values: numbers by value (1 == 1.0), maps regardless of key order.
   static bool _deepEquals(Object? a, Object? b) {
     if (a is num && b is num) return a == b;
     if (a is List && b is List) {
@@ -461,13 +459,13 @@ class KataGoEngine implements AnalysisEngine<GameNode> {
     }
   }
 
-  /// A restarted process starts with fresh readers (KaTrain starts new threads).
+  /// A restarted process starts with fresh readers.
   void resetReaders() {
     _stdoutStopped = false;
     _stderrStopped = false;
   }
 
-  /// The process ended or the connection was lost (local engine, KaTrain's `check_alive(exception_if_dead=True)`).
+  /// The process ended or the connection was lost.
   void onProcessExit(int? exitCode, {String osError = '', bool maybeOpenRecovery = false}) {
     if (exitCode == null) {
       host.log(fillTemplate(i18n.tr('Engine died unexpectedly'), {'error': osError}), outputDebug);

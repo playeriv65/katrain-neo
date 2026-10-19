@@ -1,6 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/core/base_katrain.py:
-// HostBase._load_config, and the file format of Kivy's JsonStore (kivy/storage/jsonstore.py, MIT), which KaTrain
-// keeps its settings in.
+// Finding, creating and upgrading the settings file, and writing it back as indented JSON.
 
 import 'dart:convert';
 import 'dart:io';
@@ -9,8 +7,7 @@ import '../../constants.dart';
 import '../../engine/io/local_katago.dart' show expandUser;
 import '../host_base.dart';
 
-/// Settings in a JSON file, written like Kivy's JsonStore with `indent=4`: the whole file on every change, in
-/// Python's `json.dump` format.
+/// Settings in a JSON file, indented by four spaces and written whole on every change.
 class JsonConfigStore implements ConfigStore {
   final String filename;
   @override
@@ -38,13 +35,13 @@ class JsonConfigStore implements ConfigStore {
   }
 }
 
-/// The text KaTrain's own config.json has: its defaults as `json.dumps(indent=4)` and a newline.
+/// The defaults as a settings file's text.
 String defaultConfigText() => '${const JsonEncoder.withIndent('    ').convert(defaultConfig())}\n';
 
-/// Finds the settings file as KaTrain does: [commandLineFile] when given; otherwise the user's file in [dataFolder],
+/// Finds the settings file: [commandLineFile] when given; otherwise the user's file in [dataFolder],
 /// created from the defaults when missing and replaced by them (keeping a backup) when it is older than
 /// [configMinVersion] or unreadable. Falls back to the defaults in memory when the user's file cannot be made, or
-/// with [forcePackageConfig] (KaTrain then uses its package file, which is never written).
+/// with [forcePackageConfig].
 ConfigStore openConfig({
   String? commandLineFile,
   bool forcePackageConfig = false,

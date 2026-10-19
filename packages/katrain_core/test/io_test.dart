@@ -133,7 +133,7 @@ void main() {
     final host = TestHost();
     final engine = KataGoEngine(host, engineConfig({'remote_url': 'http://example.com'}), engineType: 'remote');
     expect(await RemoteKataGo(engine).start(), isFalse);
-    // KaTrain only logs this one: no recovery popup
+    // only logged: no recovery popup
     expect(host.errors, isEmpty);
     expect(host.logs.last, contains('ws://'));
   });

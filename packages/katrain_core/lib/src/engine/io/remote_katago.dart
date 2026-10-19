@@ -1,5 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/core/remote_engine.py: KataGo's analysis
-// protocol over a WebSocket, with reconnects that resume outstanding queries.
+// KataGo's analysis protocol over a WebSocket, with reconnects that resume outstanding queries.
 
 import 'dart:async';
 import 'dart:convert';
@@ -105,7 +104,7 @@ class RemoteKataGo implements EngineConnection {
     return _ws != null && !_closing;
   }
 
-  /// KaTrain's `check_alive(exception_if_dead=True)`.
+  /// Whether the connection is usable; reports a lost one (once).
   bool checkAlive({String osError = '', bool maybeOpenRecovery = false}) {
     final ok = alive;
     if (!ok) _reportDead(osError, allowPopup: maybeOpenRecovery);

@@ -1,10 +1,7 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/core/ai.py: the AI strategies,
-// generate_ai_move, ai_rank_estimation and game_report.
+// The AI strategies, choosing a move with them, estimating their rank, and the game report.
 //
-// KaTrain runs a strategy on a thread that waits for analyses by polling every 10 ms; here generateMove is async and
-// polls the same way. KaTrain also calls engine.check_alive(exception_if_dead=True) while waiting, which only reports
-// a dead engine (it does not raise); the port's engine reports that itself when the process ends.
-// policy_weighted_move, which KaTrain no longer calls, is not ported.
+// A strategy waits for the analyses it needs by polling every 10 ms; when the position changes or the queries are
+// discarded meanwhile, the move is dropped.
 
 import 'package:collection/collection.dart';
 
@@ -19,7 +16,7 @@ import '../utils/utils.dart';
 import 'game.dart';
 import 'game_node.dart';
 
-// Python's max/min of two numbers: the first one wins a tie, and an int stays an int.
+// the larger or smaller of two numbers, the first on a tie, keeping its type
 num _max(num a, num b) => b > a ? b : a;
 num _min(num a, num b) => b < a ? b : a;
 
@@ -407,7 +404,7 @@ class DefaultStrategy extends AIStrategy {
     final Move topCand;
     if (candidateMoves.isEmpty) {
       log('[DefaultStrategy] No candidate moves found, will play pass', outputDebug);
-      topCand = Move(player: cn.nextPlayer); // KaTrain's Move(is_pass=True) fails here
+      topCand = Move(player: cn.nextPlayer); // a pass
     } else {
       final topMoveData = candidateMoves[0];
       topCand = Move.fromGtp(topMoveData['move'] as String, player: cn.nextPlayer);
@@ -1116,7 +1113,7 @@ abstract class PickBasedStrategy extends AIStrategy {
     final (endCoords, _, endNMoves, isEndgame) = handleEndgame(legalPolicyMoves, policyGrid, size);
     if (isEndgame) {
       log('[$strategyName] Using endgame logic', outputDebug);
-      return selectFromWeightedCoords(endCoords!, endNMoves!, passPolicy); // KaTrain drops the endgame thoughts
+      return selectFromWeightedCoords(endCoords!, endNMoves!, passPolicy);
     }
     log('[$strategyName] Generating weighted coordinates', outputDebug);
     final (weightedCoords, weightThoughts) = generateWeightedCoords(legalPolicyMoves, policyGrid, size);

@@ -1,4 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/core/base_katrain.py: class Player.
+// Who plays a colour: a human or an AI, how (normal, teaching, which strategy), and the AI's estimated rank.
 
 import '../constants.dart';
 

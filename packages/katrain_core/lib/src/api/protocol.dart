@@ -1,5 +1,4 @@
-// Ported from the playeriv65/katrain fork (https://github.com/playeriv65/katrain), katrain/api/protocol.py:
-// constants and the error type shared by the API server and the CLI client.
+// Constants and the error type shared by the API server and the CLI client.
 
 import 'dart:convert';
 import 'dart:io';

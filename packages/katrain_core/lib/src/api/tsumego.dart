@@ -1,5 +1,4 @@
-// Ported from the playeriv65/katrain fork (https://github.com/playeriv65/katrain), katrain/api/tsumego.py:
-// life-and-death problem mode built on KaTrain's tsumego frame and region-of-interest search.
+// Life-and-death problem mode, built on the tsumego frame and region-of-interest search.
 //
 // The solver may play any legal move; KataGo answers inside the problem region instead of following a fixed answer
 // tree. The SGF's own solution tree, when present, is kept aside as a reference and never shown unless asked for.
@@ -307,7 +306,7 @@ String? _goalFromText(String? text) {
   return null;
 }
 
-/// KaTrain moves SGF C[] comments into the note, so read both.
+/// Loading moves SGF C[] comments into the note, so read both.
 String _comment(GameNode node) => [node.note, ...?node.properties['C']].join(' ');
 
 /// RIGHT/WRONG label of a solution line, from common SGF conventions.
@@ -385,7 +384,7 @@ List<int> problemViewRegion(GameNode problemRoot) {
   return [xmin, xmax, ymin, ymax];
 }
 
-/// No problem stone near any edge (same 'near' as KaTrain's tsumego frame).
+/// No problem stone near any edge (the same 'near' as the tsumego frame).
 bool isCenterProblem(GameNode problemRoot) {
   final (szx, szy) = problemRoot.boardSize;
   final coords = [
@@ -627,7 +626,7 @@ Object? _load(CommandHandler h, ApiArgs a) {
   if (a.flag('frame', orElse: !isCenterProblem(game.root))) {
     h.host.tsumegoFrame(a.flag('ko'), a.integer('margin', orElse: 4, min: 1)!);
   } else {
-    // center problems: KaTrain's frame would wall the group in; keep the open board, search locally
+    // center problems: a frame would wall the group in; keep the open board, search locally
     game.setRegionOfInterest(problemViewRegion(game.root));
     game.regionRoot = true;
     game.root.analyze(game.engines[game.root.nextPlayer]!, regionOfInterest: game.regionOfInterest, regionRoot: true);
@@ -811,7 +810,7 @@ final Map<String, ApiCommand> tsumegoCommands = {
   ),
   'tsumego.load': const ApiCommand(
     _load,
-    "Load problem #index (after filters), hide its answer tree, add KaTrain's tsumego frame and local region.",
+    "Load problem #index (after filters), hide its answer tree, add a tsumego frame and local region.",
   ),
   'tsumego.target': const ApiCommand(
     _target,

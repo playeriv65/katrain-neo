@@ -1,5 +1,5 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/core/base_katrain.py: HostBase
-// (settings, logging, players) and parse_version. Reading and writing the settings file is in io/config_file.dart.
+// Settings, logging and players for the program around a game, and settings versions. Reading and writing the
+// settings file is in io/config_file.dart.
 
 import 'dart:convert';
 
@@ -9,14 +9,14 @@ import '../game/game.dart';
 import '../game/player.dart';
 import 'default_config.dart';
 
-/// Where KaTrain Neo keeps its settings and KataGo's files. KaTrain uses `~/.katrain`; a separate folder keeps the
-/// two programs from overwriting each other's settings.
+/// Where the settings and KataGo's files live. KaTrain uses `~/.katrain`; a folder of its own keeps the two
+/// programs from overwriting each other's settings.
 const defaultDataFolder = '~/.katrain-neo';
 
-/// KaTrain's default settings (a fresh copy).
+/// The default settings (a fresh copy).
 Map<String, dynamic> defaultConfig() => jsonDecode(defaultConfigJson) as Map<String, dynamic>;
 
-/// `parse_version`: the numbers of a version string, padded to three.
+/// The numbers of a version string, padded to three.
 List<int> parseVersion(String s) {
   final parts = [for (final p in s.split('.')) int.parse(p)];
   while (parts.length < 3) {
@@ -25,7 +25,7 @@ List<int> parseVersion(String s) {
   return parts;
 }
 
-/// Python's comparison of two lists of numbers.
+/// Compares versions number by number; a shorter one that is a prefix of the other comes first.
 int compareVersions(List<int> a, List<int> b) {
   for (var i = 0; i < a.length && i < b.length; i++) {
     if (a[i] != b[i]) return a[i].compareTo(b[i]);
@@ -33,7 +33,7 @@ int compareVersions(List<int> a, List<int> b) {
   return a.length.compareTo(b.length);
 }
 
-/// Where the settings live: the sections, and how to store one (KaTrain uses Kivy's JsonStore).
+/// Where the settings live: the sections, and how to store one.
 abstract interface class ConfigStore {
   /// The sections by name; the maps are the ones [HostBase] reads and changes.
   Map<String, dynamic> get data;
@@ -53,8 +53,8 @@ class MemoryConfigStore implements ConfigStore {
   void put(String key, Map<String, dynamic> values) => data[key] = Map.of(values);
 }
 
-/// Settings, logging, and players, so other classes like bots who need a host instance can be used without a GUI.
-/// The program around a game (the GUI, or a headless runner) adds the rest of [GameHost].
+/// Settings, logging and players. The program around a game (the GUI, or a headless runner) adds the rest of
+/// [GameHost].
 abstract class HostBase implements GameHost {
   int debugLevel;
   @override
@@ -64,7 +64,7 @@ abstract class HostBase implements GameHost {
   @override
   final Map<String, Player> playersInfo = {'B': Player('B'), 'W': Player('W')};
 
-  /// Where log lines go; KaTrain prints them.
+  /// Where log lines go; printed by default.
   void Function(String line) printer = print;
 
   HostBase(this.configStore, {int? debugLevel}) : debugLevel = debugLevel ?? 0 {
@@ -104,7 +104,7 @@ abstract class HostBase implements GameHost {
     return _config.containsKey(setting) ? _config[setting] : defaultValue;
   }
 
-  /// Changes who plays [bw]; as in KaTrain, a type or subtype that is not given goes back to its default.
+  /// Changes who plays [bw]; a type or subtype that is not given goes back to its default.
   void updatePlayer(String bw, {String playerType = playerHuman, String playerSubtype = playingNormal}) {
     playersInfo[bw]!.update(playerType, playerSubtype);
     updateCalculatedRanks();

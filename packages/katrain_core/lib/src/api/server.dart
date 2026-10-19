@@ -1,5 +1,4 @@
-// Ported from the playeriv65/katrain fork (https://github.com/playeriv65/katrain), katrain/api/server.py: the HTTP
-// server in the app. Listens on 127.0.0.1 only and requires a per-run token.
+// The HTTP server in the app. Listens on 127.0.0.1 only and requires a per-run token.
 
 import 'dart:async';
 import 'dart:convert';

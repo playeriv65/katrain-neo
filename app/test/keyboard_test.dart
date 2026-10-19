@@ -1,4 +1,4 @@
-// KaTrain's keyboard shortcuts on the main screen and in popups.
+// The keyboard shortcuts on the main screen and in popups.
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

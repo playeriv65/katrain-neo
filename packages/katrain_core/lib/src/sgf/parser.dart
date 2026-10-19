@@ -1,4 +1,4 @@
-// Ported from pysgf (https://github.com/sanderland/pysgf, MIT, (c) 2020 Sander Land), class BaseGoGame.
+// Reading SGF, NGF (WBaduk) and GIB (Tygem) game records, in whatever encoding the file uses.
 
 import 'dart:convert';
 
@@ -41,9 +41,9 @@ class SgfParser<N extends BaseGoNode<N>> {
     _ => throw ParseError('Unsupported file extension: $ext'),
   };
 
-  /// Decodes and parses a file's bytes (pysgf's `from_file`); [fileName] decides the format and helps choose the
+  /// Decodes and parses a file's bytes; [fileName] decides the format and helps choose the
   /// encoding: UTF-8 for NGF, GIB and Fox files, else the `CA` property, else a guess (see detectEncoding). Decoding
-  /// drops invalid bytes as Python's `errors="ignore"` does; an unknown encoding is read as UTF-8.
+  /// drops invalid bytes; an unknown encoding is read as UTF-8.
   N parseBytes(List<int> bytes, {String fileName = 'game.sgf', String? encoding}) {
     final lower = fileName.toLowerCase();
     final isGib = lower.endsWith('.gib');
@@ -53,7 +53,7 @@ class SgfParser<N extends BaseGoNode<N>> {
       if (isGib || isNgf || _contains(bytes, ascii.encode('AP[foxwq]'))) {
         enc = 'utf8';
       } else {
-        // bytes.decode("ascii", errors="ignore") of the value; Python's `.` stops only at \n
+        // the value's ASCII characters, up to the end of the line
         final match = RegExp(r'CA\[([^\n]*?)\]').firstMatch(latin1.decode(bytes, allowInvalid: true));
         enc = match != null ? match[1]!.replaceAll(RegExp(r'[^\x00-\x7F]'), '') : detectEncoding(bytes);
       }
@@ -62,7 +62,7 @@ class SgfParser<N extends BaseGoNode<N>> {
     return parse(decodeIgnoringErrors(bytes, enc) ?? decodeIgnoringErrors(bytes, defaultEncoding)!, ext: ext);
   }
 
-  /// pysgf's DEFAULT_ENCODING, for encodings Python does not know.
+  /// For encodings no codec is known for.
   static const defaultEncoding = 'UTF-8';
 
   static bool _contains(List<int> haystack, List<int> needle) {
@@ -137,7 +137,7 @@ class SgfParser<N extends BaseGoNode<N>> {
     throw ParseError("Parse Error: expected ')' at end of input.");
   }
 
-  /// `s[ix:].strip() == ")"` without copying the rest of the input (pysgf does this for every node).
+  /// Whether only `)` and white space follow [ix], checked without copying the rest of the input.
   static bool _onlyCloseRemains(String s, int ix) {
     bool isSpace(int i) => s[i].trim().isEmpty;
     var i = ix;
@@ -326,7 +326,7 @@ class SgfParser<N extends BaseGoNode<N>> {
     return root;
   }
 
-  /// Python's `s.split()[0]`, including the IndexError on a blank line.
+  /// The first word of [s]; a blank line is an error.
   static String _firstWord(String s) {
     final t = s.trim();
     if (t.isEmpty) throw RangeError('list index out of range');
@@ -335,17 +335,17 @@ class SgfParser<N extends BaseGoNode<N>> {
 
   static int _int(String s) {
     final v = int.tryParse(s.trim());
-    if (v == null) throw FormatException('invalid literal for int(): $s');
+    if (v == null) throw FormatException('not a whole number: $s');
     return v;
   }
 
   static double _float(String s) {
     final v = double.tryParse(s.trim());
-    if (v == null) throw FormatException('could not convert string to float: $s');
+    if (v == null) throw FormatException('not a number: $s');
     return v;
   }
 
-  /// `zipsu / 10` formatted like Python's str() of the float.
+  /// [zipsu] tenths of a point, always with a decimal: `3.0`, `6.5`.
   static String _tenths(int zipsu) {
     final v = zipsu / 10;
     return v == v.truncateToDouble() ? '${v.toInt()}.0' : v.toString();

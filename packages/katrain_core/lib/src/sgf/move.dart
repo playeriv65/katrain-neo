@@ -1,8 +1,8 @@
-// Ported from pysgf (https://github.com/sanderland/pysgf, MIT, (c) 2020 Sander Land), class Move.
+// A move or a placed stone, and its GTP and SGF coordinates.
 
 /// A move or a placed stone: a player and board coordinates, or a pass when [coords] is null.
 ///
-/// Coordinates are (x, y) with (0, 0) at the bottom left, as in KaTrain. GTP names columns A-T without I and rows
+/// Coordinates are (x, y) with (0, 0) at the bottom left. GTP names columns A-T without I and rows
 /// from 1 at the bottom; SGF names columns and rows with letters from the top left.
 class Move {
   /// GTP column names: A-Z without I, then two-letter names for boards wider than 25.

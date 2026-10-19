@@ -1,4 +1,4 @@
-// Ported from pysgf (https://github.com/sanderland/pysgf, MIT, (c) 2020 Sander Land), class BaseGoNode.
+// A node of an SGF tree with Go's properties: moves, placements, board size, handicap stones.
 
 import 'dart:collection';
 import 'dart:math' as math;
@@ -9,8 +9,8 @@ import '../utils/format.dart';
 /// A node of an SGF game tree: its properties, children and the Go-specific views on them (moves, placements,
 /// players, board size).
 ///
-/// [N] is the concrete node type, so that [play] and the parser create nodes of the same kind, as `type(self)` does in
-/// pysgf. Property values are kept as strings; non-string values are converted the way Python's `str` would.
+/// [N] is the concrete node type, so that [play] and the parser create nodes of the same kind. Property values
+/// are kept as strings; other values are converted with `toString`.
 abstract class BaseGoNode<N extends BaseGoNode<N>> {
   final List<N> children = [];
   final LinkedHashMap<String, List<String>> properties = LinkedHashMap();
@@ -129,7 +129,7 @@ abstract class BaseGoNode<N extends BaseGoNode<N>> {
 
   N get root => _root ??= _parent?.root ?? this as N;
 
-  /// Number of moves from the root (a node with two moves counts twice, as in pysgf).
+  /// Number of moves from the root (a node with two moves counts twice).
   int get depth => _depth ??= isRoot ? 0 : _parent!.depth + moves.length;
 
   (int, int) get boardSize {
@@ -156,14 +156,14 @@ abstract class BaseGoNode<N extends BaseGoNode<N>> {
   List<Move> _expandedPlacements(String? player) {
     final placements = getListProperty('A${player ?? 'E'}') ?? const <String>[];
     if (placements.isEmpty) return [];
-    // AE points have no player (None in pysgf); '' compares and behaves the same way here
+    // AE points have no player: ''
     final pl = player ?? '';
     final size = boardSize;
     final toBeExpanded = placements.where((p) => p.contains(':')).toList();
     if (toBeExpanded.isEmpty) {
       return [for (final c in placements) Move.fromSgf(c, size, player: pl)];
     }
-    // pysgf uses an unordered set here; insertion order keeps the result deterministic
+    // a set in insertion order keeps the result deterministic
     final coords = <Move>{
       for (final c in placements)
         if (!c.contains(':')) Move.fromSgf(c, size, player: pl),
@@ -244,7 +244,7 @@ abstract class BaseGoNode<N extends BaseGoNode<N>> {
         if (child.properties.containsKey(color)) return color;
       }
     }
-    // pysgf checks this node's properties here, not the root's
+    // this node's own setup, not the root's
     if (properties.containsKey('AB') && !properties.containsKey('AW')) return 'W';
     return 'B';
   }
@@ -279,8 +279,7 @@ abstract class BaseGoNode<N extends BaseGoNode<N>> {
         nearX -= 1;
         spacing = (farX - nearX) / (stonesPerRow - 1);
       }
-      // pysgf takes these from a Python set; with more than 9 stones, which of several equally distant points are
-      // chosen can differ from CPython's set order
+      // a set: stones that round to the same line are placed once
       final coords = <int>{for (var i = 0; i < stonesPerRow; i++) (0.5 + nearX + i * spacing).floor()}.toList();
       stones = [
         for (final x in coords)
@@ -305,7 +304,7 @@ abstract class BaseGoNode<N extends BaseGoNode<N>> {
   }
 }
 
-/// A plain SGF node, like pysgf's GoNode.
+/// A plain SGF node.
 class GoNode extends BaseGoNode<GoNode> {
   GoNode({super.parent, super.properties, super.move});
 

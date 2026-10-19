@@ -1,5 +1,5 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/core/game.py: class BaseGame
-// (board state and capture rules). Navigation, scoring, saving and analysis are in game/game.dart.
+// The board position along a game tree: chains, captures, ko and suicide, setup stones. Navigation, scoring, saving
+// and analysis are in game/game.dart.
 
 import '../sgf/go_node.dart';
 import '../sgf/move.dart';
@@ -13,7 +13,7 @@ class IllegalMoveException implements Exception {
   String toString() => message;
 }
 
-/// A game of Go on a tree of [N]: the current node and the board position there, with KaTrain's capture rules.
+/// A game of Go on a tree of [N]: the current node and the board position there.
 class BaseGame<N extends BaseGoNode<N>> {
   final N root;
   late N currentNode;
@@ -30,7 +30,7 @@ class BaseGame<N extends BaseGoNode<N>> {
   /// The stones captured by the last move.
   late List<Move> lastCapture;
 
-  /// [defaultRules] fills in a missing `RU` property, as KaTrain does from its game/rules setting.
+  /// [defaultRules] fills in a missing `RU` property.
   /// [loaded] is true for a tree read from a file, whose handicap stones may still need placing.
   BaseGame(this.root, {String defaultRules = 'japanese', bool loaded = true}) {
     if (loaded) _placeMissingHandicap();
@@ -41,7 +41,7 @@ class BaseGame<N extends BaseGoNode<N>> {
   }
 
   /// The position at [node] on a throwaway board that leaves the tree as it is (no handicap placing, no default
-  /// rules), like the playeriv65/katrain fork's `board_at`.
+  /// rules).
   BaseGame.at(N node) : root = node.root {
     setCurrentNode(node);
   }
@@ -62,7 +62,7 @@ class BaseGame<N extends BaseGoNode<N>> {
         root.placements.isEmpty &&
         numStartingMovesBlack != handicap &&
         !(root.children.isNotEmpty && root.children[0].placements.isNotEmpty)) {
-      // not really according to sgf, kept from KaTrain; the last clause is for fox
+      // not really according to sgf, but some servers rely on it; the last clause is for fox
       root.placeHandicapStones(handicap);
     }
   }
@@ -91,7 +91,7 @@ class BaseGame<N extends BaseGoNode<N>> {
         }
         final clear = node.clearPlacements;
         if (clear.isNotEmpty) {
-          // AE: play all remaining stones again on an empty board (this also resets the prisoners, as in KaTrain)
+          // AE: play all remaining stones again on an empty board (this also resets the prisoners)
           final clearCoords = {for (final c in clear) c.coords};
           final stones = [
             for (final c in chains)
@@ -233,7 +233,7 @@ class BaseGame<N extends BaseGoNode<N>> {
     for (final player in Move.players.split('')) player: prisoners.where((m) => m.player == player).length,
   };
 
-  /// The board as rows of `B`, `W` and `-`, top row first (like KaTrain's `repr` of a game).
+  /// The board as rows of `B`, `W` and `-`, top row first.
   String get boardString {
     final rows = [
       for (final line in board.reversed) [for (final c in line) c >= 0 ? chains[c][0].player : '-'].join(),

@@ -1,5 +1,4 @@
-// Ported from the playeriv65/katrain fork (https://github.com/playeriv65/katrain), katrain/api/model.py: node
-// addressing, coordinate parsing and JSON serialization for the API. Pure functions, no GUI access.
+// Node addressing, coordinate parsing and JSON serialization for the API. Pure functions, no GUI access.
 
 import '../game/game_node.dart';
 import '../rules/base_game.dart';
@@ -336,7 +335,7 @@ double ownershipAt(List<double> ownership, (int, int) coords, (int, int) boardSi
   return ownership[(szy - 1 - y) * szx + x];
 }
 
-/// Everything KaTrain knows about a node's analysis (no new search).
+/// Everything known about a node's analysis (no new search).
 Map<String, Object?> analysisJson(
   GameNode node, {
   int? top,

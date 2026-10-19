@@ -1,4 +1,4 @@
-// The colours of API marks (from the playeriv65/katrain fork's api/overlay.py); the app draws the marks.
+// The colours of API marks; the app draws the marks.
 
 const namedColors = {
   'red': [0.9, 0.15, 0.15],

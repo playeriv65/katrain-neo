@@ -1,5 +1,5 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/core/engine.py: starting the KataGo
-// process (KataGoEngine.__init__, start, restart, shutdown, check_alive) and BaseEngine.get_engine_path.
+// Running KataGo as a local process: building its command line, starting, restarting and stopping it, and finding
+// the executable.
 
 import 'dart:async';
 import 'dart:convert';
@@ -11,14 +11,14 @@ import '../../i18n/i18n.dart';
 import '../../utils/template.dart';
 import '../katago_engine.dart';
 
-/// Expands a leading `~` like Python's `os.path.expanduser`.
+/// Expands a leading `~` to the user's home folder.
 String expandUser(String path) {
   if (path != '~' && !path.startsWith('~/') && !path.startsWith(r'~\')) return path;
   final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '';
   return home + path.substring(1);
 }
 
-/// Resolves KaTrain-style resource paths: `katrain/...` is relative to [resourceDir] (KaTrain's package folder),
+/// Resolves resource paths: `katrain/...` is relative to [resourceDir] (the packaged resources),
 /// anything else is a user path (`~` expanded, made absolute).
 String findResource(String path, String resourceDir) {
   if (path.startsWith('katrain')) {
@@ -69,7 +69,7 @@ class LocalKataGo implements EngineConnection {
     return _startProcess();
   }
 
-  /// `get_engine_path`: the KataGo executable to run, or null (with an error reported) when there is none.
+  /// The KataGo executable to run, or null (with an error reported) when there is none.
   String? engineExecutable(String exe) {
     var path = exe;
     if (path.isEmpty) {

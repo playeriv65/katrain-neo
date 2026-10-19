@@ -1,6 +1,5 @@
-/// Python's `bytes.decode(encoding, errors="ignore")`, which KaTrain (through pysgf) decodes SGF files with: the same
-/// codec names and aliases, and the same text, invalid bytes dropped exactly where Python drops them. The tables come
-/// from CPython (tools/port/codecs_gen.py).
+/// Decoding the bytes of SGF files in the encodings they come in: the codec names and aliases that `CA` properties
+/// use, and the text with invalid bytes dropped. The character tables come from CPython's codecs (see tables.dart).
 library;
 
 import 'dart:convert';
@@ -27,7 +26,7 @@ final Map<String, (Uint16List, Uint16List)> _multiByte = {};
 Uint32List? _gb18030Runs;
 Uint16List? _eucJp3;
 
-/// Python's `_Py_normalize_encoding`: ASCII letters, digits and dots lowercased, other runs of characters becoming
+/// An encoding name as the aliases are kept: ASCII letters, digits and dots lowercased, other runs of characters becoming
 /// one underscore between them.
 String normalizeEncodingName(String name) {
   final out = StringBuffer();
@@ -45,23 +44,22 @@ String normalizeEncodingName(String name) {
   return out.toString();
 }
 
-/// The codec Python finds for [encoding] (`codecs.lookup`), among the supported ones; null when Python would raise
-/// LookupError, or for a codec this port does not have.
+/// The supported codec for [encoding] (a name or an alias), or null.
 String? codecName(String encoding) {
   final norm = normalizeEncodingName(encoding);
   if (norm.isEmpty) return null;
   return codecAliases[norm] ?? codecAliases[norm.replaceAll('.', '_')];
 }
 
-/// `bytes.decode(encoding, errors="ignore")`, or null when Python has no codec of that name (or this port does not
-/// support it; Python's codecs for EBCDIC, ISO-2022, HZ, UTF-7, Big5-HKSCS and a few others are not included).
+/// [bytes] decoded with [encoding], invalid bytes dropped; null for an unsupported encoding (EBCDIC, ISO-2022, HZ,
+/// UTF-7 and Big5-HKSCS among others are not included).
 String? decodeIgnoringErrors(List<int> bytes, String encoding) {
   final codec = codecName(encoding);
   if (codec == null) return null;
   return decodeWith(codec, bytes).$1;
 }
 
-/// Decodes with a supported codec, and counts the errors (bytes or sequences Python would report).
+/// Decodes with a supported codec, and counts the errors (invalid bytes or sequences).
 (String, int) decodeWith(String codec, List<int> bytes) {
   switch (codec) {
     case 'utf_8':
@@ -112,7 +110,7 @@ String? decodeIgnoringErrors(List<int> bytes, String encoding) {
       i += 1;
       continue;
     }
-    // a lead byte; a sequence cut short by the end of the input drops the rest (Python's "incomplete" error)
+    // a lead byte; a sequence cut short by the end of the input drops the rest
     if (i + 1 >= n) {
       errors += 1;
       break;
@@ -191,7 +189,7 @@ int? _eucKrMakeUp(List<int> bytes, int i) {
   return 0xAC00 + cho * 588 + jung * 28 + jong;
 }
 
-/// UTF-8 as CPython decodes it: an invalid sequence is dropped up to the byte where it stops being valid (the
+/// UTF-8: an invalid sequence is dropped up to the byte where it stops being valid (the
 /// "maximal subpart" of the Unicode standard), and a sequence cut short by the end drops the rest.
 (String, int) _decodeUtf8(List<int> bytes, int start) {
   final out = StringBuffer();
@@ -254,7 +252,7 @@ int? _eucKrMakeUp(List<int> bytes, int i) {
   return (out.toString(), errors);
 }
 
-/// UTF-16 as CPython decodes it: a byte order mark chooses the order (`utf_16` only; little endian without one), an
+/// UTF-16: a byte order mark chooses the order (`utf_16` only; little endian without one), an
 /// unpaired surrogate is dropped, and so is an odd last byte.
 (String, int) _decodeUtf16(List<int> bytes, String codec) {
   var i = 0;
@@ -300,7 +298,7 @@ int? _eucKrMakeUp(List<int> bytes, int i) {
   return (out.toString(), errors);
 }
 
-/// UTF-32 as CPython decodes it: a byte order mark chooses the order (`utf_32` only; little endian without one), and
+/// UTF-32: a byte order mark chooses the order (`utf_32` only; little endian without one), and
 /// surrogates and values above 0x10FFFF are dropped, as is an incomplete last unit.
 (String, int) _decodeUtf32(List<int> bytes, String codec) {
   var i = 0;

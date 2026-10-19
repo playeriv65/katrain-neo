@@ -1,11 +1,11 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/core/remote_engine.py: make_engine.
+// Choosing and starting the engine for the configured backend.
 
 import '../../config/host_base.dart' show defaultDataFolder;
 import '../katago_engine.dart';
 import 'local_katago.dart';
 import 'remote_katago.dart';
 
-/// An engine for the configured backend (see [resolveEngineBackend]), started; [resourceDir] resolves KaTrain-style
+/// An engine for the configured backend (see [resolveEngineBackend]), started; [resourceDir] resolves
 /// `katrain/...` paths and [dataFolder] is KataGo's homeDataDir.
 Future<(KataGoEngine, Object)> makeEngine(
   EngineHost host,

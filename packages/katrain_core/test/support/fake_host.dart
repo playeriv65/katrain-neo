@@ -1,4 +1,4 @@
-// A stand-in for the program around a game (KaTrain's GUI): settings in memory, and a record of what the game asked
+// A stand-in for the program around a game (the app): settings in memory, and a record of what the game asked
 // it to show.
 
 import 'package:katrain_core/katrain_core.dart';

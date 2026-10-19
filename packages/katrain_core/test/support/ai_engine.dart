@@ -173,7 +173,7 @@ void playMoves(Game game, List<String> moves) {
   }
 }
 
-/// A candidate move in an analysis result: [scoreLead] is from Black's point of view, as KataGo reports it to KaTrain.
+/// A candidate move in an analysis result: [scoreLead] is from Black's point of view, as KataGo is asked to report it.
 class Cand {
   final String move;
   final double scoreLead;

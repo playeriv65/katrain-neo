@@ -1,4 +1,4 @@
-// The part of KaTrain's KataGoEngine (katrain/core/engine.py) that nodes and games call.
+// What nodes and games need from an analysis engine.
 
 import '../sgf/move.dart';
 
@@ -9,7 +9,7 @@ typedef AnalysisErrorCallback = void Function(Map<String, dynamic> result);
 
 /// Something that can analyse positions with KataGo: a local process, a remote server, or a test double.
 abstract interface class AnalysisEngine<N> {
-  /// The engine settings (KaTrain's `engine` config section), e.g. `max_visits` and `fast_visits`.
+  /// The engine settings (the `engine` section), e.g. `max_visits` and `fast_visits`.
   Map<String, dynamic> get config;
 
   /// Drops queued and running queries, all of them or only those for [onlyForNode].

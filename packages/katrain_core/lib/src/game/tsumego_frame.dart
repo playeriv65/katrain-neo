@@ -1,9 +1,7 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/core/tsumego_frame.py: the tsumego frame
-// of LizGoban (https://github.com/kaorahi/lizgoban), contributed to KaTrain by its author kaorahi (see KaTrain's
-// CONTRIBUTIONS.md).
+// The tsumego frame of LizGoban (https://github.com/kaorahi/lizgoban) by kaorahi.
 //
 // Fills the board around a life-and-death problem with stones, so the engine reads only the problem. Coordinates are
-// (i, j) = (row, column) on the board as KaTrain stores it, i.e. (y, x).
+// (i, j) = (row, column), i.e. (y, x).
 
 import 'package:collection/collection.dart';
 

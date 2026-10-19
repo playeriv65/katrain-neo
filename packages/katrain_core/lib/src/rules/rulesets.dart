@@ -1,9 +1,8 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/core/engine.py: KataGoEngine.RULESETS
-// and KataGoEngine.get_rules.
+// Ruleset names and the rules KataGo is given for an SGF `RU` value.
 
 import 'dart:convert';
 
-/// Short and long ruleset names as KaTrain knows them.
+/// Short and long ruleset names.
 const List<(String, String)> rulesetsAbbr = [
   ('jp', 'japanese'),
   ('cn', 'chinese'),
@@ -19,7 +18,7 @@ final Map<String, String> rulesets = {
 };
 
 /// The rules to use for an SGF `RU` value: a ruleset name, or a KataGo rules dictionary given as JSON.
-/// Unknown names fall back to japanese, as in KaTrain.
+/// Unknown names fall back to japanese.
 Object getRules(String ruleset) {
   if (ruleset.trim().startsWith('{')) {
     try {

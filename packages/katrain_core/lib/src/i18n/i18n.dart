@@ -1,4 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/core/lang.py.
+// Translations of the user interface, looked up by message id, and localised ranks.
 
 import '../utils/format.dart';
 import 'strings/all.dart';
@@ -7,10 +7,10 @@ export 'strings/all.dart' show translations, languageFonts;
 
 const defaultLanguage = 'en';
 
-/// KaTrain's translations, looked up by KaTrain's message ids (e.g. `menu:newgame`).
+/// The translations, looked up by message id (e.g. `menu:newgame`).
 ///
-/// Like Python's gettext with `languages=[lang, "en"]`: a missing translation falls back to English, then to the
-/// message id itself. Listeners are told when the language changes, as KaTrain re-renders its widgets.
+/// A missing translation falls back to English, then to the message id itself. Listeners are told when the language
+/// changes.
 class I18n {
   String _lang = '';
   Map<String, String> _strings = const {};
@@ -22,7 +22,7 @@ class I18n {
 
   String get lang => _lang;
 
-  /// Font file KaTrain uses for this language, or null for the default font.
+  /// Font file for this language, or null for the default font.
   String? get fontName => languageFonts[_lang];
 
   void switchLang(String lang) {
@@ -38,14 +38,14 @@ class I18n {
 
   void removeListener(void Function(I18n) listener) => _listeners.remove(listener);
 
-  /// `i18n._(text)`.
+  /// The translation of [text].
   String tr(String text) => _strings[text] ?? translations[defaultLanguage]![text] ?? text;
 }
 
-/// The application-wide translator, like KaTrain's `i18n`.
+/// The application-wide translator.
 final i18n = I18n(defaultLanguage);
 
-/// A rank as KaTrain writes it: `3d`, `12k` (localised), `??k` when unknown.
+/// A rank as written: `3d`, `12k` (localised), `??k` when unknown.
 String rankLabel(double? rank) {
   if (rank == null) return '??k';
   if (rank >= 0.5) return '${formatFixed(rank, 0)}${i18n.tr('strength:dan')}';

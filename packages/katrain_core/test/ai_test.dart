@@ -11,7 +11,7 @@ import 'support/ai_engine.dart';
 
 final _defaultAiSettings = (jsonDecode(defaultConfigJson) as Map<String, dynamic>)['ai'] as Map<String, dynamic>;
 
-/// KaTrain's default settings for [mode] (none for some), with [overrides].
+/// The default settings for [mode] (none for some), with [overrides].
 Map<String, dynamic> settingsFor(String mode, [Map<String, dynamic> overrides = const {}]) => {
   ...?(_defaultAiSettings[mode] as Map<String, dynamic>?),
   ...overrides,

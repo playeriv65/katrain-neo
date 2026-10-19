@@ -1,5 +1,4 @@
-// Background exploration cursors ("sandboxes") inside the user's own game tree (the playeriv65/katrain fork's
-// katrain/api/sandbox.py).
+// Background exploration cursors ("sandboxes") inside the user's own game tree.
 //
 // A sandbox is a cursor of the agent's, separate from the position the app shows. Moves the agent plays become
 // ordinary variations in the user's game, and every analysis is stored in those nodes, so nothing computed in the

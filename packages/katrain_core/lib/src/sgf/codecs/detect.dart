@@ -1,16 +1,15 @@
 /// Guessing the encoding of an SGF file that does not say (no `CA` property).
 ///
-/// pysgf asks chardet (LGPL, so not ported) about the first 300 bytes, and reads Windows-1252 and GB2312 answers as
-/// GBK. This guess looks at the whole file instead: UTF-8 when it is valid UTF-8; otherwise the CJK codec that
+/// The guess looks at the whole file: UTF-8 when it is valid UTF-8; otherwise the CJK codec that
 /// decodes it with the fewest errors and the most plausible text (the language's most frequent characters, its own
 /// script: kana, hangul, GB2312 hanzi); Windows-1252 for western text, whose high bytes stand alone between ASCII.
-/// Ties go to Chinese. Short texts in Korean can look like Chinese and are then misread, as with chardet.
+/// Ties go to Chinese. Short texts in Korean can look like Chinese and are then misread.
 library;
 
 import 'decode.dart';
 import 'tables.dart';
 
-/// The encoding to decode [bytes] with, as a Python codec name.
+/// The encoding to decode [bytes] with, as a codec name (see [codecName]).
 String detectEncoding(List<int> bytes) {
   final n = bytes.length;
   if (n >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) return 'utf_8_sig';

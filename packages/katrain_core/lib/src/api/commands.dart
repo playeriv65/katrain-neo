@@ -1,6 +1,5 @@
-// The commands of the local API (from the playeriv65/katrain fork's katrain/api/commands.py, same commands,
-// arguments and results), run in the app. Commands that wait for KataGo (`waitsForEngine`) await its results; the
-// app stays responsive meanwhile.
+// The commands of the local API, run in the app. Commands that wait for KataGo (`waitsForEngine`) await its results;
+// the app stays responsive meanwhile.
 
 import 'package:collection/collection.dart';
 
@@ -63,7 +62,7 @@ abstract interface class ApiHost {
   Object? config(String setting, [Object? defaultValue]);
   void saveConfig([String? key]);
 
-  /// KaTrain's `update_state`: AI moves, teaching, pondering, redraws.
+  /// Reacts to the game's new state: AI moves, teaching, pondering, redraws.
   void updateState({bool redrawBoard = false});
 
   /// Redraws the variation and marks over the board.
@@ -84,7 +83,7 @@ abstract interface class ApiHost {
   /// Starts reviewing [moveTree] as a new game.
   void newGame(GameNode moveTree, {bool analyzeFast = false, String? sgfFilename});
 
-  /// Puts KaTrain's tsumego frame around the problem on the board.
+  /// Puts a tsumego frame around the problem on the board.
   void tsumegoFrame(bool ko, int margin);
 
   /// The variation drawn over the board (the board's own, also for hovering).
@@ -111,7 +110,8 @@ class CommandHandler {
 
   /// Where previous games are backed up before an import replaces them.
   final String dataFolder;
-  CommandHandler(this.host, this.state, {String? dataFolder}) : dataFolder = dataFolder ?? expandUser(defaultDataFolder);
+  CommandHandler(this.host, this.state, {String? dataFolder})
+    : dataFolder = dataFolder ?? expandUser(defaultDataFolder);
 
   Future<Object?> dispatch(String name, Map<String, dynamic> args) async {
     final command = apiCommands[name];
@@ -141,7 +141,7 @@ class CommandHandler {
   }
 
   void ensureNotInserting() {
-    if (game.insertMode) throw ApiError('insert_mode', "finish KaTrain's insert mode before navigating");
+    if (game.insertMode) throw ApiError('insert_mode', 'finish insert mode before navigating');
   }
 
   void goto(GameNode node) {
@@ -665,7 +665,7 @@ Object? _branch(CommandHandler h, ApiArgs a) {
 
 Object? _play(CommandHandler h, ApiArgs a) {
   final game = h.game, cn = game.currentNode;
-  if (game.insertMode) throw ApiError('insert_mode', "finish KaTrain's insert mode first");
+  if (game.insertMode) throw ApiError('insert_mode', 'finish insert mode first');
   final moves = h.moves(a, cn);
   final (nodes, created) = h.addNodes(cn, moves, analyze: a.flag('analyze', orElse: true) ? 'full' : 'none');
   h.host.pv = null;
@@ -1065,7 +1065,7 @@ final Map<String, ApiCommand> _coreCommands = {
     _gameNew,
     'Start a new empty game (size, komi, rules, handicap). The previous game is backed up first.',
   ),
-  'analysis.get': const ApiCommand(_analysisGet, 'Analysis KaTrain already has for a node (no new search).'),
+  'analysis.get': const ApiCommand(_analysisGet, 'The analysis a node already has (no new search).'),
   'analysis.run': const ApiCommand(
     _analysisRun,
     'Search a node to `visits` (reuses existing results if already deep enough) and return the analysis.',
@@ -1140,7 +1140,7 @@ final Map<String, ApiCommand> _coreCommands = {
   'mark.clear': const ApiCommand(_markClear, 'Remove marks: all (default), ids=[...], or points=[...].'),
   'region.set': const ApiCommand(
     _regionSet,
-    "Restrict KataGo's candidate moves to a region (KaTrain's region of interest), e.g. C3:G7.",
+    "Restrict KataGo's candidate moves to a region (the region of interest), e.g. C3:G7.",
   ),
   'region.clear': const ApiCommand(_regionClear, 'Remove the region of interest.'),
   'view.set': const ApiCommand(
@@ -1149,7 +1149,7 @@ final Map<String, ApiCommand> _coreCommands = {
     'zoom=C3:G7|auto|off',
   ),
   'mode.set': const ApiCommand(_modeSet, 'Switch between play and analyze mode.'),
-  'message': const ApiCommand(_message, "Show a short line in KaTrain's status bar."),
+  'message': const ApiCommand(_message, 'Show a short line in the status bar.'),
   'state.save': const ApiCommand(
     _stateSave,
     'Remember the current position, mode, region, marks, shown PV and status text; returns a katrain:// link.',

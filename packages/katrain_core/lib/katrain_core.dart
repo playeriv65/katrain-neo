@@ -1,4 +1,5 @@
-/// Pure Dart core of KaTrain Neo, ported from KaTrain (https://github.com/sanderland/katrain).
+/// The core of KaTrain Neo in pure Dart: SGF, board rules, games and their analysis, the AI players, KataGo's
+/// analysis protocol, settings and translations.
 library;
 
 export 'src/config/default_config.dart';

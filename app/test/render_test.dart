@@ -1,5 +1,5 @@
-// Renders the main screen headlessly to a PNG, to compare with screenshots of KaTrain. Runs when NEO_RENDER_SGF
-// (a game, e.g. one KaTrain saved with its analysis) and NEO_RENDER_OUT (a folder) are set; NEO_RENDER_MOVE picks the
+// Renders the main screen headlessly to a PNG, to look at without opening a window. Runs when NEO_RENDER_SGF
+// (a game, e.g. one saved with its analysis) and NEO_RENDER_OUT (a folder) are set; NEO_RENDER_MOVE picks the
 // move and NEO_RENDER_LANG the language. With NEO_RENDER_OUT alone, renders what the local API draws: marks, a
 // pinned variation and the zoomed tsumego view.
 

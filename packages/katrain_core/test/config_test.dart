@@ -1,5 +1,4 @@
-// Settings: KaTrain's defaults, finding and upgrading the settings file as KaTrain does, saving in the format of
-// Kivy's JsonStore, and players with their AI ranks (katrain/core/base_katrain.py).
+// Settings: the defaults, finding and upgrading the settings file, saving it, and players with their AI ranks.
 
 import 'dart:convert';
 import 'dart:io';
@@ -113,7 +112,7 @@ void main() {
     host.updatePlayer('B', playerType: playerHuman, playerSubtype: playingTeaching);
     expect(host.playersInfo['B']!.beingTaught, isTrue);
     expect(host.playersInfo['B']!.calculatedRank, isNull);
-    host.updatePlayer('B'); // a subtype that is not given goes back to normal, as in KaTrain
+    host.updatePlayer('B'); // a subtype that is not given goes back to normal
     expect(host.playersInfo['B']!.playerSubtype, playingNormal);
     host.log('shown');
     host.log('hidden', outputDebug);
