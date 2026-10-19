@@ -5,6 +5,7 @@
 // tree. The SGF's own solution tree, when present, is kept aside as a reference and never shown unless asked for.
 
 import 'package:collection/collection.dart';
+
 import 'dart:convert';
 import 'dart:io';
 

@@ -248,21 +248,15 @@ void main() {
       expect(await aiMove(game, aiSimpleOwnership, settingsFor(aiSimpleOwnership, {'attach_penalty': 0})), 'E6');
     });
 
-    test(
-      'a move next to its own stone is no attachment',
-      () async {
-        // White to play after black E5, with a white stone at D6: E6 is a hane, not an attachment.
-        final (game, _, _) = await analysedPosition([
-          'E5',
-          'D6',
-          'G3',
-        ], (_) => analysisResult([Cand('E6', -1, ownership: owned(0)), Cand('C3', -0.5, ownership: owned(0))]));
-        expect(await aiMove(game, aiSimpleOwnership, settingsFor(aiSimpleOwnership)), 'E6');
-      },
-      skip:
-          'bug: isAttachment looks for own stones with dx in [-2, 0, 1, 2] and dy in [-3, 0, 1, 2] (KaTrain\'s '
-          'offsets), so own stones one line to the left or below are missed',
-    );
+    test('a move next to its own stone is no attachment', () async {
+      // White to play after black E5, with a white stone at D6: E6 is a hane, not an attachment.
+      final (game, _, _) = await analysedPosition([
+        'E5',
+        'D6',
+        'G3',
+      ], (_) => analysisResult([Cand('E6', -1, ownership: owned(0)), Cand('C3', -0.5, ownership: owned(0))]));
+      expect(await aiMove(game, aiSimpleOwnership, settingsFor(aiSimpleOwnership)), 'E6');
+    });
 
     test('avoids tenuki', () async {
       // Black to play after C3 and G7: A9 is far from both.
@@ -300,23 +294,17 @@ void main() {
       expect(await aiMove(game, aiSettleStones, settingsFor(aiSimpleOwnership)), 'G3');
     });
 
-    test(
-      'reads the ownership at its stones',
-      () async {
-        // As above with the black stone at C5: settling it should matter, not the ownership at E3.
-        final (game, _, _) = await analysedPosition(
-          ['C5', 'C3'],
-          (_) => analysisResult([
-            Cand('D7', 1, ownership: ownershipOf(9, {'C5': 0.2, 'C3': -0.5})),
-            Cand('G3', 0.5, ownership: ownershipOf(9, {'C5': 0.9, 'C3': -0.5})),
-          ]),
-        );
-        expect(await aiMove(game, aiSettleStones, settingsFor(aiSimpleOwnership)), 'G3');
-      },
-      skip:
-          'bug: SettleStonesStrategy.settledness indexes the ownership grid as [x][y] (as KaTrain does), so it '
-          'reads the ownership of the point mirrored in the diagonal',
-    );
+    test('reads the ownership at its stones', () async {
+      // As above with the black stone at C5: settling it should matter, not the ownership at E3.
+      final (game, _, _) = await analysedPosition(
+        ['C5', 'C3'],
+        (_) => analysisResult([
+          Cand('D7', 1, ownership: ownershipOf(9, {'C5': 0.2, 'C3': -0.5})),
+          Cand('G3', 0.5, ownership: ownershipOf(9, {'C5': 0.9, 'C3': -0.5})),
+        ]),
+      );
+      expect(await aiMove(game, aiSettleStones, settingsFor(aiSimpleOwnership)), 'G3');
+    });
   });
 
   group('policy', () {

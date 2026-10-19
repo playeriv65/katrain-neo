@@ -116,7 +116,12 @@ String formatVisits(num n) {
 
 /// Random items without replacement, each item's second element being its weight
 /// (`weighted_selection_without_replacement`: the "log(u) / w" trick, then the n largest keys).
-List<T> weightedSelectionWithoutReplacement<T>(List<T> items, int pickN, double Function(T) weight, math.Random random) {
+List<T> weightedSelectionWithoutReplacement<T>(
+  List<T> items,
+  int pickN,
+  double Function(T) weight,
+  math.Random random,
+) {
   final keyed = [for (final item in items) (math.log(random.nextDouble()) / (weight(item) + 1e-18), item)];
   final indexed = [for (var i = 0; i < keyed.length; i++) (keyed[i].$1, i, keyed[i].$2)];
   // heapq.nlargest: largest keys first; equal keys keep their order

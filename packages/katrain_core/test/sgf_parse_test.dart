@@ -113,15 +113,15 @@ void main() {
     test('an escaped ] followed by [ stays inside the value', () {
       final root = parse(r'(;C[a[0\][1\]])');
       expect(root.getListProperty('C'), ['a[0][1]']);
-    }, skip: r'bug: values are split at every "][", also an escaped "\][", so C[a[0\][1\]] reads as two values');
+    });
 
     test('a backslash before another character is dropped (SGF FF[4] text)', () {
       expect(parse(r'(;C[a\:b \x])').getProperty('C'), 'a:b x');
-    }, skip: r'bug: only \] and \\ are unescaped, other escaped characters keep their backslash');
+    });
 
     test('a backslash before a line break is a soft line break and is removed (SGF FF[4] text)', () {
       expect(parse('(;C[one \\\ntwo])').getProperty('C'), 'one two');
-    }, skip: r'bug: soft line breaks (\ followed by a newline) are kept as a backslash and a newline');
+    });
   });
 
   group('variations', () {

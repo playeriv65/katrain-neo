@@ -6,6 +6,7 @@
 // (i, j) = (row, column) on the board as KaTrain stores it, i.e. (y, x).
 
 import 'package:collection/collection.dart';
+
 import '../rules/base_game.dart';
 import '../sgf/move.dart';
 import 'game_node.dart';

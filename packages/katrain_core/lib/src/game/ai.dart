@@ -7,6 +7,7 @@
 // policy_weighted_move, which KaTrain no longer calls, is not ported.
 
 import 'package:collection/collection.dart';
+
 import 'dart:math' as math;
 
 import '../constants.dart';
@@ -19,8 +20,8 @@ import 'game.dart';
 import 'game_node.dart';
 
 // Python's max/min of two numbers: the first one wins a tie, and an int stays an int.
-num _pyMax(num a, num b) => b > a ? b : a;
-num _pyMin(num a, num b) => b < a ? b : a;
+num _max(num a, num b) => b > a ? b : a;
+num _min(num a, num b) => b < a ? b : a;
 
 String _pct(num x, int digits) => formatPercent(x.toDouble(), digits);
 String _fix(num x, int digits) => formatFixed(x.toDouble(), digits);
@@ -31,7 +32,7 @@ String _fix(num x, int digits) => formatFixed(x.toDouble(), digits);
   while (i + 1 < lst.length - 1 && lst[i + 1] < x) {
     i += 1;
   }
-  final t = _pyMax(0, _pyMin(1, (x - lst[i]) / (lst[i + 1] - lst[i])));
+  final t = _max(0, _min(1, (x - lst[i]) / (lst[i + 1] - lst[i])));
   return (i, t);
 }
 
@@ -112,7 +113,7 @@ num aiRankEstimation(String strategy, Map<String, dynamic>? settings) {
   for (final n in nodes) {
     final lost = n.pointsLost;
     if (lost == null) continue;
-    final pointsLost = _pyMax(0, lost);
+    final pointsLost = _max(0, lost);
     final bucket = thresholds.length - 1 - evaluationClass(pointsLost.toDouble(), thresholds);
     playerPtloss[n.player]!.add(pointsLost);
     histogram[bucket][n.player] = histogram[bucket][n.player]! + 1;
@@ -121,13 +122,11 @@ num aiRankEstimation(String strategy, Map<String, dynamic>? settings) {
       for (final d in cands)
         if ((d['order'] as num) < additionalMoveOrder && d.containsKey('prior')) d,
     ];
-    final weightedLoss = ([
-      for (final d in filteredCands) _pyMax(d['pointsLost'] as num, 0) * (d['prior'] as num),
-    ]).sum;
+    final weightedLoss = ([for (final d in filteredCands) _max(d['pointsLost'] as num, 0) * (d['prior'] as num)]).sum;
     final priorSum = ([for (final d in filteredCands) d['prior'] as num]).sum;
-    final weight = _pyMin(1.0, weightedLoss / (priorSum == 0 ? 1e-6 : priorSum)); // complexity capped at 1
+    final weight = _min(1.0, weightedLoss / (priorSum == 0 ? 1e-6 : priorSum)); // complexity capped at 1
     // adj_weight between 0.05 - 1, dependent on difficulty and points lost
-    final adjWeight = _pyMax(0.05, _pyMin(1.0, _pyMax(weight, pointsLost / 4)));
+    final adjWeight = _max(0.05, _min(1.0, _max(weight, pointsLost / 4)));
     weights[n.player]!.add((weight, adjWeight));
     if (n.parent!.analysisComplete) {
       final gtp = n.move!.gtp();
@@ -205,10 +204,10 @@ List<WeightedCoord> _nlargestBy(List<WeightedCoord> coords, int n, num Function(
   if (aiMode == aiInfluence) {
     weight = (x, y) => math.pow(
       1 / lineWeight,
-      _pyMax(0, thrLine - math.min(sx - 1 - x, x)) + _pyMax(0, thrLine - math.min(sy - 1 - y, y)),
+      _max(0, thrLine - math.min(sx - 1 - x, x)) + _max(0, thrLine - math.min(sy - 1 - y, y)),
     );
   } else {
-    weight = (x, y) => math.pow(1 / lineWeight, _pyMax(0, [sx - 1 - x, x, sy - 1 - y, y].reduce(math.min) - thrLine));
+    weight = (x, y) => math.pow(1 / lineWeight, _max(0, [sx - 1 - x, x, sy - 1 - y, y].reduce(math.min) - thrLine));
   }
   final weightedCoords = <WeightedCoord>[
     for (var x = 0; x < sx; x++)
@@ -237,12 +236,10 @@ List<WeightedCoord> _nlargestBy(List<WeightedCoord> coords, int n, num Function(
         if (policyGrid[y][x] > 0)
           (policyGrid[y][x], math.exp(-0.5 * ((x - mx) * (x - mx) + (y - my) * (y - my)) / variance), x, y),
   ];
-  var aiThoughts =
-      'Generated weights based on one minus gaussian with variance $variance around coordinates $mx,$my. ';
+  var aiThoughts = 'Generated weights based on one minus gaussian with variance $variance around coordinates $mx,$my. ';
   if (aiMode == aiTenuki) {
     weightedCoords = [for (final (p, w, x, y) in weightedCoords) (p, 1 - w, x, y)];
-    aiThoughts =
-        'Generated weights based on one minus gaussian with variance $variance around coordinates $mx,$my. ';
+    aiThoughts = 'Generated weights based on one minus gaussian with variance $variance around coordinates $mx,$my. ';
   }
   return (weightedCoords, aiThoughts);
 }
@@ -439,7 +436,7 @@ class HandicapStrategy extends AIStrategy {
       const moveValue = 14; // could be rules dependent
       final bStonesAdvantage = math.max(nHandicaps - 1, 0) - (cn.komi - moveValue / 2) / moveValue;
       // max PDA at 8 stone adv, normal 9 stone game is 8.46
-      pda = _pyMin(3, _pyMax(-3, -bStonesAdvantage * (3 / 8)));
+      pda = _min(3, _max(-3, -bStonesAdvantage * (3 / 8)));
       log('[HandicapStrategy] Automatic PDA calculation:', outputDebug);
       log('[HandicapStrategy] - Handicap stones: $nHandicaps', outputDebug);
       log('[HandicapStrategy] - Komi: ${cn.komi}', outputDebug);
@@ -499,10 +496,7 @@ class AntimirrorStrategy extends AIStrategy {
       final move = Move.fromGtp(moveData['move'] as String, player: cn.nextPlayer);
       final visits = moveData.containsKey('visits') ? moveData['visits'] : 'N/A';
       final lost = moveData.containsKey('pointsLost') ? moveData['pointsLost'] : 'N/A';
-      log(
-        '[AntimirrorStrategy] Move #${i + 1}: ${move.gtp()} - visits: $visits, points lost: $lost',
-        outputDebug,
-      );
+      log('[AntimirrorStrategy] Move #${i + 1}: ${move.gtp()} - visits: $visits, points lost: $lost', outputDebug);
       i += 1;
     }
     final aiThoughts =
@@ -590,7 +584,7 @@ class ScoreLossStrategy extends AIStrategy {
       final d = candidateMoves[i];
       final move = Move.fromGtp(d['move'] as String, player: cn.nextPlayer);
       final pointsLost = d['pointsLost'] as num;
-      final weight = math.exp(_pyMin(200, -c * _pyMax(0, pointsLost)));
+      final weight = math.exp(_min(200, -c * _max(0, pointsLost)));
       log(
         '[ScoreLossStrategy] Move ${i + 1}: ${move.gtp()} - Points lost: ${_fix(pointsLost, 2)}, Weight: '
         '${_fix(weight, 6)}',
@@ -644,9 +638,8 @@ abstract class OwnershipBaseStrategy extends AIStrategy {
       }
     }
     var nearbyOwnStones = 0;
-    // KaTrain's offsets, as they are: no -1 for dx and -3 for dy
-    for (final dx in const [-2, 0, 1, 2]) {
-      for (final dy in const [-2 - 1, 0, 1, 2]) {
+    for (var dx = -2; dx <= 2; dx++) {
+      for (var dy = -2; dy <= 2; dy++) {
         // allows clamps/jumps
         if (dx.abs() + dy.abs() <= 2 && stonesWithPlayer.contains((mx + dx, my + dy, cn.nextPlayer))) {
           nearbyOwnStones += 1;
@@ -678,10 +671,7 @@ abstract class OwnershipBaseStrategy extends AIStrategy {
         if (node != null && node.move != null && !node.move!.isPass) distance(node),
     ];
     if (distances.isNotEmpty) {
-      log(
-        '[$strategyName] Is move ${move.gtp()} a tenuki? $result (distances: $distances)',
-        outputDebug,
-      );
+      log('[$strategyName] Is move ${move.gtp()} a tenuki? $result (distances: $distances)', outputDebug);
     } else {
       log('[$strategyName] Is move ${move.gtp()} a tenuki? $result (no valid previous moves)', outputDebug);
     }
@@ -695,10 +685,7 @@ abstract class OwnershipBaseStrategy extends AIStrategy {
     final candidateMoves = cn.candidateMoves;
     final minVisits = settings.containsKey('min_visits') ? settings['min_visits'] : 1;
     log('[$strategyName] Processing ${candidateMoves.length} candidate moves', outputDebug);
-    log(
-      '[$strategyName] Settings: max_points_lost=${settings['max_points_lost']}, min_visits=$minVisits',
-      outputDebug,
-    );
+    log('[$strategyName] Settings: max_points_lost=${settings['max_points_lost']}, min_visits=$minVisits', outputDebug);
     log(
       '[$strategyName] Penalties: attach=${settings['attach_penalty']}, tenuki=${settings['tenuki_penalty']}',
       outputDebug,
@@ -738,10 +725,7 @@ abstract class OwnershipBaseStrategy extends AIStrategy {
       }
       final move = Move.fromGtp(d['move'] as String, player: cn.nextPlayer);
       if (move.isPass && pointsLost > 0.75) {
-        log(
-          '[$strategyName] Move ${move.gtp()} is pass with high point loss ($pointsLost), skipping',
-          outputDebug,
-        );
+        log('[$strategyName] Move ${move.gtp()} is pass with high point loss ($pointsLost), skipping', outputDebug);
         continue;
       }
       // Calculate metrics
@@ -845,18 +829,18 @@ class SettleStonesStrategy extends OwnershipBaseStrategy {
   num settledness(Map<String, dynamic> d, int playerSign, String player) {
     final (sizeX, sizeY) = game.boardSize;
     final ownershipGrid = varToGrid((d['ownership'] as List).cast<num>(), (sizeX, sizeY));
-    // Sum the absolute ownership values of existing stones (indexed [x][y], as in KaTrain)
+    // Sum the absolute ownership values of the player's stones; the grid is indexed [y][x]
     final stoneOwnershipValues = [
       for (final s in game.stones)
-        if (s.player == player) ownershipGrid[s.coords!.$1][s.coords!.$2].abs(),
+        if (s.player == player) ownershipGrid[s.coords!.$2][s.coords!.$1].abs(),
     ];
     final totalSettledness = (stoneOwnershipValues).sum;
     log('[SettleStonesStrategy] Calculating settledness for $player, sign=$playerSign', outputDebug);
     log('[SettleStonesStrategy] Number of stones considered: ${stoneOwnershipValues.length}', outputDebug);
     log('[SettleStonesStrategy] Total settledness: ${_fix(totalSettledness, 2)}', outputDebug);
     if (stoneOwnershipValues.isNotEmpty) {
-      log('[SettleStonesStrategy] Min stone ownership: ${_fix(stoneOwnershipValues.reduce(_pyMin), 2)}', outputDebug);
-      log('[SettleStonesStrategy] Max stone ownership: ${_fix(stoneOwnershipValues.reduce(_pyMax), 2)}', outputDebug);
+      log('[SettleStonesStrategy] Min stone ownership: ${_fix(stoneOwnershipValues.reduce(_min), 2)}', outputDebug);
+      log('[SettleStonesStrategy] Max stone ownership: ${_fix(stoneOwnershipValues.reduce(_max), 2)}', outputDebug);
       log(
         '[SettleStonesStrategy] Avg stone ownership: ${_fix(totalSettledness / stoneOwnershipValues.length, 2)}',
         outputDebug,
@@ -1236,7 +1220,7 @@ class RankStrategy extends PickBasedStrategy {
       '[RankStrategy] Calculated override: ${_pct(rankOverride, 2)} (from board filling ratio ${_fix(ratio, 2)})',
       outputDebug,
     );
-    final rankOverridetwo = 0.85 + _pyMax(0, 0.02 * (kyuRank - 8));
+    final rankOverridetwo = 0.85 + _max(0, 0.02 * (kyuRank - 8));
     log('[RankStrategy] Calculated overridetwo: ${_pct(rankOverridetwo, 2)} (from kyu rank adjustment)', outputDebug);
     return super.shouldPlayTopMove(policyMoves, top5Pass, override: rankOverride, overridetwo: rankOverridetwo);
   }
@@ -1393,10 +1377,7 @@ class HumanStyleStrategy extends AIStrategy {
           log('[HumanStyleStrategy] Full analysis results received', outputDebug);
           analysis = a;
           if (a.isNotEmpty) {
-            log(
-              '[HumanStyleStrategy] Analysis contains humanPolicy: ${a.containsKey('humanPolicy')}',
-              outputDebug,
-            );
+            log('[HumanStyleStrategy] Analysis contains humanPolicy: ${a.containsKey('humanPolicy')}', outputDebug);
             log(
               '[HumanStyleStrategy] Analysis contains moveInfos: ${(a['moveInfos'] as List? ?? const []).length} moves',
               outputDebug,
@@ -1404,7 +1385,7 @@ class HumanStyleStrategy extends AIStrategy {
             if (a.containsKey('humanPolicy')) {
               final hp = (a['humanPolicy'] as List).cast<num>();
               final policySum = (hp).sum;
-              final policyMax = hp.reduce(_pyMax);
+              final policyMax = hp.reduce(_max);
               log('[HumanStyleStrategy] Human policy sum: $policySum, max: $policyMax', outputDebug);
             }
           }
@@ -1459,8 +1440,8 @@ class HumanStyleStrategy extends AIStrategy {
     log('[HumanStyleStrategy] Board size: ($sx, $sy)', outputDebug);
     final humanPolicy = (result['humanPolicy'] as List).cast<num>();
     log('[HumanStyleStrategy] Human policy length: ${humanPolicy.length}', outputDebug);
-    if (humanPolicy.length != 362) {
-      log('[HumanStyleStrategy] WARNING: Human policy length ${humanPolicy.length} != 362', outputError);
+    if (humanPolicy.length != sx * sy + 1) {
+      log('[HumanStyleStrategy] WARNING: Human policy length ${humanPolicy.length} != ${sx * sy + 1}', outputError);
     }
     // Create a list of moves with their human policy weights
     final moves = <(Move, num)>[];

@@ -24,14 +24,14 @@ class SgfParser<N extends BaseGoNode<N>> {
 
   SgfParser(this.newNode);
 
-  // `\w` in Python matches Unicode word characters; Dart's `\w` is ASCII only, so spell it out
+  // property names may use any letters or digits, not only ASCII
   static final RegExp _propPattern = RegExp(
     r'\s*(?:\(|\)|;|([\p{L}\p{N}_]+)((\s*\[([^\]\\]|\\.)*\])+))',
     unicode: true,
     dotAll: true,
   );
   static final RegExp _sgfPattern = RegExp(r'\(;.*\)', dotAll: true);
-  static final RegExp _valueSplit = RegExp(r'\]\s*\[');
+  static final RegExp _value = RegExp(r'\[((?:[^\]\\]|\\.)*)\]', dotAll: true);
 
   /// Parses a record of the given type: `sgf`, `ngf` or `gib`.
   N parse(String input, {String ext = 'sgf'}) => switch (ext) {
@@ -127,9 +127,8 @@ class SgfParser<N extends BaseGoNode<N>> {
         }
       } else {
         final property = match[1]!;
-        final value = match[2]!.trim();
-        final values = value.substring(1, value.length - 1).split(_valueSplit);
-        current.addListProperty(property, [for (final v in values) BaseGoNode.unescapeValue(v)]);
+        final values = [for (final v in _value.allMatches(match[2]!)) BaseGoNode.unescapeValue(v[1]!)];
+        current.addListProperty(property, values);
       }
     }
     if (state.ix < contents.length) {

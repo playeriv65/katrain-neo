@@ -52,7 +52,11 @@ abstract class BaseGoNode<N extends BaseGoNode<N>> {
 
   static String escapeValue(String value) => value.replaceAllMapped(RegExp(r'([\]\\])'), (m) => '\\${m[1]}');
 
-  static String unescapeValue(String value) => value.replaceAllMapped(RegExp(r'\\([\]\\])'), (m) => m[1]!);
+  /// Reads an SGF text value: a backslash before a line break removes both (a soft line break), and a backslash before
+  /// any other character keeps just that character.
+  static String unescapeValue(String value) =>
+      value.replaceAllMapped(_escaped, (m) => m[1]!.contains(RegExp('[\r\n]')) ? '' : m[1]!);
+  static final RegExp _escaped = RegExp(r'\\(\r\n|\n\r|.)', dotAll: true);
 
   /// The tree below and including this node in SGF format.
   String sgf([Object? options]) {
