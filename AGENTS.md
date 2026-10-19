@@ -11,6 +11,8 @@ KaTrain Neo is a Flutter/Dart rewrite of KaTrain aiming for parity. Read [docs/D
 - Every ported module gets tests. Where KaTrain's behaviour is the reference, use the differential fixtures generated
   from Python KaTrain (`tools/fixtures/`), not hand-written expectations.
 - Say where ported code comes from in a short header comment (KaTrain file and function).
+- The agent API (`packages/katrain_core/lib/src/api`) and CLI (`packages/katrain_cli`) are ported from the
+  playeriv65/katrain fork; keep their commands, arguments and JSON results as the fork has them.
 - Do not commit KataGo binaries or models, or anything from KaTrain that is not MIT (its Flaticon icons, the
   DIGITAL-7 font). See CREDITS.md.
 - Never open app windows during checks: use `dart test`, `flutter test` (widget and golden tests render headlessly)
@@ -23,6 +25,8 @@ KaTrain Neo is a Flutter/Dart rewrite of KaTrain aiming for parity. Read [docs/D
 ```sh
 flutter pub get
 cd packages/katrain_core && dart test
+cd packages/katrain_cli && dart test
+dart compile exe packages/katrain_cli/bin/katrain_neo.dart -o katrain-neo   # the CLI as one program
 cd app && flutter analyze && flutter test
 python tools/fixtures/generate.py --katrain <path to a KaTrain checkout>   # refresh differential fixtures
 python tools/port/generate.py --katrain <path to a KaTrain checkout>       # regenerate constants, translations, defaults

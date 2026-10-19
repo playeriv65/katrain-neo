@@ -26,7 +26,17 @@ class BoardState extends ChangeNotifier {
   List<int> regionOfInterest = [];
   AnimatingPv? _animatingPv;
   int? animatingPvIndex;
+
+  /// A variation shown through the API: survives mouse hovers, cleared by clicks.
+  bool pvPinned = false;
   (double, double) lastMousePos = (0, 0);
+
+  /// `[xmin, xmax, ymin, ymax]` to show only part of the board, like a book diagram (from the playeriv65/katrain
+  /// fork's zoomed tsumego view); drawn unrotated.
+  List<int>? zoomRegion;
+
+  /// Stones kept in the game but not drawn (e.g. a tsumego frame).
+  Set<(int, int)> hiddenCoords = {};
 
   /// Changes when the board itself (size, rotation, coordinates, insert mode) must be drawn again.
   final ValueNotifier<int> boardChanges = ValueNotifier(0);
@@ -41,6 +51,15 @@ class BoardState extends ChangeNotifier {
   }
 
   void notifyBoardChanged() => boardChanges.value += 1;
+
+  /// Sets (or with null clears) the zoomed view and the stones to hide.
+  void setZoom(List<int>? region, [Set<(int, int)> hidden = const {}]) {
+    if (region != null && region.isNotEmpty) resetRotation();
+    zoomRegion = region == null || region.isEmpty ? null : List.of(region);
+    hiddenCoords = Set.of(hidden);
+    notifyBoardChanged();
+    notifyHover();
+  }
 
   void notifyHover() => hoverChanges.value += 1;
 
@@ -65,6 +84,7 @@ class BoardState extends ChangeNotifier {
   /// Shows [pv] played from [node], or stops showing one; [enabled] is the `general/anim_pv_moves` setting.
   void setAnimatingPv(List<String>? pv, GameNode? node, {required bool enabled}) {
     animatingPvIndex = null;
+    pvPinned = false;
     if (!enabled || pv == null) {
       _animatingPv = null;
     } else if (node != null &&

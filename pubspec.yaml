@@ -8,3 +8,4 @@ environment:
 workspace:
   - app
   - packages/katrain_core
+  - packages/katrain_cli

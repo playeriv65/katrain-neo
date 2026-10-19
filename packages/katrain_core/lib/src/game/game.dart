@@ -73,6 +73,9 @@ class Game extends BaseGame<GameNode> {
 
   /// `[xmin, xmax, ymin, ymax]` to restrict analysis to, or null.
   List<int>? regionOfInterest;
+
+  /// Region analysis also sets the node evaluation (set by the tsumego frame; from the playeriv65/katrain fork).
+  bool regionRoot = false;
   double mainTimeUsed = 0;
 
   /// A game analysed by [engine]: [moveTree] when one was loaded, otherwise a new empty board from the settings.
@@ -421,7 +424,9 @@ class Game extends BaseGame<GameNode> {
     if (played == null) return null;
     if (analyze) {
       final engine = engines[played.nextPlayer]!;
-      if (regionOfInterest != null) {
+      if (regionOfInterest != null && regionRoot) {
+        played.analyze(engine, regionOfInterest: regionOfInterest, regionRoot: true);
+      } else if (regionOfInterest != null) {
         played.analyze(engine, analyzeFast: true);
         played.analyze(engine, regionOfInterest: regionOfInterest);
       } else {
@@ -470,6 +475,7 @@ class Game extends BaseGame<GameNode> {
         ponder: true,
         priority: priorityExtraAnalysis,
         regionOfInterest: regionOfInterest,
+        regionRoot: regionRoot,
         timeLimit: false,
       );
       return;
@@ -483,6 +489,7 @@ class Game extends BaseGame<GameNode> {
         visits: extraVisits,
         priority: priorityExtraAnalysis,
         regionOfInterest: regionOfInterest,
+        regionRoot: regionRoot,
         timeLimit: false,
       );
       return;

@@ -96,6 +96,9 @@ abstract final class KTheme {
   static const mistakeSounds = <String>[];
 
   // eval dots
+  /// Grid spaces the lines run on past a cut side of the zoomed view (playeriv65/katrain fork, gui/zoomview.py).
+  static const zoomLineRunOn = 0.5;
+
   static final evalColors = {
     'theme:normal': [
       kc([0.447, 0.129, 0.42, 1]),

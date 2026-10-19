@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:katrain_core/api.dart' show visibleMarks;
 import 'package:katrain_core/katrain_core.dart';
 
 import '../../state/katrain_gui.dart';
@@ -82,11 +83,18 @@ class BoardBackgroundPainter extends CustomPainter {
       ..strokeWidth = 1;
     final xs = geo.columnsX;
     final ys = geo.rowsY;
+    // zoomed: real board edges are edges, cut sides let the lines run on a little (gui/zoomview.py)
+    final zoom = geo.zoom;
+    final runOn = KTheme.zoomLineRunOn * geo.gridSize;
+    final left = xs.first - (zoom == null || zoom[0] == 0 ? 0 : runOn);
+    final right = xs.last + (zoom == null || zoom[1] == geo.sizeX - 1 ? 0 : runOn);
+    final bottom = ys.first + (zoom == null || zoom[2] == 0 ? 0 : runOn);
+    final top = ys.last - (zoom == null || zoom[3] == geo.sizeY - 1 ? 0 : runOn);
     for (final x in xs) {
-      canvas.drawLine(Offset(x, ys.first), Offset(x, ys.last), line);
+      canvas.drawLine(Offset(x, bottom), Offset(x, top), line);
     }
     for (final y in ys) {
-      canvas.drawLine(Offset(xs.first, y), Offset(xs.last, y), line);
+      canvas.drawLine(Offset(left, y), Offset(right, y), line);
     }
     List<int> starPointCoords(int size) {
       final starPointPos = size <= 11 ? 3 : 4;
@@ -97,7 +105,7 @@ class BoardBackgroundPainter extends CustomPainter {
     final starptSize = geo.gridSize * KTheme.starpointSize;
     for (final x in starPointCoords(geo.sizeX)) {
       for (final y in starPointCoords(geo.sizeY)) {
-        drawCircle(canvas, geo.pos(x, y), starptSize, KTheme.lineColor);
+        if (geo.isVisible(x, y)) drawCircle(canvas, geo.pos(x, y), starptSize, KTheme.lineColor);
       }
     }
     if (geo.coordinates) {
@@ -142,6 +150,8 @@ class BoardContentsPainter extends CustomPainter {
     final tc = trainerConfig(gui);
     final (sizeX, sizeY) = game.boardSize;
     final showNEval = (tc['eval_on_show_last'] ?? 3) as int;
+    if (geo.viewClip != null) canvas.clipRect(geo.viewClip!);
+    final hidden = gui.board.hiddenCoords;
     List<List<double>>? ownershipGrid;
     List<List<double>>? lossGrid;
     final currentNode = game.currentNode;
@@ -196,7 +206,7 @@ class BoardContentsPainter extends CustomPainter {
       final placements = node.placements;
       for (final m in [...node.moves, ...placements]) {
         final c = m.coords;
-        if (c == null) continue;
+        if (c == null || hidden.contains(c)) continue;
         final newMove = currentNode.move != null && c == currentNode.move!.coords && currentNode.ownership == null;
         if (hasStone[c] != null && !drawnStone.contains(c)) {
           // skip captures, last only for
@@ -578,7 +588,8 @@ class BoardHoverPainter extends CustomPainter {
     final gameEnded = game.endResult;
     final currentNode = game.currentNode;
     final nextPlayer = currentNode.nextPlayer;
-    final (sizeX, sizeY) = game.boardSize;
+    canvas.save();
+    if (geo.viewClip != null) canvas.clipRect(geo.viewClip!);
 
     (int, int)? topMoveCoords;
     final childMoves = {
@@ -698,13 +709,15 @@ class BoardHoverPainter extends CustomPainter {
         _drawPv(canvas, animating.pv, animating.node, upTo);
       }
       final roi = game.regionOfInterest;
-      if (roi != null) _drawRoiBox(canvas, roi, 1.25);
+      if (roi != null && geo.zoom == null) _drawRoiBox(canvas, roi, 1.25);
     }
 
     // pass circle
     if (currentNode.isPass || gameEnded != null) {
       final text = gameEnded ?? i18n.tr('board-pass');
-      final center = Offset(geo.columnsX[geo.displayX ~/ 2], geo.rowsY[geo.displayY ~/ 2]);
+      final center = geo.zoom != null
+          ? Offset((geo.columnsX.first + geo.columnsX.last) / 2, (geo.rowsY.first + geo.rowsY.last) / 2)
+          : Offset(geo.columnsX[geo.displayX ~/ 2], geo.rowsY[geo.displayY ~/ 2]);
       final diameter = math.min(size.width, size.height) * 0.227;
       drawCircle(canvas, center, diameter / 2, KTheme.passCircleColor);
       drawText(
@@ -716,7 +729,82 @@ class BoardHoverPainter extends CustomPainter {
         font: KTheme.defaultFont,
       );
     }
-    if (sizeX <= 0 || sizeY <= 0) return;
+    _drawApiMarks(canvas, currentNode);
+    canvas.restore();
+  }
+
+  /// Marks added through the API (the playeriv65/katrain fork's api/overlay.py).
+  void _drawApiMarks(Canvas canvas, GameNode currentNode) {
+    final marks = visibleMarks(gui.apiState.marks, currentNode);
+    if (marks.isEmpty) return;
+    final r = geo.stoneSize;
+    const width = 2.0;
+    Paint stroke(Color c) => Paint()
+      ..color = c
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width;
+    for (final mark in marks) {
+      final rgb = mark['rgb'] as List<double>;
+      Color color(double alpha) => Color.from(alpha: alpha, red: rgb[0], green: rgb[1], blue: rgb[2]);
+      final kind = mark['type'];
+      if (kind == 'area') {
+        final [xmin, xmax, ymin, ymax] = mark['region'] as List<int>;
+        final a = geo.pos(xmin, ymin), b = geo.pos(xmax, ymax);
+        final rect = Rect.fromLTRB(
+          math.min(a.dx, b.dx) - geo.gridSize / 2,
+          math.min(a.dy, b.dy) - geo.gridSize / 2,
+          math.max(a.dx, b.dx) + geo.gridSize / 2,
+          math.max(a.dy, b.dy) + geo.gridSize / 2,
+        );
+        canvas.drawRect(rect, Paint()..color = color(0.18));
+        canvas.drawRect(rect, stroke(color(0.9)));
+        final text = mark['text'];
+        if (text != null && '$text'.isNotEmpty) {
+          drawText(
+            canvas,
+            Offset(rect.left + geo.gridSize / 2, rect.top - geo.gridSize / 3),
+            '$text',
+            fontSize: geo.gridSize / 2.2,
+            color: color(1),
+          );
+        }
+        continue;
+      }
+      final (x, y) = mark['coords'] as (int, int);
+      final c = geo.pos(x, y);
+      switch (kind) {
+        case 'circle':
+          canvas.drawCircle(c, r * 0.62, stroke(color(1)));
+        case 'square':
+          canvas.drawRect(Rect.fromCenter(center: c, width: r * 1.1, height: r * 1.1), stroke(color(1)));
+        case 'triangle':
+          final s = r * 0.7;
+          canvas.drawPath(
+            Path()
+              ..moveTo(c.dx, c.dy - s)
+              ..lineTo(c.dx - s * 0.87, c.dy + s * 0.5)
+              ..lineTo(c.dx + s * 0.87, c.dy + s * 0.5)
+              ..close(),
+            stroke(color(1)),
+          );
+        case 'cross':
+          final s = r * 0.5;
+          canvas.drawLine(c + Offset(-s, -s), c + Offset(s, s), stroke(color(1)));
+          canvas.drawLine(c + Offset(-s, s), c + Offset(s, -s), stroke(color(1)));
+        case 'dot':
+          canvas.drawCircle(c, r * 0.9, Paint()..color = color(0.55));
+        case 'label':
+          canvas.drawCircle(c, r * 0.7, Paint()..color = color(0.9));
+          final text = '${mark['text'] ?? '?'}';
+          drawText(
+            canvas,
+            c,
+            text.length > 3 ? text.substring(0, 3) : text,
+            fontSize: geo.gridSize / 2.2,
+            color: rgb[0] + rgb[1] + rgb[2] < 2.2 ? Colors.white : Colors.black,
+          );
+      }
+    }
   }
 
   void _drawHintText(Canvas canvas, Offset pos, List<(String, double)> lines) {

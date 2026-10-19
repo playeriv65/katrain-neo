@@ -63,6 +63,11 @@ Future<void> setUpWindow(KaTrainGui gui, String title) async {
   windowManager.addListener(_CloseListener(gui));
 }
 
+final List<Future<void> Function()> _onClose = [];
+
+/// Runs [callback] when the window closes, before the engine stops.
+void onWindowClose(Future<void> Function() callback) => _onClose.add(callback);
+
 class _CloseListener extends WindowListener {
   final KaTrainGui gui;
   _CloseListener(this.gui);
@@ -76,6 +81,9 @@ class _CloseListener extends WindowListener {
     uiState['top'] = bounds.top;
     uiState['left'] = bounds.left;
     gui.saveConfig('ui_state');
+    for (final callback in _onClose) {
+      await callback();
+    }
     await gui.shutdown();
     await windowManager.destroy();
   }

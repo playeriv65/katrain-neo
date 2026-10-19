@@ -14,7 +14,8 @@ from KaTrain (MIT, © Sander Land and contributors); it is not affiliated with o
   cloud GPU). No in-browser or reimplemented engine.
 - Compatible: reads and writes the same SGF files, including KaTrain's analysis data (`KT`), so files move freely
   between KaTrain and KaTrain Neo.
-- Later, the agent API and `katrain` CLI from our KaTrain fork, so coding agents can drive KaTrain Neo the same way.
+- The agent API and CLI from our KaTrain fork (playeriv65/katrain), so coding agents can drive KaTrain Neo the same
+  way: the same commands, as `katrain-neo` instead of `katrain`.
 
 ## Non-goals (for now)
 
@@ -70,6 +71,30 @@ behind one interface:
 
 - Local: start `katago analysis -model ... -config ...`, JSON lines over stdin/stdout, stderr to the log.
 - Remote: JSON lines over WebSocket, compatible with the remote backend of our KaTrain fork (`ws://...`).
+
+### Agent API and CLI
+
+Ported from our KaTrain fork (`katrain/api/`, `katrain/cli.py`), with the same commands, arguments and JSON results,
+so the fork's agent guide applies (`katrain-neo guide` prints it with the new name):
+
+- `katrain_core/lib/api.dart`: node references, coordinates and JSON (model), every command (including sandboxes and
+  the tsumego mode), and the HTTP server: 127.0.0.1 only, a token per run, port 8765 or the next free one, written
+  with the token to `~/.katrain-neo/api.json`. `KATRAIN_NEO_API=0` turns it off, `KATRAIN_NEO_API_PORT` moves it;
+  settings `api/enabled` and `api/port` too.
+- The app implements `ApiHost` (`app/lib/src/state/api_host.dart`): the board shows the API's marks, a pinned
+  variation (it survives hovering, a click clears it) and the zoomed tsumego view (only the problem's part of the
+  board, the frame stones hidden; KataGo still sees them).
+- `packages/katrain_cli`: the `katrain-neo` command, a pure Dart program with the fork's argument rules. `katrain-neo
+  gui` starts the app (`KATRAIN_NEO_APP`, or the app next to the CLI) and waits for its API.
+- In the core, `regionRoot` (from the fork): a region analysis that also counts as the node's evaluation, used by the
+  tsumego frame so the local best move shows no loss. Off by default, so KaTrain's own behaviour is unchanged.
+
+The commands were checked once against the fork: the same script of 182 commands (all of them, with their error
+cases) through the fork's Python command handler and through the port, with the same synthetic engine answers, gave
+the same results, events and states. Two differences remain, both from CPython set order: which stone of a chain
+comes first (the tsumego target is reported as another stone of the same group) and the order of handicap stones in
+`AB`. The check is not kept as a test. Differences on purpose: starting any new game clears the zoomed view (the
+fork clears it only for games loaded through its API).
 
 ### UI
 
@@ -133,7 +158,7 @@ Grouped by phase. A feature counts as done when it behaves like KaTrain, verifie
 - Tsumego frame (and the zoomed problem view from our fork).
 
 **Phase 4 — agents and packaging**
-- The agent HTTP API and `katrain` CLI command set, so existing agent instructions keep working.
+- The agent HTTP API and `katrain` CLI command set (as `katrain-neo`), so existing agent instructions keep working.
 - Installers for Windows, macOS and Linux.
 
 ## Testing

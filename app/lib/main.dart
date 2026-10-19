@@ -4,9 +4,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:katrain_core/api.dart';
 import 'package:katrain_core/io.dart';
 import 'package:katrain_core/katrain_core.dart';
 
+import 'src/state/api_host.dart';
 import 'src/state/audio_sounds.dart';
 import 'src/state/katrain_gui.dart';
 import 'src/ui/board/board_images.dart';
@@ -34,6 +36,14 @@ Future<void> main(List<String> args) async {
   runApp(KaTrainNeoApp(gui: gui, images: images));
   await setUpWindow(gui, appTitle);
   await gui.start(sgfFile: sgf != null && File(sgf).existsSync() ? sgf : null);
+  // the local API for the katrain-neo command (and the agents driving it)
+  final api = await startApiServer(
+    CommandHandler(GuiApiHost(gui), gui.apiState),
+    config: gui.config,
+    version: coreVersion,
+    log: gui.log,
+  );
+  onWindowClose(() async => api?.stop());
 }
 
 /// KaTrain finds `katrain/...` resources in its package; KaTrain Neo keeps them in its data folder, with KataGo's

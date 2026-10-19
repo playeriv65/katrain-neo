@@ -15,15 +15,28 @@ logic (navigation, insert mode, extra analysis modes, self-play, teaching undo, 
 strategies, rank estimation, game report), the tsumego frame, settings, and SGF files in legacy encodings. The app has its main screen (board with hints, territory, policy and variations;
 players, clock, move tree, graph, stats, comments; menus), all of KaTrain's popups as dialogs (new game, timer,
 teacher, AI, general and engine settings with model and KataGo downloads, load and save, re-analysis, report, tsumego
-frame, engine recovery), its keyboard shortcuts, sounds, drag and drop, and window placement. The agent API and CLI,
-and installers, come next.
+frame, engine recovery), its keyboard shortcuts, sounds, drag and drop, and window placement. The local API and the
+`katrain-neo` command let coding agents read and steer the running app (from our KaTrain fork; see below).
+
+## For AI agents: `katrain-neo`
+
+The app serves a local API (127.0.0.1, a token per run in `~/.katrain-neo/api.json`); the `katrain-neo` command
+talks to it and prints JSON. It has the commands of our KaTrain fork's `katrain` CLI:
+
+```sh
+katrain-neo gui                      # start the app if needed and wait for it
+katrain-neo status
+katrain-neo analysis run -v 2000     # search the current position
+katrain-neo guide                    # the full guide for agents
+```
 
 ## Layout
 
 | Path | What |
 | --- | --- |
 | `app/` | The Flutter desktop app (UI). |
-| `packages/katrain_core/` | Pure Dart core: rules, SGF, game tree, KataGo protocol, AIs. No Flutter imports. |
+| `packages/katrain_core/` | Pure Dart core: rules, SGF, game tree, KataGo protocol, AIs, the agent API. No Flutter imports. |
+| `packages/katrain_cli/` | The `katrain-neo` command line client. |
 | `tools/` | Scripts, e.g. generating test fixtures from Python KaTrain. |
 | `docs/` | Design and notes. |
 
@@ -34,6 +47,7 @@ Requires Flutter 3.47 (stable) with desktop support for your platform.
 ```sh
 flutter pub get                               # resolves the whole workspace
 cd packages/katrain_core && dart test          # core tests (fixtures are relative to the package)
+cd packages/katrain_cli && dart test           # CLI tests
 cd app && flutter analyze && flutter test     # app checks
 cd app && flutter run -d windows              # run (or macos / linux)
 ```

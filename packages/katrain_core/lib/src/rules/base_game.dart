@@ -40,6 +40,12 @@ class BaseGame<N extends BaseGoNode<N>> {
     setCurrentNode(root);
   }
 
+  /// The position at [node] on a throwaway board that leaves the tree as it is (no handicap placing, no default
+  /// rules), like the playeriv65/katrain fork's `board_at`.
+  BaseGame.at(N node) : root = node.root {
+    setCurrentNode(node);
+  }
+
   void _placeMissingHandicap() {
     final handicap = root.handicap;
     var numStartingMovesBlack = 0;

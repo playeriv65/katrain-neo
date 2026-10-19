@@ -17,13 +17,17 @@ class BoardGeometry {
   final int sizeX;
   final int sizeY;
 
-  /// Clockwise, 0, 90, 180 or 270.
+  /// Clockwise, 0, 90, 180 or 270; ignored while zoomed.
   final int rotation;
   final bool coordinates;
 
+  /// `[xmin, xmax, ymin, ymax]`: only this part of the board is shown, filling the widget. Points outside it lie
+  /// outside [viewClip].
+  final List<int>? zoom;
+
   /// Columns and rows as displayed (swapped by a quarter turn).
-  late final int displayX = rotation % 180 == 0 ? sizeX : sizeY;
-  late final int displayY = rotation % 180 == 0 ? sizeY : sizeX;
+  late final int displayX = zoom != null ? zoom![1] - zoom![0] + 1 : (rotation % 180 == 0 ? sizeX : sizeY);
+  late final int displayY = zoom != null ? zoom![3] - zoom![2] + 1 : (rotation % 180 == 0 ? sizeY : sizeX);
   late final List<double> marginX = coordinates ? const [1.5, 0.75] : const [0.75, 0.75]; // left, right
   late final List<double> marginY = coordinates ? const [1.5, 0.75] : const [0.75, 0.75]; // bottom, top
   late final double xGridSpaces = displayX - 1 + marginX[0] + marginX[1];
@@ -35,15 +39,14 @@ class BoardGeometry {
   late final double _extraX = _round4((width - xGridSpaces * gridSize) / 2);
   late final double _extraY = _round4((height - yGridSpaces * gridSize) / 2);
 
+  double _columnX(int i) => _round4(_extraX + ((marginX[0] + i) * gridSize + 0.5).floorToDouble());
+  double _rowUp(int i) => _round4(_extraY + ((marginY[0] + i) * gridSize + 0.5).floorToDouble());
+
   /// Pixel positions of the displayed columns, left to right.
-  late final List<double> columnsX = [
-    for (var i = 0; i < displayX; i++) _round4(_extraX + ((marginX[0] + i) * gridSize + 0.5).floorToDouble()),
-  ];
+  late final List<double> columnsX = [for (var i = 0; i < displayX; i++) _columnX(i)];
 
   /// Pixel positions of the displayed rows, bottom to top, measured up from the bottom (as Kivy does).
-  late final List<double> _rowsUp = [
-    for (var i = 0; i < displayY; i++) _round4(_extraY + ((marginY[0] + i) * gridSize + 0.5).floorToDouble()),
-  ];
+  late final List<double> _rowsUp = [for (var i = 0; i < displayY; i++) _rowUp(i)];
 
   /// Pixel positions of the displayed rows, bottom to top, in screen coordinates (y down).
   late final List<double> rowsY = [for (final y in _rowsUp) height - y];
@@ -55,12 +58,29 @@ class BoardGeometry {
     required this.sizeY,
     this.rotation = 0,
     this.coordinates = true,
+    this.zoom,
   });
+
+  /// While zoomed: the visible points and half a grid around them (a stone radius), to clip every layer to.
+  late final Rect? viewClip = zoom == null
+      ? null
+      : Rect.fromLTRB(
+          columnsX.first - gridSize / 2,
+          rowsY.last - gridSize / 2,
+          columnsX.last + gridSize / 2,
+          rowsY.first + gridSize / 2,
+        );
+
+  bool isVisible(int x, int y) {
+    final z = zoom;
+    return z == null || (z[0] <= x && x <= z[1] && z[2] <= y && y <= z[3]);
+  }
 
   bool get valid => gridSize > 0 && width > 0 && height > 0;
 
   /// The displayed column and row of board point (x, y), (0, 0) being the bottom left.
   (int, int) toDisplay(int x, int y) {
+    if (zoom != null) return (x - zoom![0], y - zoom![2]);
     var (dx, dy, w) = (x, y, sizeX);
     for (var r = 0; r < rotation; r += 90) {
       // a quarter turn clockwise: the bottom left corner goes to the top left
@@ -72,6 +92,7 @@ class BoardGeometry {
 
   /// The board point shown at a displayed column and row.
   (int, int) fromDisplay(int dx, int dy) {
+    if (zoom != null) return (dx + zoom![0], dy + zoom![2]);
     for (var x = 0; x < sizeX; x++) {
       for (var y = 0; y < sizeY; y++) {
         if (toDisplay(x, y) == (dx, dy)) return (x, y);
@@ -83,7 +104,7 @@ class BoardGeometry {
   /// Screen position of board point (x, y).
   Offset pos(int x, int y) {
     final (dx, dy) = toDisplay(x, y);
-    return Offset(columnsX[dx], rowsY[dy]);
+    return Offset(_columnX(dx), height - _rowUp(dy));
   }
 
   /// The rectangle the board texture covers: the grid and its margins.
@@ -117,17 +138,21 @@ class BoardGeometry {
   }
 
   /// Coordinate labels: the text under displayed column [i] and beside displayed row [i] (badukpan.py).
-  String xLabel(int i, List<String> gtpCoord) => switch (rotation) {
-    90 => '${i + 1}',
-    180 => gtpCoord[displayX - i - 1],
-    270 => '${displayX - i}',
-    _ => gtpCoord[i],
-  };
+  String xLabel(int i, List<String> gtpCoord) => zoom != null
+      ? gtpCoord[i + zoom![0]]
+      : switch (rotation) {
+          90 => '${i + 1}',
+          180 => gtpCoord[displayX - i - 1],
+          270 => '${displayX - i}',
+          _ => gtpCoord[i],
+        };
 
-  String yLabel(int i, List<String> gtpCoord) => switch (rotation) {
-    90 => gtpCoord[displayY - i - 1],
-    180 => '${displayY - i}',
-    270 => gtpCoord[i],
-    _ => '${i + 1}',
-  };
+  String yLabel(int i, List<String> gtpCoord) => zoom != null
+      ? '${i + zoom![2] + 1}'
+      : switch (rotation) {
+          90 => gtpCoord[displayY - i - 1],
+          180 => '${displayY - i}',
+          270 => gtpCoord[i],
+          _ => '${i + 1}',
+        };
 }

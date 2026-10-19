@@ -242,10 +242,15 @@ class GameNode extends BaseGoNode<GameNode> {
     bool findAlternatives = false,
     List<int>? regionOfInterest,
     double? reportEvery = 1.0, // REPORT_DT
+    bool regionRoot = false,
   }) {
+    // regionRoot (KaTrain Neo, from the playeriv65/katrain fork): the region-limited result is also the node's
+    // evaluation (tsumego frame: the best move outside the region is frame noise, so the local best move should
+    // show no loss)
     engine.requestAnalysis(
       this,
-      callback: (result, partial) => setAnalysis(result, refineMove, findAlternatives, regionOfInterest, partial),
+      callback: (result, partial) =>
+          setAnalysis(result, refineMove, findAlternatives, regionRoot ? null : regionOfInterest, partial),
       priority: priority,
       visits: visits,
       ponder: ponder,

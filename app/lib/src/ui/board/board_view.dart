@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:katrain_core/katrain_core.dart';
@@ -59,7 +60,8 @@ class _BoardViewState extends State<BoardView> {
         old.sizeX == sx &&
         old.sizeY == sy &&
         old.rotation == gui.board.rotationDegree &&
-        old.coordinates == gui.board.drawCoordsEnabled) {
+        old.coordinates == gui.board.drawCoordsEnabled &&
+        listEquals(old.zoom, gui.board.zoomRegion)) {
       return old;
     }
     return _geo = BoardGeometry(
@@ -69,6 +71,7 @@ class _BoardViewState extends State<BoardView> {
       sizeY: sy,
       rotation: gui.board.rotationDegree,
       coordinates: gui.board.drawCoordsEnabled,
+      zoom: gui.board.zoomRegion,
     );
   }
 
@@ -201,7 +204,7 @@ class _BoardViewState extends State<BoardView> {
     if (geo == null || gui.game == null) return;
     final board = gui.board;
     final p = e.localPosition;
-    if (!board.selectingRegionOfInterest) {
+    if (!board.selectingRegionOfInterest && !board.pvPinned) {
       final near = [
         for (final (move, pv, node) in activePvMoves(gui))
           if ((geo.pos(move.$1, move.$2) - p).dx.abs() < geo.gridSize / 2 &&
@@ -215,7 +218,7 @@ class _BoardViewState extends State<BoardView> {
       }
     }
     final animating = board.animatingPv;
-    if (animating != null) {
+    if (animating != null && !board.pvPinned) {
       // badukpan.py squares only the x distance; kept as it is
       final dSq = (p.dx - animating.mousePos.$1) * (p.dx - animating.mousePos.$1) + (p.dy - animating.mousePos.$2);
       if (dSq > 2 * geo.stoneSize * geo.stoneSize) board.setAnimatingPv(null, null, enabled: _animEnabled);

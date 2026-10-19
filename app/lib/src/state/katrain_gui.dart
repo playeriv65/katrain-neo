@@ -13,6 +13,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:katrain_core/io.dart';
+import 'package:katrain_core/api.dart' show ApiState;
 import 'package:katrain_core/katrain_core.dart';
 
 import 'board_state.dart';
@@ -148,6 +149,9 @@ class KaTrainGui extends KaTrainBase with ChangeNotifier {
   final GraphModel graph = GraphModel();
   final TimerState timer = TimerState();
   final BoardState board = BoardState();
+
+  /// What the local API keeps: marks, snapshots, sandboxes, the tsumego problem.
+  final ApiState apiState = ApiState();
   GameNode? moveTreeSelectedNode;
 
   Future<void> _queue = Future.value();
@@ -316,7 +320,7 @@ class KaTrainGui extends KaTrainBase with ChangeNotifier {
       case 'save_game':
         await _doSaveGame(arg(0) as String?);
       case 'tsumego_frame':
-        _doTsumegoFrame(arg(0) as bool, arg(1) as int);
+        doTsumegoFrame(arg(0) as bool, arg(1) as int);
       default:
         throw ArgumentError('unknown message $msg');
     }
@@ -417,6 +421,9 @@ class KaTrainGui extends KaTrainBase with ChangeNotifier {
     }
     board.animatingPv = null;
     board.resetRotation();
+    // the zoomed problem view belongs to the old game (the fork only clears it for games loaded through its API)
+    board.setZoom(null);
+    apiState.tsumego = null;
     engine!.onNewGame(); // clear queries
     game = Game(
       this,
@@ -488,7 +495,7 @@ class KaTrainGui extends KaTrainBase with ChangeNotifier {
     }
   }
 
-  void _doTsumegoFrame(bool ko, int margin) {
+  void doTsumegoFrame(bool ko, int margin) {
     final g = game!;
     if (g.stones.isEmpty) return;
     final blackToPlayP = nextPlayerInfo.player == 'B';
@@ -497,8 +504,12 @@ class KaTrainGui extends KaTrainBase with ChangeNotifier {
     if (mode == modePlay) switchUiMode(); // go to analysis mode
     if (analysisRegion != null) {
       g.setRegionOfInterest([analysisRegion.$1.$2, analysisRegion.$1.$1, analysisRegion.$2.$2, analysisRegion.$2.$1]);
+      // the local best move is the reference, frame moves are noise (playeriv65/katrain fork)
+      g.regionRoot = true;
+      node.analyze(g.engines[node.nextPlayer]!, regionOfInterest: g.regionOfInterest, regionRoot: true);
+    } else {
+      node.analyze(g.engines[node.nextPlayer]!);
     }
-    node.analyze(g.engines[node.nextPlayer]!);
     updateState(redrawBoard: true);
   }
 
