@@ -2,6 +2,7 @@
 // arguments and results), run in the app. Commands that wait for KataGo (`waitsForEngine`) await its results; the
 // app stays responsive meanwhile.
 
+import 'package:collection/collection.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -14,7 +15,7 @@ import '../game/game.dart';
 import '../game/game_node.dart';
 import '../game/player.dart';
 import '../sgf/move.dart';
-import '../utils/py_format.dart' show mergeSortBy;
+import '../utils/format.dart';
 import 'args.dart';
 import 'model.dart';
 import 'overlay.dart';
@@ -302,7 +303,7 @@ class CommandHandler {
 
 /// Candidates sorted by points lost, unknown losses last.
 void sortByPointsLost(List<Map<String, Object?>> candidates) =>
-    mergeSortBy(candidates, (c) => (c['points_lost'] as num?) ?? double.infinity);
+    stableSortBy(candidates, (c) => (c['points_lost'] as num?) ?? double.infinity);
 
 // -- meta and reading
 

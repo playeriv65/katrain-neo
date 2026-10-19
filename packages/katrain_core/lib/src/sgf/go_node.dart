@@ -4,7 +4,7 @@ import 'dart:collection';
 import 'dart:math' as math;
 
 import 'move.dart';
-import '../utils/py_format.dart';
+import '../utils/format.dart';
 
 /// A node of an SGF game tree: its properties, children and the Go-specific views on them (moves, placements,
 /// players, board size).
@@ -101,7 +101,7 @@ abstract class BaseGoNode<N extends BaseGoNode<N>> {
   List<String>? getListProperty(String property) => properties[property];
 
   void setProperty(String property, Object? value) {
-    final values = value is List ? [for (final v in value) pyStr(v)] : [pyStr(value)];
+    final values = value is List ? [for (final v in value) '$v'] : ['$value'];
     _clearCache();
     properties[property] = values;
   }
@@ -132,9 +132,9 @@ abstract class BaseGoNode<N extends BaseGoNode<N>> {
     final size = root.getProperty('SZ', '19')!;
     if (size.contains(':')) {
       final parts = size.split(':');
-      return (pyInt(parts[0]), pyInt(parts[1]));
+      return (int.parse((parts[0]).trim()), int.parse((parts[1]).trim()));
     }
-    final x = pyInt(size);
+    final x = int.parse((size).trim());
     return (x, x);
   }
 
@@ -283,7 +283,7 @@ abstract class BaseGoNode<N extends BaseGoNode<N>> {
           for (final y in coords) (x, y),
       ];
       num distance((int, int) xy) => -(math.pow(xy.$1 - (sizeX - 1) / 2, 2) + math.pow(xy.$2 - (sizeY - 1) / 2, 2));
-      mergeSortBy(stones, distance);
+      stableSortBy(stones, distance);
     } else {
       stones = [(farX, farY), (nearX, nearY), (farX, nearY), (nearX, farY)];
       if (nHandicaps % 2 == 1) stones.add((middleX, middleY));

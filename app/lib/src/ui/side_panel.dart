@@ -338,7 +338,7 @@ class _Stats extends StatelessWidget {
       if (options['points']!)
         (
           i18n.tr(lost == null || lost > 0 ? 'stats:pointslost' : 'stats:pointsgained'),
-          lost != null ? '${i18n.tr('short color ${app.statsPlayer}')}: ${pyFixed(lost.abs(), 1)}' : '…',
+          lost != null ? '${i18n.tr('short color ${app.statsPlayer}')}: ${formatFixed(lost.abs(), 1)}' : '…',
           KTheme.pointlossColor,
         ),
     ];

@@ -5,9 +5,9 @@
 // Fills the board around a life-and-death problem with stones, so the engine reads only the problem. Coordinates are
 // (i, j) = (row, column) on the board as KaTrain stores it, i.e. (y, x).
 
+import 'package:collection/collection.dart';
 import '../rules/base_game.dart';
 import '../sgf/move.dart';
-import '../utils/py_format.dart';
 import 'game_node.dart';
 
 const nearToEdge = 2;
@@ -148,7 +148,7 @@ _Ij _minBy(List<_Ij> ary, int Function(_Ij) key, int sign) {
 bool _needFlipP(int kmin, int kmax, int size) => kmin < size - kmax - 1;
 
 bool _guessBlackToAttack(List<_Ij> extrema, (int, int) sizes) =>
-    pySum([for (final z in extrema) _signOfColor(z) * _height2(z, sizes)]) > 0;
+    ([for (final z in extrema) _signOfColor(z) * _height2(z, sizes)]).sum > 0;
 
 int _signOfColor(_Ij z) => z.black == true ? 1 : -1;
 

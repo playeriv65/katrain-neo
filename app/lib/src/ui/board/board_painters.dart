@@ -267,7 +267,7 @@ class BoardContentsPainter extends CustomPainter {
             withAlpha(colors[polOrder], KTheme.policyAlpha),
           );
           if (movePolicy > textLb) {
-            final text = pyFixed(100 * movePolicy, 2);
+            final text = formatFixed(100 * movePolicy, 2);
             drawText(
               canvas,
               pos,
@@ -562,10 +562,10 @@ List<PvMove> activePvMoves(AppController app) {
 String _formatLoss(Map<String, dynamic> tc, double x) {
   if (tc['extra_precision'] == true) {
     if (x.abs() < 0.005) return '0.0';
-    if (0 < x && x <= 0.995) return '+${pyFixed(x, 2).substring(1)}';
-    if (-0.995 <= x && x < 0) return '-${pyFixed(x, 2).substring(2)}';
+    if (0 < x && x <= 0.995) return '+${formatFixed(x, 2).substring(1)}';
+    if (-0.995 <= x && x < 0) return '-${formatFixed(x, 2).substring(2)}';
   }
-  return pyFixed(x, 1, plus: true);
+  return formatFixed(x, 1, plus: true);
 }
 
 /// Hints, next moves, the ghost stone, the principal variation, the region of interest and the pass circle.
@@ -638,12 +638,12 @@ class BoardHoverPainter extends CustomPainter {
               case topMoveDeltaScore:
                 return _formatLoss(tc, -(moveDict['pointsLost'] as num).toDouble());
               case topMoveScore:
-                return pyFixed(playerSign * (moveDict['scoreLead'] as num).toDouble(), 1);
+                return formatFixed(playerSign * (moveDict['scoreLead'] as num).toDouble(), 1);
               case topMoveWinrate:
                 final wr = (moveDict['winrate'] as num).toDouble();
-                return pyFixed((playerSign == 1 ? wr : 1 - wr) * 100, 1);
+                return formatFixed((playerSign == 1 ? wr : 1 - wr) * 100, 1);
               case topMoveDeltaWinrate:
-                return pyPercent(-(moveDict['winrateLost'] as num).toDouble(), 1, plus: true);
+                return formatPercent(-(moveDict['winrateLost'] as num).toDouble(), 1, plus: true);
               case topMoveVisits:
                 return formatVisits((moveDict['visits'] as num).toInt());
             }

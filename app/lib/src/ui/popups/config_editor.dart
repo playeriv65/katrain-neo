@@ -38,7 +38,7 @@ class ConfigEditor {
     if (!config.containsKey(last)) {
       config[last] = '';
       app.log(
-        'Configuration setting ${pyRepr(key)} was missing, created it, but this likely indicates a broken config file.',
+        'Configuration setting $key was missing, created it, but this likely indicates a broken config file.',
         outputError,
       );
     }
@@ -60,7 +60,7 @@ class ConfigEditor {
     for (final MapEntry(key: multikey, :value) in collect().entries) {
       final (old, container, key) = getSetting(multikey);
       if (value != old) {
-        app.log('Updating setting $multikey = ${pyStr(value)}', outputDebug);
+        app.log('Updating setting $multikey = $value', outputDebug);
         if (container is List) {
           container[key as int] = value;
         } else {
@@ -97,7 +97,7 @@ class NumberField extends StatefulWidget {
 }
 
 class _NumberFieldState extends State<NumberField> {
-  late final _controller = TextEditingController(text: pyStr(widget.initial));
+  late final _controller = TextEditingController(text: '${widget.initial}');
 
   Object? _read() {
     final text = _controller.text.trim();
@@ -152,7 +152,7 @@ class SelectionSliderField extends StatefulWidget {
 }
 
 class _SelectionSliderFieldState extends State<SelectionSliderField> {
-  late final _controller = TextEditingController(text: pyStr(widget.initial));
+  late final _controller = TextEditingController(text: '${widget.initial}');
   int index = 0;
 
   /// `SelectionSlider.set_value`: the closest step, the first one on a tie.
@@ -207,12 +207,12 @@ class _SelectionSliderFieldState extends State<SelectionSliderField> {
                 onChanged: (v) {
                   setState(() {
                     index = v.round();
-                    _controller.text = pyStr(widget.values[index].$1);
+                    _controller.text = '${widget.values[index].$1}';
                   });
                   widget.onChanged?.call();
                 },
               ),
-              if (label != pyStr(widget.values[index].$1))
+              if (label != '${widget.values[index].$1}')
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Text(label, style: Theme.of(context).textTheme.bodySmall),

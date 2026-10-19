@@ -6,13 +6,14 @@
 // a dead engine (it does not raise); the port's engine reports that itself when the process ends.
 // policy_weighted_move, which KaTrain no longer calls, is not ported.
 
+import 'package:collection/collection.dart';
 import 'dart:math' as math;
 
 import '../constants.dart';
 import '../engine/analysis_engine.dart';
 import '../sgf/move.dart';
-import '../utils/py_format.dart';
-import '../utils/py_random.dart';
+import '../utils/format.dart';
+import '../utils/random.dart';
 import '../utils/utils.dart';
 import 'game.dart';
 import 'game_node.dart';
@@ -21,8 +22,8 @@ import 'game_node.dart';
 num _pyMax(num a, num b) => b > a ? b : a;
 num _pyMin(num a, num b) => b < a ? b : a;
 
-String _pct(num x, int digits) => pyPercent(x.toDouble(), digits);
-String _fix(num x, int digits) => pyFixed(x.toDouble(), digits);
+String _pct(num x, int digits) => formatPercent(x.toDouble(), digits);
+String _fix(num x, int digits) => formatFixed(x.toDouble(), digits);
 
 /// `(i, t)`: the segment of [lst] that [x] falls in and the position within it, clamped to [0, 1].
 (int, num) interpIx(List<num> lst, num x) {
@@ -120,10 +121,10 @@ num aiRankEstimation(String strategy, Map<String, dynamic>? settings) {
       for (final d in cands)
         if ((d['order'] as num) < additionalMoveOrder && d.containsKey('prior')) d,
     ];
-    final weightedLoss = pySum([
+    final weightedLoss = ([
       for (final d in filteredCands) _pyMax(d['pointsLost'] as num, 0) * (d['prior'] as num),
-    ]);
-    final priorSum = pySum([for (final d in filteredCands) d['prior'] as num]);
+    ]).sum;
+    final priorSum = ([for (final d in filteredCands) d['prior'] as num]).sum;
     final weight = _pyMin(1.0, weightedLoss / (priorSum == 0 ? 1e-6 : priorSum)); // complexity capped at 1
     // adj_weight between 0.05 - 1, dependent on difficulty and points lost
     final adjWeight = _pyMax(0.05, _pyMin(1.0, _pyMax(weight, pointsLost / 4)));
@@ -139,7 +140,7 @@ num aiRankEstimation(String strategy, Map<String, dynamic>? settings) {
     }
   }
 
-  const sum = pySum;
+  double sum(Iterable<num> xs) => xs.fold(0.0, (a, b) => a + b);
   final wtLoss = {
     for (final bw in const ['B', 'W'])
       bw:
@@ -184,10 +185,10 @@ List<WeightedCoord> _nlargestCoords(List<WeightedCoord> coords, int n) {
   return [for (final e in indexed.take(n)) e.$2];
 }
 
-/// `heapq.nlargest(n, coords, key=...)`.
+/// The [n] coords with the largest [key], ties kept in order.
 List<WeightedCoord> _nlargestBy(List<WeightedCoord> coords, int n, num Function(WeightedCoord) key) {
   final sorted = List.of(coords);
-  mergeSortBy(sorted, (c) => key(c), reverse: true);
+  stableSortBy(sorted, (c) => key(c), descending: true);
   return sorted.take(n).toList();
 }
 
@@ -215,8 +216,8 @@ List<WeightedCoord> _nlargestBy(List<WeightedCoord> coords, int n, num Function(
         if (policyGrid[y][x] > 0) (policyGrid[y][x] * weight(x, y), weight(x, y), x, y),
   ];
   final aiThoughts =
-      'Generated weights for $aiMode according to weight factor ${pyStr(lineWeight)} and distance from '
-      '${pyStr(thrLine + 1)}th line. ';
+      'Generated weights for $aiMode according to weight factor $lineWeight and distance from '
+      '${thrLine + 1}th line. ';
   return (weightedCoords, aiThoughts);
 }
 
@@ -237,11 +238,11 @@ List<WeightedCoord> _nlargestBy(List<WeightedCoord> coords, int n, num Function(
           (policyGrid[y][x], math.exp(-0.5 * ((x - mx) * (x - mx) + (y - my) * (y - my)) / variance), x, y),
   ];
   var aiThoughts =
-      'Generated weights based on one minus gaussian with variance ${pyStr(variance)} around coordinates $mx,$my. ';
+      'Generated weights based on one minus gaussian with variance $variance around coordinates $mx,$my. ';
   if (aiMode == aiTenuki) {
     weightedCoords = [for (final (p, w, x, y) in weightedCoords) (p, 1 - w, x, y)];
     aiThoughts =
-        'Generated weights based on one minus gaussian with variance ${pyStr(variance)} around coordinates $mx,$my. ';
+        'Generated weights based on one minus gaussian with variance $variance around coordinates $mx,$my. ';
   }
   return (weightedCoords, aiThoughts);
 }
@@ -270,7 +271,7 @@ abstract class AIStrategy {
 
   AIStrategy(this.game, this.settings, this.strategyName) : cn = game.currentNode {
     queryGenerations = {for (final e in game.engines.entries) e.key: e.value.queryGeneration};
-    log('Initializing $strategyName with settings: ${pyRepr(settings)}', outputDebug);
+    log('Initializing $strategyName with settings: $settings', outputDebug);
   }
 
   void log(String message, int level) => game.katrain.log(message, level);
@@ -287,7 +288,7 @@ abstract class AIStrategy {
 
   /// Helper to request additional analysis with custom settings.
   Future<Map<String, dynamic>?> requestAnalysis(Map<String, dynamic> extraSettings) async {
-    log('[$strategyName] Requesting analysis with settings: ${pyRepr(extraSettings)}', outputDebug);
+    log('[$strategyName] Requesting analysis with settings: $extraSettings', outputDebug);
     var error = false;
     Map<String, dynamic>? analysis;
     final engine = game.engines[cn.player]!;
@@ -300,7 +301,7 @@ abstract class AIStrategy {
         }
       },
       errorCallback: (a) {
-        log('[$strategyName] Error in additional analysis query: ${pyRepr(a)}', outputError);
+        log('[$strategyName] Error in additional analysis query: $a', outputError);
         error = true;
       },
       priority: priorityExtraAiQuery,
@@ -345,7 +346,7 @@ abstract class AIStrategy {
       '[$strategyName] Override thresholds: single=${_pct(override, 2)}, combined=${_pct(overridetwo, 2)}',
       outputDebug,
     );
-    log('[$strategyName] Top 5 pass: ${pyStr(top5Pass)}', outputDebug);
+    log('[$strategyName] Top 5 pass: $top5Pass', outputDebug);
 
     if (top5Pass) {
       log('[$strategyName] Playing top move because pass is in top 5', outputDebug);
@@ -413,7 +414,7 @@ class DefaultStrategy extends AIStrategy {
     } else {
       final topMoveData = candidateMoves[0];
       topCand = Move.fromGtp(topMoveData['move'] as String, player: cn.nextPlayer);
-      log('[DefaultStrategy] Top move: ${topCand.gtp()} with stats: ${pyRepr(topMoveData)}', outputDebug);
+      log('[DefaultStrategy] Top move: ${topCand.gtp()} with stats: $topMoveData', outputDebug);
     }
     final aiThoughts =
         'Default strategy found ${candidateMoves.length} moves returned from the engine and chose ${topCand.gtp()} '
@@ -432,7 +433,7 @@ class HandicapStrategy extends AIStrategy {
     log('[HandicapStrategy] Starting move generation', outputDebug);
     // Calculate PDA (Playout Doubling Advantage)
     var pda = settings['pda'] as num;
-    log('[HandicapStrategy] Initial PDA from settings: ${pyStr(pda)}', outputDebug);
+    log('[HandicapStrategy] Initial PDA from settings: $pda', outputDebug);
     if (settings['automatic'] == true) {
       final nHandicaps = (game.root.getListProperty('AB') ?? const []).length;
       const moveValue = 14; // could be rules dependent
@@ -441,11 +442,11 @@ class HandicapStrategy extends AIStrategy {
       pda = _pyMin(3, _pyMax(-3, -bStonesAdvantage * (3 / 8)));
       log('[HandicapStrategy] Automatic PDA calculation:', outputDebug);
       log('[HandicapStrategy] - Handicap stones: $nHandicaps', outputDebug);
-      log('[HandicapStrategy] - Komi: ${pyStr(cn.komi)}', outputDebug);
-      log('[HandicapStrategy] - Stone advantage: ${pyStr(bStonesAdvantage)}', outputDebug);
-      log('[HandicapStrategy] - Calculated PDA: ${pyStr(pda)}', outputDebug);
+      log('[HandicapStrategy] - Komi: ${cn.komi}', outputDebug);
+      log('[HandicapStrategy] - Stone advantage: $bStonesAdvantage', outputDebug);
+      log('[HandicapStrategy] - Calculated PDA: $pda', outputDebug);
     }
-    log('[HandicapStrategy] Requesting analysis with PDA=${pyStr(pda)}', outputDebug);
+    log('[HandicapStrategy] Requesting analysis with PDA=$pda', outputDebug);
     final handicapAnalysis = await requestAnalysis({
       'playoutDoublingAdvantage': pda,
       'playoutDoublingAdvantagePla': 'BLACK',
@@ -460,8 +461,8 @@ class HandicapStrategy extends AIStrategy {
     final topCand = Move.fromGtp(candidateMoves[0]['move'] as String, player: cn.nextPlayer);
     final rootInfo = handicapAnalysis['rootInfo'] as Map<String, dynamic>;
     log('[HandicapStrategy] Top move: ${topCand.gtp()}', outputDebug);
-    log('[HandicapStrategy] Score lead: ${pyStr(rootInfo['scoreLead'])}', outputDebug);
-    log('[HandicapStrategy] Win rate: ${pyStr(rootInfo['winrate'])}', outputDebug);
+    log('[HandicapStrategy] Score lead: ${rootInfo['scoreLead']}', outputDebug);
+    log('[HandicapStrategy] Win rate: ${rootInfo['winrate']}', outputDebug);
     final aiThoughts =
         'Handicap strategy found ${candidateMoves.length} moves returned from the engine and chose ${topCand.gtp()} '
         'as top move. PDA based score ${cn.formatScore((rootInfo['scoreLead'] as num).toDouble())} and win rate '
@@ -490,8 +491,8 @@ class AntimirrorStrategy extends AIStrategy {
     final topCand = Move.fromGtp(candidateMoves[0]['move'] as String, player: cn.nextPlayer);
     final rootInfo = antimirrorAnalysis['rootInfo'] as Map<String, dynamic>;
     log('[AntimirrorStrategy] Top move: ${topCand.gtp()}', outputDebug);
-    log('[AntimirrorStrategy] Score lead: ${pyStr(rootInfo['scoreLead'])}', outputDebug);
-    log('[AntimirrorStrategy] Win rate: ${pyStr(rootInfo['winrate'])}', outputDebug);
+    log('[AntimirrorStrategy] Score lead: ${rootInfo['scoreLead']}', outputDebug);
+    log('[AntimirrorStrategy] Win rate: ${rootInfo['winrate']}', outputDebug);
     // Log the top 3 moves for comparison
     var i = 0;
     for (final moveData in candidateMoves.take(3)) {
@@ -499,7 +500,7 @@ class AntimirrorStrategy extends AIStrategy {
       final visits = moveData.containsKey('visits') ? moveData['visits'] : 'N/A';
       final lost = moveData.containsKey('pointsLost') ? moveData['pointsLost'] : 'N/A';
       log(
-        '[AntimirrorStrategy] Move #${i + 1}: ${move.gtp()} - visits: ${pyStr(visits)}, points lost: ${pyStr(lost)}',
+        '[AntimirrorStrategy] Move #${i + 1}: ${move.gtp()} - visits: $visits, points lost: $lost',
         outputDebug,
       );
       i += 1;
@@ -533,14 +534,14 @@ class JigoStrategy extends AIStrategy {
     final sign = GameNode.playerSign(cn.nextPlayer);
     log('[JigoStrategy] Player sign: $sign', outputDebug);
     final targetScore = settings['target_score'] as num;
-    log('[JigoStrategy] Target score: ${pyStr(targetScore)}', outputDebug);
+    log('[JigoStrategy] Target score: $targetScore', outputDebug);
     num diff(Map<String, dynamic> d) => (sign * (d['scoreLead'] as num) - targetScore).abs();
     log('[JigoStrategy] Candidate move score leads:', outputDebug);
     for (final moveData in candidateMoves.take(5)) {
       final move = Move.fromGtp(moveData['move'] as String, player: cn.nextPlayer);
       log(
-        '[JigoStrategy] - ${move.gtp()}: scoreLead=${pyStr(moveData['scoreLead'])}, diff from target='
-        '${pyStr(diff(moveData))}',
+        '[JigoStrategy] - ${move.gtp()}: scoreLead=${moveData['scoreLead']}, diff from target='
+        '${diff(moveData)}',
         outputDebug,
       );
     }
@@ -551,8 +552,8 @@ class JigoStrategy extends AIStrategy {
     }
     final aimove = Move.fromGtp(jigoMove['move'] as String, player: cn.nextPlayer);
     log('[JigoStrategy] Selected move: ${aimove.gtp()}', outputDebug);
-    log('[JigoStrategy] Selected move score lead: ${pyStr(jigoMove['scoreLead'])}', outputDebug);
-    log('[JigoStrategy] Distance from target: ${pyStr(diff(jigoMove))}', outputDebug);
+    log('[JigoStrategy] Selected move score lead: ${jigoMove['scoreLead']}', outputDebug);
+    log('[JigoStrategy] Distance from target: ${diff(jigoMove)}', outputDebug);
     final aiThoughts =
         'Jigo strategy found ${candidateMoves.length} candidate moves (best ${topCand.gtp()}) and chose '
         '${aimove.gtp()} as closest to 0.5 point win';
@@ -582,7 +583,7 @@ class ScoreLossStrategy extends AIStrategy {
       return (topCand, 'Top move is pass, so passing regardless of strategy.');
     }
     final c = settings['strength'] as num;
-    log('[ScoreLossStrategy] Strength parameter: ${pyStr(c)}', outputDebug);
+    log('[ScoreLossStrategy] Strength parameter: $c', outputDebug);
     log('[ScoreLossStrategy] Calculating weights for candidate moves', outputDebug);
     final moves = <(num, double, Move)>[];
     for (var i = 0; i < candidateMoves.length; i++) {
@@ -598,7 +599,7 @@ class ScoreLossStrategy extends AIStrategy {
       moves.add((pointsLost, weight, move));
     }
     log('[ScoreLossStrategy] Selecting move with weighted selection', outputDebug);
-    final topmove = weightedSelectionWithoutReplacement(moves, 1, (m) => m.$2, globalRandom)[0];
+    final topmove = weightedSelectionWithoutReplacement(moves, 1, (m) => m.$2, random)[0];
     final aimove = topmove.$3;
     log('[ScoreLossStrategy] Selected move: ${aimove.gtp()}', outputDebug);
     log('[ScoreLossStrategy] Selected move points lost: ${_fix(topmove.$1, 2)}', outputDebug);
@@ -621,10 +622,10 @@ abstract class OwnershipBaseStrategy extends AIStrategy {
 
   /// Calculate settledness for Simple Ownership strategy.
   num settledness(Map<String, dynamic> d, int playerSign, String player) {
-    final ownershipSum = pySum([
+    final ownershipSum = ([
       for (final o in (d['ownership'] as List).cast<num>())
         if (playerSign * o > 0) o.abs(),
-    ]);
+    ]).sum;
     log('[$strategyName] Calculating settledness for $player, sign=$playerSign: ${_fix(ownershipSum, 2)}', outputDebug);
     return ownershipSum;
   }
@@ -654,7 +655,7 @@ abstract class OwnershipBaseStrategy extends AIStrategy {
     }
     final isAttach = attachOpponentStones >= 1 && nearbyOwnStones == 0;
     log(
-      '[$strategyName] Is move ${move.gtp()} an attachment? ${pyStr(isAttach)} (opponent stones: '
+      '[$strategyName] Is move ${move.gtp()} an attachment? $isAttach (opponent stones: '
       '$attachOpponentStones, own stones: $nearbyOwnStones)',
       outputDebug,
     );
@@ -678,11 +679,11 @@ abstract class OwnershipBaseStrategy extends AIStrategy {
     ];
     if (distances.isNotEmpty) {
       log(
-        '[$strategyName] Is move ${move.gtp()} a tenuki? ${pyStr(result)} (distances: ${pyRepr(distances)})',
+        '[$strategyName] Is move ${move.gtp()} a tenuki? $result (distances: $distances)',
         outputDebug,
       );
     } else {
-      log('[$strategyName] Is move ${move.gtp()} a tenuki? ${pyStr(result)} (no valid previous moves)', outputDebug);
+      log('[$strategyName] Is move ${move.gtp()} a tenuki? $result (no valid previous moves)', outputDebug);
     }
     return result;
   }
@@ -695,16 +696,16 @@ abstract class OwnershipBaseStrategy extends AIStrategy {
     final minVisits = settings.containsKey('min_visits') ? settings['min_visits'] : 1;
     log('[$strategyName] Processing ${candidateMoves.length} candidate moves', outputDebug);
     log(
-      '[$strategyName] Settings: max_points_lost=${pyStr(settings['max_points_lost'])}, min_visits=${pyStr(minVisits)}',
+      '[$strategyName] Settings: max_points_lost=${settings['max_points_lost']}, min_visits=$minVisits',
       outputDebug,
     );
     log(
-      '[$strategyName] Penalties: attach=${pyStr(settings['attach_penalty'])}, tenuki=${pyStr(settings['tenuki_penalty'])}',
+      '[$strategyName] Penalties: attach=${settings['attach_penalty']}, tenuki=${settings['tenuki_penalty']}',
       outputDebug,
     );
     log(
-      '[$strategyName] Weights: settled=${pyStr(settings['settled_weight'])}, opponent_fac='
-      '${pyStr(settings['opponent_fac'])}',
+      '[$strategyName] Weights: settled=${settings['settled_weight']}, opponent_fac='
+      '${settings['opponent_fac']}',
       outputDebug,
     );
     final movesData = <(SettlednessMove, num)>[];
@@ -716,8 +717,8 @@ abstract class OwnershipBaseStrategy extends AIStrategy {
       final pointsLost = d['pointsLost'] as num;
       if (pointsLost >= (settings['max_points_lost'] as num)) {
         log(
-          '[$strategyName] Move ${d['move']} has pointsLost=${pyStr(pointsLost)}, which exceeds max_points_lost='
-          '${pyStr(settings['max_points_lost'])}, skipping',
+          '[$strategyName] Move ${d['move']} has pointsLost=$pointsLost, which exceeds max_points_lost='
+          '${settings['max_points_lost']}, skipping',
           outputDebug,
         );
         continue;
@@ -729,7 +730,7 @@ abstract class OwnershipBaseStrategy extends AIStrategy {
       if (!((d['order'] as num) <= 1 || (d['visits'] as num) >= (minVisits as num))) {
         final visits = d.containsKey('visits') ? d['visits'] : 'N/A';
         log(
-          "[$strategyName] Move ${d['move']} has order=${pyStr(d['order'])} and visits=${pyStr(visits)}, doesn't "
+          "[$strategyName] Move ${d['move']} has order=${d['order']} and visits=$visits, doesn't "
           'meet criteria, skipping',
           outputDebug,
         );
@@ -738,7 +739,7 @@ abstract class OwnershipBaseStrategy extends AIStrategy {
       final move = Move.fromGtp(d['move'] as String, player: cn.nextPlayer);
       if (move.isPass && pointsLost > 0.75) {
         log(
-          '[$strategyName] Move ${move.gtp()} is pass with high point loss (${pyStr(pointsLost)}), skipping',
+          '[$strategyName] Move ${move.gtp()} is pass with high point loss ($pointsLost), skipping',
           outputDebug,
         );
         continue;
@@ -756,15 +757,15 @@ abstract class OwnershipBaseStrategy extends AIStrategy {
           (settings['settled_weight'] as num) * (ownSettledness + (settings['opponent_fac'] as num) * oppSettledness);
       log(
         '[$strategyName] Move ${move.gtp()}: points_lost=${_fix(pointsLost, 2)}, own_settled='
-        '${_fix(ownSettledness, 2)}, opp_settled=${_fix(oppSettledness, 2)}, attach=${pyStr(isAttach)}, tenuki='
-        '${pyStr(isTenukiMove)}, score=${_fix(score, 2)}',
+        '${_fix(ownSettledness, 2)}, opp_settled=${_fix(oppSettledness, 2)}, attach=$isAttach, tenuki='
+        '$isTenukiMove, score=${_fix(score, 2)}',
         outputDebug,
       );
       movesData.add(((move, ownSettledness, oppSettledness, isAttach, isTenukiMove, d), score));
     }
     // Sort moves by score
     final sortedMoves = List.of(movesData);
-    mergeSortBy(sortedMoves, (t) => t.$2);
+    stableSortBy(sortedMoves, (t) => t.$2);
     log('[$strategyName] Found ${sortedMoves.length} valid moves with settledness data', outputDebug);
     if (sortedMoves.isNotEmpty) {
       log(
@@ -807,15 +808,15 @@ abstract class OwnershipBaseStrategy extends AIStrategy {
       final (move, settled, oppsettled, isattach, istenuki, d) = top5[i];
       log(
         '[$name] #${i + 1}: ${move.gtp()} - pt_lost: ${_fix(d['pointsLost'] as num, 1)}, visits: '
-        '${pyStr(d.containsKey('visits') ? d['visits'] : 'N/A')}, settledness: ${_fix(settled, 1)}, opp_settled: '
-        '${_fix(oppsettled, 1)}, attach: ${pyStr(isattach)}, tenuki: ${pyStr(istenuki)}',
+        '${d.containsKey('visits') ? d['visits'] : 'N/A'}, settledness: ${_fix(settled, 1)}, opp_settled: '
+        '${_fix(oppsettled, 1)}, attach: $isattach, tenuki: $istenuki',
         outputDebug,
       );
     }
     final cands = [
       for (final (move, settled, oppsettled, isattach, istenuki, d) in top5)
         '${move.gtp()} (${_fix(d['pointsLost'] as num, 1)} pt lost, '
-            '${pyStr(d.containsKey('visits') ? d['visits'] : 'N/A')} visits, ${_fix(settled, 1)} settledness, '
+            '${d.containsKey('visits') ? d['visits'] : 'N/A'} visits, ${_fix(settled, 1)} settledness, '
             '${_fix(oppsettled, 1)} opponent settledness${isattach ? ', attachment' : ''}'
             '${istenuki ? ', tenuki' : ''})',
     ];
@@ -849,7 +850,7 @@ class SettleStonesStrategy extends OwnershipBaseStrategy {
       for (final s in game.stones)
         if (s.player == player) ownershipGrid[s.coords!.$1][s.coords!.$2].abs(),
     ];
-    final totalSettledness = pySum(stoneOwnershipValues);
+    final totalSettledness = (stoneOwnershipValues).sum;
     log('[SettleStonesStrategy] Calculating settledness for $player, sign=$playerSign', outputDebug);
     log('[SettleStonesStrategy] Number of stones considered: ${stoneOwnershipValues.length}', outputDebug);
     log('[SettleStonesStrategy] Total settledness: ${_fix(totalSettledness, 2)}', outputDebug);
@@ -890,14 +891,14 @@ class PolicyStrategy extends AIStrategy {
     final (policyMoves, passPolicy) = _policyMovesWithLogs();
     final openingMoves = settings.containsKey('opening_moves') ? settings['opening_moves'] : 0;
     log('[PolicyStrategy] Current move depth: ${cn.depth}', outputDebug);
-    log('[PolicyStrategy] Opening moves setting: ${pyStr(openingMoves)}', outputDebug);
+    log('[PolicyStrategy] Opening moves setting: $openingMoves', outputDebug);
     _logTopPolicyMoves(policyMoves, passPolicy);
     final top5Pass = policyMoves.take(5).any((m) => m.$2.isPass);
-    log('[PolicyStrategy] Pass in top 5: ${pyStr(top5Pass)}', outputDebug);
+    log('[PolicyStrategy] Pass in top 5: $top5Pass', outputDebug);
     if (cn.depth <= (openingMoves as num)) {
       log('[PolicyStrategy] In opening phase, using WeightedStrategy instead', outputDebug);
       final weightedSettings = <String, dynamic>{'pick_override': 0.9, 'weaken_fac': 1, 'lower_bound': 0.02};
-      log('[PolicyStrategy] Weighted settings: ${pyRepr(weightedSettings)}', outputDebug);
+      log('[PolicyStrategy] Weighted settings: $weightedSettings', outputDebug);
       return WeightedStrategy(game, weightedSettings).generateMove();
     }
     if (top5Pass) {
@@ -931,7 +932,7 @@ class WeightedStrategy extends AIStrategy {
     final (policyMoves, passPolicy) = _policyMovesWithLogs();
     _logTopPolicyMoves(policyMoves, passPolicy);
     final top5Pass = policyMoves.take(5).any((m) => m.$2.isPass);
-    log('[WeightedStrategy] Pass in top 5: ${pyStr(top5Pass)}', outputDebug);
+    log('[WeightedStrategy] Pass in top 5: $top5Pass', outputDebug);
     final override = (settings.containsKey('pick_override') ? settings['pick_override'] : 0.0) as num;
     log('[WeightedStrategy] Override threshold: ${_pct(override, 2)}', outputDebug);
     final (overrideMove, overrideThoughts) = shouldPlayTopMove(policyMoves, top5Pass, override: override);
@@ -943,7 +944,7 @@ class WeightedStrategy extends AIStrategy {
     final weakenFac = (settings.containsKey('weaken_fac') ? settings['weaken_fac'] : 1.0) as num;
     log(
       '[WeightedStrategy] Using weighted selection with lower_bound=${_pct(lowerBound, 2)}, weaken_fac='
-      '${pyStr(weakenFac)}',
+      '$weakenFac',
       outputDebug,
     );
     final weightedCoords = [
@@ -955,7 +956,7 @@ class WeightedStrategy extends AIStrategy {
     final String aiThoughts;
     if (weightedCoords.isNotEmpty) {
       log('[WeightedStrategy] Performing weighted selection', outputDebug);
-      final top = weightedSelectionWithoutReplacement(weightedCoords, 1, (c) => c.$2, globalRandom)[0];
+      final top = weightedSelectionWithoutReplacement(weightedCoords, 1, (c) => c.$2, random)[0];
       move = top.$3;
       final prob = top.$1;
       log('[WeightedStrategy] Selected move ${move.gtp()} with probability ${_pct(prob, 2)}', outputDebug);
@@ -984,7 +985,7 @@ abstract class PickBasedStrategy extends AIStrategy {
       final pickN = settings['pick_n'] as num;
       nMoves = math.max(1, (pickFrac * legalPolicyMoves.length + pickN).truncate());
       log(
-        '[$strategyName] Calculated n_moves=$nMoves from pick_frac=${pyStr(pickFrac)}, pick_n=${pyStr(pickN)}, '
+        '[$strategyName] Calculated n_moves=$nMoves from pick_frac=$pickFrac, pick_n=$pickN, '
         'legal_moves=${legalPolicyMoves.length}',
         outputDebug,
       );
@@ -1015,7 +1016,7 @@ abstract class PickBasedStrategy extends AIStrategy {
       log('[$strategyName] Top 5 weighted coordinates by policy value:', outputDebug);
       for (var i = 0; i < top5.length; i++) {
         final (pol, wt, x, y) = top5[i];
-        log('[$strategyName] #${i + 1}: ($x,$y) - policy=${_pct(pol, 2)}, weight=${pyStr(wt)}', outputDebug);
+        log('[$strategyName] #${i + 1}: ($x,$y) - policy=${_pct(pol, 2)}, weight=$wt', outputDebug);
       }
     }
     return (weightedCoords, 'Generated equal weights for all moves. ');
@@ -1031,15 +1032,15 @@ abstract class PickBasedStrategy extends AIStrategy {
     final boardSquares = sx * sy;
     final endgameThreshold = (settings.containsKey('endgame') ? settings['endgame'] as num : 0.75) * boardSquares;
     log(
-      '[$strategyName] Checking endgame condition: move depth ${cn.depth} vs threshold ${pyStr(endgameThreshold)}',
+      '[$strategyName] Checking endgame condition: move depth ${cn.depth} vs threshold $endgameThreshold',
       outputDebug,
     );
     if (cn.depth > endgameThreshold) {
-      log('[$strategyName] In endgame phase (move ${cn.depth} > ${pyStr(endgameThreshold)})', outputDebug);
+      log('[$strategyName] In endgame phase (move ${cn.depth} > $endgameThreshold)', outputDebug);
       final weightedCoords = <WeightedCoord>[
         for (final (pol, mv) in legalPolicyMoves) (pol, 1, mv.coords!.$1, mv.coords!.$2),
       ];
-      final aiThoughts = 'Generated equal weights as move number >= ${pyStr((settings['endgame'] as num) * sx * sy)}. ';
+      final aiThoughts = 'Generated equal weights as move number >= ${(settings['endgame'] as num) * sx * sy}. ';
       final nMoves = math.max(getNMoves(legalPolicyMoves), legalPolicyMoves.length ~/ 2);
       log('[$strategyName] Using endgame n_moves=$nMoves', outputDebug);
       log('[$strategyName] Generated ${weightedCoords.length} weighted coordinates for endgame', outputDebug);
@@ -1052,7 +1053,7 @@ abstract class PickBasedStrategy extends AIStrategy {
   /// Select moves from weighted coordinates.
   (Move, String) selectFromWeightedCoords(List<WeightedCoord> weightedCoords, int nMoves, double passPolicy) {
     log('[$strategyName] Selecting from ${weightedCoords.length} weighted coordinates, n_moves=$nMoves', outputDebug);
-    final pickMoves = weightedSelectionWithoutReplacement(weightedCoords, nMoves, (c) => c.$2.toDouble(), globalRandom);
+    final pickMoves = weightedSelectionWithoutReplacement(weightedCoords, nMoves, (c) => c.$2.toDouble(), random);
     log('[$strategyName] Picked ${pickMoves.length} moves', outputDebug);
     Move aimove;
     String aiThoughts;
@@ -1061,7 +1062,7 @@ abstract class PickBasedStrategy extends AIStrategy {
       log('[$strategyName] Top 5 after selection:', outputDebug);
       for (var i = 0; i < topPicked.length; i++) {
         final (p, wt, x, y) = topPicked[i];
-        log('[$strategyName] #${i + 1}: ($x,$y) - policy=${_pct(p, 2)}, weight=${pyStr(wt)}', outputDebug);
+        log('[$strategyName] #${i + 1}: ($x,$y) - policy=${_pct(p, 2)}, weight=$wt', outputDebug);
       }
       final newTop = [for (final (p, _, x, y) in topPicked) (p, Move(coords: (x, y), player: cn.nextPlayer))];
       aimove = newTop[0].$2;
@@ -1103,7 +1104,7 @@ abstract class PickBasedStrategy extends AIStrategy {
     final (policyMoves, passPolicy) = _policyMovesWithLogs();
     _logTopPolicyMoves(policyMoves, passPolicy);
     final top5Pass = policyMoves.take(5).any((m) => m.$2.isPass);
-    log('[$strategyName] Pass in top 5: ${pyStr(top5Pass)}', outputDebug);
+    log('[$strategyName] Pass in top 5: $top5Pass', outputDebug);
     final override = (settings.containsKey('pick_override') ? settings['pick_override'] : 0.0) as num;
     final overridetwo = (settings.containsKey('pick_override_two') ? settings['pick_override_two'] : 1.0) as num;
     log(
@@ -1151,7 +1152,7 @@ abstract class PickBasedStrategy extends AIStrategy {
     for (var i = 0; i < top5.length; i++) {
       final (pol, wt, x, y) = top5[i];
       log(
-        '[$strategyName] #${i + 1}: ($x,$y) - policy=${_pct(pol, 2)}, weight=${pyStr(wt)}, combined='
+        '[$strategyName] #${i + 1}: ($x,$y) - policy=${_pct(pol, 2)}, weight=$wt, combined='
         '${_pct(pol * wt, 2)}',
         outputDebug,
       );
@@ -1192,7 +1193,7 @@ class RankStrategy extends PickBasedStrategy {
     log('[RankStrategy] Board squares: $boardSquares', outputDebug);
     log('[RankStrategy] Legal moves: ${legalPolicyMoves.length}', outputDebug);
     log('[RankStrategy] Normalized legal moves: ${_fix(normLegMoves, 4)}', outputDebug);
-    log('[RankStrategy] Kyu rank: ${pyStr(kyuRank)}', outputDebug);
+    log('[RankStrategy] Kyu rank: $kyuRank', outputDebug);
     // Calculate n_moves using the rank formula
     final origCalibAvemodrank = 0.063015 + 0.7624 * boardSquares / math.pow(10, -0.05737 * kyuRank + 1.9482);
     log('[RankStrategy] Original calibrated average mod rank: ${_fix(origCalibAvemodrank, 4)}', outputDebug);
@@ -1204,7 +1205,7 @@ class RankStrategy extends PickBasedStrategy {
     log('[RankStrategy] Modified calibrated average mod rank: ${_fix(modifiedCalibAvemodrank, 4)}', outputDebug);
     final denominator = 1.31165 * (modifiedCalibAvemodrank + 1) - 0.082653;
     log('[RankStrategy] Denominator: ${_fix(denominator, 4)}', outputDebug);
-    final nMoves = math.max(1, pyRound(boardSquares * normLegMoves / denominator));
+    final nMoves = math.max(1, (boardSquares * normLegMoves / denominator).round());
     log('[RankStrategy] Calculated n_moves: $nMoves', outputDebug);
     return nMoves;
   }
@@ -1227,7 +1228,7 @@ class RankStrategy extends PickBasedStrategy {
     final kyuRank = settings['kyu_rank'] as num;
     log('[RankStrategy] Board squares: $boardSquares', outputDebug);
     log('[RankStrategy] Legal non-pass moves: ${legalPolicyMoves.length}', outputDebug);
-    log('[RankStrategy] Kyu rank: ${pyStr(kyuRank)}', outputDebug);
+    log('[RankStrategy] Kyu rank: $kyuRank', outputDebug);
     // Calibrated override based on board filling
     final ratio = (boardSquares - legalPolicyMoves.length) / boardSquares;
     final rankOverride = 0.8 * (1 - 0.5 * ratio);
@@ -1260,8 +1261,8 @@ class InfluenceStrategy extends PickBasedStrategy {
   ) {
     log('[InfluenceStrategy] Generating influence-based weights', outputDebug);
     log(
-      '[InfluenceStrategy] Settings: threshold=${pyStr(settings['threshold'])}, line_weight='
-      '${pyStr(settings['line_weight'])}',
+      '[InfluenceStrategy] Settings: threshold=${settings['threshold']}, line_weight='
+      '${settings['line_weight']}',
       outputDebug,
     );
     final (weightedCoords, aiThoughts) = generateInfluenceTerritoryWeights(aiInfluence, settings, policyGrid, size);
@@ -1283,8 +1284,8 @@ class TerritoryStrategy extends PickBasedStrategy {
   ) {
     log('[TerritoryStrategy] Generating territory-based weights', outputDebug);
     log(
-      '[TerritoryStrategy] Settings: threshold=${pyStr(settings['threshold'])}, line_weight='
-      '${pyStr(settings['line_weight'])}',
+      '[TerritoryStrategy] Settings: threshold=${settings['threshold']}, line_weight='
+      '${settings['line_weight']}',
       outputDebug,
     );
     final (weightedCoords, aiThoughts) = generateInfluenceTerritoryWeights(aiTerritory, settings, policyGrid, size);
@@ -1330,7 +1331,7 @@ abstract class _LastMoveStrategy extends PickBasedStrategy {
       outputDebug,
     );
     log('[$strategyName] Previous move: ${cn.move!.gtp()}', outputDebug);
-    log('[$strategyName] Variance setting: ${pyStr(settings['stddev'])}', outputDebug);
+    log('[$strategyName] Variance setting: ${settings['stddev']}', outputDebug);
     final (weightedCoords, aiThoughts) = generateLocalTenukiWeights(_mode, settings, policyGrid, cn, size);
     log('[$strategyName] Generated ${weightedCoords.length} weighted coordinates', outputDebug);
     if (weightedCoords.isNotEmpty) _logTop5Combined(weightedCoords);
@@ -1358,7 +1359,7 @@ class TenukiStrategy extends _LastMoveStrategy {
 class HumanStyleStrategy extends AIStrategy {
   HumanStyleStrategy(Game game, Map<String, dynamic> settings) : super(game, settings, 'HumanStyleStrategy') {
     log('[HumanStyleStrategy] Initializing HumanStyleStrategy', outputDebug);
-    log('[HumanStyleStrategy] AI settings: ${pyRepr(settings)}', outputDebug);
+    log('[HumanStyleStrategy] AI settings: $settings', outputDebug);
   }
 
   @override
@@ -1366,18 +1367,18 @@ class HumanStyleStrategy extends AIStrategy {
     log('[HumanStyleStrategy] Starting move generation', outputDebug);
     final String humanProfile;
     if (settings.containsKey('human_kyu_rank')) {
-      final humanKyuRank = pyRound((settings['human_kyu_rank'] as num).toDouble());
+      final humanKyuRank = ((settings['human_kyu_rank'] as num).toDouble()).round();
       final humanStyle = settings['modern_style'] == true ? 'rank' : 'preaz';
       final rankText = humanKyuRank <= 0 ? '${1 - humanKyuRank}d' : '${humanKyuRank}k'; // dan or kyu ranks
       humanProfile = '${humanStyle}_$rankText';
     } else {
-      final proYear = pyRound((settings['pro_year'] as num).toDouble());
+      final proYear = ((settings['pro_year'] as num).toDouble()).round();
       humanProfile = 'proyear_$proYear';
     }
     log('[HumanStyleStrategy] Human profile string: $humanProfile', outputDebug);
     // Define override settings (separate from includePolicy)
     final overrideSettings = <String, dynamic>{'humanSLProfile': humanProfile, 'ignorePreRootHistory': false};
-    log('[HumanStyleStrategy] Override settings for engine: ${pyRepr(overrideSettings)}', outputDebug);
+    log('[HumanStyleStrategy] Override settings for engine: $overrideSettings', outputDebug);
 
     Map<String, dynamic>? analysis;
     var error = false;
@@ -1393,7 +1394,7 @@ class HumanStyleStrategy extends AIStrategy {
           analysis = a;
           if (a.isNotEmpty) {
             log(
-              '[HumanStyleStrategy] Analysis contains humanPolicy: ${pyStr(a.containsKey('humanPolicy'))}',
+              '[HumanStyleStrategy] Analysis contains humanPolicy: ${a.containsKey('humanPolicy')}',
               outputDebug,
             );
             log(
@@ -1402,9 +1403,9 @@ class HumanStyleStrategy extends AIStrategy {
             );
             if (a.containsKey('humanPolicy')) {
               final hp = (a['humanPolicy'] as List).cast<num>();
-              final policySum = pySum(hp);
+              final policySum = (hp).sum;
               final policyMax = hp.reduce(_pyMax);
-              log('[HumanStyleStrategy] Human policy sum: ${pyStr(policySum)}, max: ${pyStr(policyMax)}', outputDebug);
+              log('[HumanStyleStrategy] Human policy sum: $policySum, max: $policyMax', outputDebug);
             }
           }
         } else {
@@ -1413,7 +1414,7 @@ class HumanStyleStrategy extends AIStrategy {
       },
       errorCallback: (a) {
         error = true;
-        log('[HumanStyleStrategy] Error in human analysis query: ${pyRepr(a)}', outputError);
+        log('[HumanStyleStrategy] Error in human analysis query: $a', outputError);
         log('[HumanStyleStrategy] Will attempt to fall back to policy move', outputDebug);
       },
       priority: priorityExtraAiQuery,
@@ -1433,8 +1434,8 @@ class HumanStyleStrategy extends AIStrategy {
       }
     }
     log(
-      '[HumanStyleStrategy] Finished waiting for analysis, error=${pyStr(error)}, analysis received='
-      '${pyStr(analysis != null)}',
+      '[HumanStyleStrategy] Finished waiting for analysis, error=$error, analysis received='
+      '${analysis != null}',
       outputDebug,
     );
     final result = analysis;
@@ -1474,19 +1475,19 @@ class HumanStyleStrategy extends AIStrategy {
     log('[HumanStyleStrategy] Generated ${moves.length} candidate moves from human policy', outputDebug);
     // Add pass move if it has positive probability
     if (humanPolicy.length > sx * sy && humanPolicy.last > 0) {
-      log('[HumanStyleStrategy] Adding pass move with probability ${pyStr(humanPolicy.last)}', outputDebug);
+      log('[HumanStyleStrategy] Adding pass move with probability ${humanPolicy.last}', outputDebug);
       moves.add((Move(player: cn.nextPlayer), humanPolicy.last));
     }
     log('[HumanStyleStrategy] Performing weighted selection from ${moves.length} moves', outputDebug);
     final topMoves = List.of(moves);
-    mergeSortBy(topMoves, (m) => -m.$2);
+    stableSortBy(topMoves, (m) => -m.$2);
     log('[HumanStyleStrategy] Top 5 moves by probability:', outputDebug);
     final top5 = topMoves.take(5).toList();
     final topMovesStr = [
       for (var i = 0; i < top5.length; i++) '#${i + 1}: ${top5[i].$1.gtp()} - ${_pct(top5[i].$2, 1)}',
     ].join('\n');
     log('[HumanStyleStrategy]\n$topMovesStr', outputDebug);
-    final selected = weightedSelectionWithoutReplacement(moves, 1, (m) => m.$2.toDouble(), globalRandom)[0];
+    final selected = weightedSelectionWithoutReplacement(moves, 1, (m) => m.$2.toDouble(), random)[0];
     final move = selected.$1;
     final prob = selected.$2;
     // Find the rank of the selected move

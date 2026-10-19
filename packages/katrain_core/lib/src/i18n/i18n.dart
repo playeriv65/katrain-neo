@@ -1,6 +1,6 @@
 // Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/core/lang.py.
 
-import '../utils/py_format.dart';
+import '../utils/format.dart';
 import 'strings/all.dart';
 
 export 'strings/all.dart' show translations, languageFonts;
@@ -48,6 +48,6 @@ final i18n = I18n(defaultLanguage);
 /// A rank as KaTrain writes it: `3d`, `12k` (localised), `??k` when unknown.
 String rankLabel(double? rank) {
   if (rank == null) return '??k';
-  if (rank >= 0.5) return '${pyFixed(rank, 0)}${i18n.tr('strength:dan')}';
-  return '${pyFixed(1 - rank, 0)}${i18n.tr('strength:kyu')}';
+  if (rank >= 0.5) return '${formatFixed(rank, 0)}${i18n.tr('strength:dan')}';
+  return '${formatFixed(1 - rank, 0)}${i18n.tr('strength:kyu')}';
 }

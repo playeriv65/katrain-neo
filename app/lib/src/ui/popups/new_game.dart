@@ -24,9 +24,9 @@ class _NewGameDialogState extends State<NewGameDialog> {
     for (final MapEntry(:key, :value) in app.playersInfo.entries) key: (value.playerType, value.playerSubtype),
   };
   final names = {'B': TextEditingController(), 'W': TextEditingController()};
-  late final komi = TextEditingController(text: pyStr(app.game!.root.komi));
-  late final size = TextEditingController(text: pyStr(editor.value('game/size')));
-  late final handicap = TextEditingController(text: pyStr(editor.value('game/handicap')));
+  late final komi = TextEditingController(text: '${app.game!.root.komi}');
+  late final size = TextEditingController(text: '${editor.value('game/size')}');
+  late final handicap = TextEditingController(text: '${editor.value('game/handicap')}');
   late String rules = _normalizedRules() ?? editor.value('game/rules') as String;
   late bool clearCache = editor.value('game/clear_cache') == true;
 
@@ -97,7 +97,7 @@ class _NewGameDialogState extends State<NewGameDialog> {
       return;
     }
     Navigator.of(context).pop();
-    app.log('Mode: $mode, settings: ${pyStr(app.config('game'))}', outputDebug);
+    app.log('Mode: $mode, settings: ${app.config('game')}', outputDebug);
     _updatePlayerInfo(); // type
     if (mode == 'newgame') {
       if (clearCache) {
@@ -119,7 +119,7 @@ class _NewGameDialogState extends State<NewGameDialog> {
         if (current != value) {
           changed = true;
           app.log(
-            'Property $k changed from ${pyStr(current)} to ${pyStr(value)}, triggering re-analysis of entire game.',
+            'Property $k changed from $current to $value, triggering re-analysis of entire game.',
             outputInfo,
           );
           root.setProperty(k, value);

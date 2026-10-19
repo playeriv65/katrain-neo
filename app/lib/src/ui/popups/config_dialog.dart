@@ -30,10 +30,10 @@ class _ConfigDialogState extends State<ConfigDialog> {
   late String backend = resolveEngineBackend(_engineConfig);
   late final paths = {
     for (final key in const ['engine/katago', 'engine/model', 'engine/humanlike_model', 'engine/config'])
-      key: TextEditingController(text: pyStr(editor.value(key))),
+      key: TextEditingController(text: '${editor.value(key)}'),
   };
-  late final remoteUrl = TextEditingController(text: pyStr(editor.value('engine/remote_url')));
-  late final altCommand = TextEditingController(text: pyStr(editor.value('engine/altcommand')));
+  late final remoteUrl = TextEditingController(text: '${editor.value('engine/remote_url')}');
+  late final altCommand = TextEditingController(text: '${editor.value('engine/altcommand')}');
   late bool sound = editor.value('timer/sound') == true;
   late bool restoreSize = editor.value('ui_state/restoresize') == true;
   List<FoundFile> models = [];
@@ -135,7 +135,7 @@ class _ConfigDialogState extends State<ConfigDialog> {
         if (key.contains('engine') && !ignore.any(key.contains)) key,
     ];
     if (detectedRestart.isNotEmpty) {
-      app.log('Restarting Engine after ${pyStr(detectedRestart)} settings change');
+      app.log('Restarting Engine after $detectedRestart settings change');
       app.restartEngine();
     } else {
       app.updateState();
@@ -239,7 +239,7 @@ class _ConfigDialogState extends State<ConfigDialog> {
         'engine:katago',
         hint: 'engine:katago:hint',
         found: katagos,
-        foundLabel: pyFormat(i18n.tr('katago binaries available'), {'num': katagos.length}),
+        foundLabel: fillTemplate(i18n.tr('katago binaries available'), {'num': katagos.length}),
         allowEmpty: true,
       ),
       Align(
@@ -255,7 +255,7 @@ class _ConfigDialogState extends State<ConfigDialog> {
         'engine/model',
         'engine:model',
         found: models,
-        foundLabel: pyFormat(i18n.tr('models available'), {'num': models.length}),
+        foundLabel: fillTemplate(i18n.tr('models available'), {'num': models.length}),
       ),
       Align(
         alignment: Alignment.centerLeft,
@@ -270,7 +270,7 @@ class _ConfigDialogState extends State<ConfigDialog> {
         'engine/humanlike_model',
         'engine:humanlike_model',
         found: humanlikeModels,
-        foundLabel: pyFormat(i18n.tr('models available'), {'num': humanlikeModels.length}),
+        foundLabel: fillTemplate(i18n.tr('models available'), {'num': humanlikeModels.length}),
         allowEmpty: true,
       ),
       _pathField('engine/config', 'engine:config'),

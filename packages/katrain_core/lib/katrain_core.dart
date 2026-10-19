@@ -19,9 +19,9 @@ export 'src/sgf/codecs/py_codecs.dart';
 export 'src/sgf/go_node.dart';
 export 'src/sgf/move.dart';
 export 'src/sgf/parser.dart';
-export 'src/utils/py_format.dart';
-export 'src/utils/py_random.dart';
-export 'src/utils/py_str_format.dart';
+export 'src/utils/format.dart';
+export 'src/utils/random.dart';
+export 'src/utils/template.dart';
 export 'src/utils/utils.dart';
 
 /// Version of the core package.

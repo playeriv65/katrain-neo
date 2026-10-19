@@ -4,6 +4,7 @@
 // The solver may play any legal move; KataGo answers inside the problem region instead of following a fixed answer
 // tree. The SGF's own solution tree, when present, is kept aside as a reference and never shown unless asked for.
 
+import 'package:collection/collection.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -12,7 +13,7 @@ import '../game/game_node.dart';
 import '../game/tsumego_frame.dart' show nearToEdge;
 import '../sgf/codecs/py_codecs.dart';
 import '../sgf/move.dart';
-import '../utils/py_format.dart' show mergeSortBy;
+import '../utils/format.dart';
 import 'args.dart';
 import 'commands.dart';
 import 'model.dart';
@@ -243,7 +244,7 @@ List<TsumegoProblem> scanProblems(String source) {
       for (final e in Directory(src).listSync(recursive: true, followLinks: true))
         if (e is File && e.path.toLowerCase().endsWith('.sgf')) e.path,
     ];
-    mergeSortBy(files, (f) => _SortKey(_naturalKey(f)));
+    stableSortBy(files, (f) => _SortKey(_naturalKey(f)));
     base = src;
   } else if (File(src).existsSync()) {
     files = [src];
@@ -419,7 +420,7 @@ class _Evaluation {
 
   static List<({String move, int visits, double blackWinrate, List<String> pv})> _sortedMoves(List infos) {
     final moves = infos.cast<Map<String, dynamic>>().toList();
-    mergeSortBy(moves, (m) => (m['order'] as num?) ?? 99);
+    stableSortBy(moves, (m) => (m['order'] as num?) ?? 99);
     return [
       for (final m in moves)
         (

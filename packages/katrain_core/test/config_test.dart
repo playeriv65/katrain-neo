@@ -89,7 +89,7 @@ void main() {
     (katrain.config('game') as Map)['komi'] = 7.5;
     katrain.saveConfig('game');
     (settings['game'] as Map)['komi'] = 7.5;
-    expect(configFile.readAsStringSync(), pyJsonDumps(settings, indent: 4));
+    expect(configFile.readAsStringSync(), const JsonEncoder.withIndent('    ').convert(settings));
   });
 
   test('a command line file, and the defaults without a file', () {

@@ -208,7 +208,7 @@ class _KeyboardShortcutsState extends State<KeyboardShortcuts> {
         clipboard = await response.transform(const Utf8Decoder(allowMalformed: true)).join();
       } on Object catch (e) {
         app.setStatus(
-          pyFormat(i18n.tr('Failed to import from clipboard'), {
+          fillTemplate(i18n.tr('Failed to import from clipboard'), {
             'error': e,
             'contents': clipboard.substring(0, clipboard.length < 50 ? clipboard.length : 50),
           }),

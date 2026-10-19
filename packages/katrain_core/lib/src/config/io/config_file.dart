@@ -7,7 +7,6 @@ import 'dart:io';
 
 import '../../constants.dart';
 import '../../engine/io/local_katago.dart' show expandUser;
-import '../../utils/py_format.dart';
 import '../katrain_base.dart';
 
 /// Settings in a JSON file, written like Kivy's JsonStore with `indent=4`: the whole file on every change, in
@@ -35,12 +34,12 @@ class JsonConfigStore implements ConfigStore {
   @override
   void put(String key, Map<String, dynamic> values) {
     data[key] = Map.of(values);
-    File(filename).writeAsStringSync(pyJsonDumps(data, indent: 4));
+    File(filename).writeAsStringSync(const JsonEncoder.withIndent('    ').convert(data));
   }
 }
 
 /// The text KaTrain's own config.json has: its defaults as `json.dumps(indent=4)` and a newline.
-String defaultConfigText() => '${pyJsonDumps(defaultConfig(), indent: 4)}\n';
+String defaultConfigText() => '${const JsonEncoder.withIndent('    ').convert(defaultConfig())}\n';
 
 /// Finds the settings file as KaTrain does: [commandLineFile] when given; otherwise the user's file in [dataFolder],
 /// created from the defaults when missing and replaced by them (keeping a backup) when it is older than
@@ -78,7 +77,7 @@ ConfigStore openConfig({
         final general = (jsonDecode(file.readAsStringSync()) as Map<String, dynamic>)['general'] as Map;
         versionStr = general['version'] as String;
         version = parseVersion(versionStr);
-        say('Parsed version: ${pyRepr(version)}', outputDebug);
+        say('Parsed version: $version', outputDebug);
       } catch (e) {
         // broken file etc
         say('Failed to read version from user config: $e', outputDebug);
@@ -92,7 +91,7 @@ ConfigStore openConfig({
         file.writeAsStringSync(defaultConfigText());
         say(
           'Copied package config file to $userConfigFile as user file is outdated or broken '
-          '(${pyRepr(version)}<${pyRepr(minVersion)}). Old version stored as $backup',
+          '($version<$minVersion). Old version stored as $backup',
           outputInfo,
         );
       }

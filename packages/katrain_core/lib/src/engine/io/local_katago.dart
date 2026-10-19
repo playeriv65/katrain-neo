@@ -8,7 +8,7 @@ import 'dart:io';
 import '../../config/katrain_base.dart' show neoDataFolder;
 import '../../constants.dart';
 import '../../i18n/i18n.dart';
-import '../../utils/py_str_format.dart';
+import '../../utils/template.dart';
 import '../katago_engine.dart';
 
 /// Expands a leading `~` like Python's `os.path.expanduser`.
@@ -85,7 +85,7 @@ class LocalKataGo implements EngineConnection {
     if (path.startsWith('katrain')) path = findResource(path, resourceDir);
     final hasDir = path.contains('/') || path.contains(r'\');
     if (hasDir && !File(path).existsSync()) {
-      engine.onError(pyFormat(i18n.tr('Kata exe not found'), {'exe': path}), 'KATAGO-EXE');
+      engine.onError(fillTemplate(i18n.tr('Kata exe not found'), {'exe': path}), 'KATAGO-EXE');
       return null;
     } else if (!hasDir) {
       final separator = Platform.isWindows ? ';' : ':';
@@ -95,7 +95,7 @@ class LocalKataGo implements EngineConnection {
           if (File('$dir${Platform.pathSeparator}$path').existsSync()) '$dir${Platform.pathSeparator}$path',
       ];
       if (found.isEmpty) {
-        engine.onError(pyFormat(i18n.tr('Kata exe not found in path'), {'exe': path}), 'KATAGO-EXE');
+        engine.onError(fillTemplate(i18n.tr('Kata exe not found in path'), {'exe': path}), 'KATAGO-EXE');
         return null;
       }
       path = found.first;
@@ -111,7 +111,7 @@ class LocalKataGo implements EngineConnection {
           ? await Process.start(command.first, const [], runInShell: true)
           : await Process.start(command.first, command.sublist(1));
     } on ProcessException catch (e) {
-      engine.onError(pyFormat(i18n.tr('Starting Kata failed'), {'command': command, 'error': e}), 'c');
+      engine.onError(fillTemplate(i18n.tr('Starting Kata failed'), {'command': command, 'error': e}), 'c');
       return false;
     }
     _exited = false;

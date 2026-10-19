@@ -13,8 +13,8 @@ import '../game/game_node.dart';
 import '../i18n/i18n.dart';
 import '../rules/rulesets.dart';
 import '../sgf/move.dart';
-import '../utils/py_format.dart';
-import '../utils/py_str_format.dart';
+import '../utils/format.dart';
+import '../utils/template.dart';
 import 'analysis_engine.dart';
 
 /// What the engine needs from the application (KaTrain's `katrain` object).
@@ -416,7 +416,7 @@ class KataGoEngine implements AnalysisEngine<GameNode> {
         return;
       }
       if (analysis.containsKey('warning')) {
-        final warning = pyStr(analysis['warning']);
+        final warning = '${analysis['warning']}';
         host.log('Remote KataGo warning: $warning', outputInfo);
         host.setStatus(warning);
       }
@@ -450,7 +450,7 @@ class KataGoEngine implements AnalysisEngine<GameNode> {
     final candidates = (analysis['moveInfos'] as List?)?.length ?? 0;
     final visits = resultsExist ? (analysis['rootInfo'] as Map<String, dynamic>)['visits'] : 'n/a';
     host.log(
-      '[${pyFixed(seconds, 1)}][$queryId][${partial ? '....' : 'done'}] KataGo analysis received: '
+      '[${formatFixed(seconds, 1)}][$queryId][${partial ? '....' : 'done'}] KataGo analysis received: '
       '$candidates candidate moves, $visits visits',
       outputDebug,
     );
@@ -470,12 +470,12 @@ class KataGoEngine implements AnalysisEngine<GameNode> {
   /// The process ended or the connection was lost (local engine, KaTrain's `check_alive(exception_if_dead=True)`).
   void onProcessExit(int? exitCode, {String osError = '', bool maybeOpenRecovery = false}) {
     if (exitCode == null) {
-      host.log(pyFormat(i18n.tr('Engine died unexpectedly'), {'error': osError}), outputDebug);
+      host.log(fillTemplate(i18n.tr('Engine died unexpectedly'), {'error': osError}), outputDebug);
       return;
     }
     final died = exitCode == 3221225781
         ? i18n.tr('Engine missing DLL')
-        : pyFormat(i18n.tr('Engine died unexpectedly'), {'error': '$osError status $exitCode'});
+        : fillTemplate(i18n.tr('Engine died unexpectedly'), {'error': '$osError status $exitCode'});
     if (exitCode != 1) {
       // 1 is a deliberate exit
       onError(died, exitCode, allowPopup: maybeOpenRecovery);

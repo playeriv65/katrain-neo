@@ -268,7 +268,7 @@ class _AiDialogState extends State<AiDialog> {
           if (value is (num, String))
             (value.$1, value.$2.replaceAllMapped(RegExp(r'\[(.*?)]'), (m) => i18n.tr(m[1]!)))
           else
-            (value as num, pyStr(value)),
+            (value as num, '$value'),
       ];
       return SelectionSliderField(
         key: ValueKey(key),

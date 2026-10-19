@@ -152,7 +152,7 @@ class EngineFileFinder {
     ], (f) => _basename(f.path).startsWith('katago') && !f.path.endsWith('.zip'));
     double key(FoundFile f) => (f.path.contains('bs29') ? 0.1 : 0) - (f.path != f.description ? 1 : 0);
     final found = [for (final path in files) (description: describe(path), path: path)];
-    mergeSortBy(found, key);
+    stableSortBy(found, key);
     return found;
   }
 }

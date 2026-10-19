@@ -8,7 +8,7 @@ import 'dart:math' as math;
 
 import '../../constants.dart';
 import '../../i18n/i18n.dart';
-import '../../utils/py_str_format.dart';
+import '../../utils/template.dart';
 import '../katago_engine.dart';
 
 /// Opens a WebSocket; a parameter so tests can provide their own.
@@ -63,7 +63,7 @@ class RemoteKataGo implements EngineConnection {
       _attach(await connector(remoteUrl));
     } on Object catch (e) {
       engine.onError(
-        pyFormat(i18n.tr('Connecting to remote KataGo failed'), {'url': remoteUrl, 'error': e}),
+        fillTemplate(i18n.tr('Connecting to remote KataGo failed'), {'url': remoteUrl, 'error': e}),
         'REMOTE-CONNECT',
       );
       _ws = null;
@@ -198,7 +198,7 @@ class RemoteKataGo implements EngineConnection {
     _reportedDead = true;
     _ws = null;
     engine.onError(
-      pyFormat(i18n.tr('Remote KataGo engine disconnected'), {'error': osError}),
+      fillTemplate(i18n.tr('Remote KataGo engine disconnected'), {'error': osError}),
       'REMOTE-DISCONNECTED',
       allowPopup: allowPopup,
     );

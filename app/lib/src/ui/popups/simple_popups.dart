@@ -200,14 +200,14 @@ class EngineRecoveryDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final remote = failure.engineType == 'remote';
     final settings = i18n.tr('menu:settings');
-    final opening = pyFormat(
+    final opening = fillTemplate(
       i18n.tr(remote ? 'remote engine disconnected popup opening message' : 'engine died popup opening message'),
       {'code': failure.code, 'error_message': failure.message},
     );
-    final suggestion = pyFormat(i18n.tr(remote ? 'remote engine check url suggestion' : 'change engine suggestion'), {
+    final suggestion = fillTemplate(i18n.tr(remote ? 'remote engine check url suggestion' : 'change engine suggestion'), {
       'link': settings,
     });
-    final help = pyFormat(i18n.tr('go to engine help page'), {'link': i18n.tr('link_here')});
+    final help = fillTemplate(i18n.tr('go to engine help page'), {'link': i18n.tr('link_here')});
     return AlertDialog(
       icon: const Icon(Icons.error_outline),
       title: Text(i18n.tr('engine recovery')),

@@ -12,9 +12,9 @@ import '../engine/analysis_engine.dart';
 import '../i18n/i18n.dart';
 import '../rules/base_game.dart';
 import '../sgf/move.dart';
-import '../utils/py_format.dart';
-import '../utils/py_random.dart';
-import '../utils/py_str_format.dart';
+import '../utils/format.dart';
+import '../utils/random.dart';
+import '../utils/template.dart';
 import '../utils/utils.dart';
 import 'game_node.dart';
 import 'player.dart';
@@ -287,7 +287,7 @@ class Game extends BaseGame<GameNode> {
     if ((cn.ownership?.isEmpty ?? true) || !japanese || parent == null || (parent.ownership?.isEmpty ?? true)) {
       final score = cn.score;
       if (score == null || score == 0) return null;
-      return '${cn.formatScore(pyRound(2 * score) / 2)}?';
+      return '${cn.formatScore((2 * score).round() / 2)}?';
     }
     final (sizeX, sizeY) = boardSize;
     final own = cn.ownership!;
@@ -310,10 +310,10 @@ class Game extends BaseGame<GameNode> {
         return 0; // dame or own stones
       }
       if (player == null && owner.abs() >= hiThreshold) {
-        return pyRound(owner); // surrounded empty intersection
+        return (owner).round(); // surrounded empty intersection
       }
       if ((player == 'B' && owner < -hiThreshold) || (player == 'W' && owner > hiThreshold)) {
-        return 2 * pyRound(owner); // captured stone
+        return 2 * (owner).round(); // captured stone
       }
       return double.nan; // unknown!
     }
@@ -334,7 +334,7 @@ class Game extends BaseGame<GameNode> {
     final prisonersRepr = "{'B': ${prisoners['B']}, 'W': ${prisoners['W']}}";
     katrain.log(
       'Manual Scoring: $numSqRepr score by square with $numUnknown unknown, $prisonersRepr captures, and '
-      '${pyStr(komi)} komi -> score = ${pyStr(score)}',
+      '$komi komi -> score = $score',
       outputDebug,
     );
     if (numUnknown > maxUnknown || (numSq[0]! - stoneOwners.length) > maxDame) return null;
@@ -483,7 +483,7 @@ class Game extends BaseGame<GameNode> {
 
     if (mode == 'extra') {
       final extraVisits = cn.analysisVisitsRequested + maxVisits;
-      katrain.setStatus(pyFormat(i18n.tr('extra analysis'), {'visits': extraVisits}), statusAnalysis);
+      katrain.setStatus(fillTemplate(i18n.tr('extra analysis'), {'visits': extraVisits}), statusAnalysis);
       cn.analyze(
         engine,
         visits: extraVisits,
@@ -511,10 +511,10 @@ class Game extends BaseGame<GameNode> {
         node.analyze(engine, visits: gameVisits, priority: -1000000, timeLimit: false, reportEvery: null);
       }
       if (range == null) {
-        katrain.setStatus(pyFormat(i18n.tr('game re-analysis'), {'visits': gameVisits}), statusAnalysis);
+        katrain.setStatus(fillTemplate(i18n.tr('game re-analysis'), {'visits': gameVisits}), statusAnalysis);
       } else {
         katrain.setStatus(
-          pyFormat(i18n.tr('move range analysis'), {
+          fillTemplate(i18n.tr('move range analysis'), {
             'start_move': range[0],
             'end_move': range[1],
             'visits': gameVisits,
@@ -539,7 +539,7 @@ class Game extends BaseGame<GameNode> {
             for (var y = 0; y < sizeY; y++)
               if (policyGrid[y][x] >= 0) Move(coords: (x, y), player: cn.nextPlayer),
         ];
-        mergeSortBy(analyzeMoves, (mv) => -policyGrid[mv.coords!.$2][mv.coords!.$1]);
+        stableSortBy(analyzeMoves, (mv) => -policyGrid[mv.coords!.$2][mv.coords!.$1]);
       } else {
         analyzeMoves = [
           for (var x = 0; x < sizeX; x++)
@@ -548,7 +548,7 @@ class Game extends BaseGame<GameNode> {
         ];
       }
       moveVisits = fastVisits;
-      katrain.setStatus(pyFormat(i18n.tr('sweep analysis'), {'visits': moveVisits}), statusAnalysis);
+      katrain.setStatus(fillTemplate(i18n.tr('sweep analysis'), {'visits': moveVisits}), statusAnalysis);
       priority = prioritySweep;
     } else if (mode == 'equalize' || mode == 'alternative' || mode == 'local') {
       if (!cn.analysisComplete && mode != 'local') {
@@ -564,7 +564,7 @@ class Game extends BaseGame<GameNode> {
       } else {
         // equalize
         moveVisits = moves.values.map((d) => (d as Map<String, dynamic>)['visits'] as int).reduce(math.max);
-        katrain.setStatus(pyFormat(i18n.tr('equalizing analysis'), {'visits': moveVisits}), statusAnalysis);
+        katrain.setStatus(fillTemplate(i18n.tr('equalizing analysis'), {'visits': moveVisits}), statusAnalysis);
       }
       priority = priorityEqualize;
       analyzeMoves = [for (final gtp in moves.keys) Move.fromGtp(gtp, player: cn.nextPlayer)];
@@ -627,7 +627,7 @@ class Game extends BaseGame<GameNode> {
         final spread = 0.5 + (until - node.depth) * 0.15;
         final num stddev = spread < 3 ? spread : 3; // Python's min(3, x) keeps the int
         aiThoughts +=
-            'Selecting moves aiming at score ${pyFixed(targetScore, 1)} +/- ${pyFixed(stddev.toDouble(), 2)} '
+            'Selecting moves aiming at score ${formatFixed(targetScore, 1)} +/- ${formatFixed(stddev.toDouble(), 2)} '
             'with < $maxLoss points lost\n';
         Map<String, dynamic> moveInfo;
         double lead(Map<String, dynamic> m) => (m['scoreLead'] as num).toDouble();
@@ -642,15 +642,15 @@ class Game extends BaseGame<GameNode> {
                       math.exp(-0.5 * math.pow(math.min(0, lost(candidates[i])) / maxLoss, 2)),
                 ),
           ];
-          moveInfo = weightedSelectionWithoutReplacement(weightedCands, 1, (c) => c.$2, globalRandom)[0].$1;
+          moveInfo = weightedSelectionWithoutReplacement(weightedCands, 1, (c) => c.$2, random)[0].$1;
           for (final (cand, wt) in weightedCands) {
             katrain.log(
-              '${identical(moveInfo, cand) ? '* ' : '  '} ${cand['move']} ${pyStr(cand['scoreLead'])} ${pyStr(wt)}',
+              '${identical(moveInfo, cand) ? '* ' : '  '} ${cand['move']} ${cand['scoreLead']} $wt',
               outputExtraDebug,
             );
             aiThoughts +=
-                'Move option: ${cand['move']} score ${pyFixed(lead(cand), 2)} loss ${pyFixed(lost(cand), 2)} '
-                'weight ${pyExp(wt, 3)}\n';
+                'Move option: ${cand['move']} score ${formatFixed(lead(cand), 2)} loss ${formatFixed(lost(cand), 2)} '
+                'weight ${(wt).toStringAsExponential(3)}\n';
           }
         } else {
           // we're a bit lost, far away from target, just push it closer
@@ -659,17 +659,17 @@ class Game extends BaseGame<GameNode> {
             if ((lead(c) - targetScore).abs() < (lead(moveInfo) - targetScore).abs()) moveInfo = c;
           }
           katrain.log(
-            '* Played ${moveInfo['move']} ${pyStr(moveInfo['scoreLead'])} because score deviation between current '
-            'score ${pyStr(nodeScore)} and target score ${pyStr(targetScore)} > ${pyStr(3 * stddev)}',
+            '* Played ${moveInfo['move']} ${moveInfo['scoreLead']} because score deviation between current '
+            'score $nodeScore and target score $targetScore > ${3 * stddev}',
             outputExtraDebug,
           );
           aiThoughts +=
-              'Move played to close difference between score ${pyFixed(nodeScore, 1)} and target '
-              '${pyFixed(targetScore, 1)} quickly.';
+              'Move played to close difference between score ${formatFixed(nodeScore, 1)} and target '
+              '${formatFixed(targetScore, 1)} quickly.';
         }
         katrain.log(
-          'Self-play until $until target ${pyStr(targetBAdvantage)}: ${candidates.length} candidates -> move '
-          '${moveInfo['move']} score ${pyStr(moveInfo['scoreLead'])} point loss ${pyStr(moveInfo['pointsLost'])}',
+          'Self-play until $until target $targetBAdvantage: ${candidates.length} candidates -> move '
+          '${moveInfo['move']} score ${moveInfo['scoreLead']} point loss ${moveInfo['pointsLost']}',
           outputDebug,
         );
         move = Move.fromGtp(moveInfo['move'] as String, player: node.nextPlayer);
@@ -690,7 +690,7 @@ class Game extends BaseGame<GameNode> {
       if (setup) {
         setCurrentNode(newNode);
         katrain.setStatus(
-          pyFormat(i18n.tr('setup game status message'), {'move': newNode.depth, 'until_move': untilMove}),
+          fillTemplate(i18n.tr('setup game status message'), {'move': newNode.depth, 'until_move': untilMove}),
           statusInfo,
         );
       } else {
@@ -730,7 +730,7 @@ class Game extends BaseGame<GameNode> {
     if (doUndo) {
       undo(1);
       katrain.setStatus(
-        pyFormat(i18n.tr('teaching undo message'), {'move': move.gtp(), 'points_lost': pointsLost}),
+        fillTemplate(i18n.tr('teaching undo message'), {'move': move.gtp(), 'points_lost': pointsLost}),
         statusTeaching,
       );
       katrain.updateState();
@@ -783,7 +783,7 @@ class Game extends BaseGame<GameNode> {
           // illegal move = stop
         }
         calculateGroups(); // recalculate groups
-        katrain.setStatus(pyFormat(i18n.tr('ending insert mode'), {'num_copied': numCopied}), statusInfo);
+        katrain.setStatus(fillTemplate(i18n.tr('ending insert mode'), {'num_copied': numCopied}), statusInfo);
         analyzeAllNodes(analyzeFast: true, evenIfPresent: false);
       } else {
         katrain.setStatus('', statusInfo);

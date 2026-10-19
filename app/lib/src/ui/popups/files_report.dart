@@ -146,7 +146,7 @@ class _GameReportDialogState extends State<GameReportDialog> {
     final thresholds = (app.config('trainer/eval_thresholds') as List).cast<num>();
     final (sumStats, histogram, playerPtloss) = gameReport(app.game!, thresholds, depthFilter: depthFilter);
     final labels = [
-      for (final pt in thresholds) pt > 0 ? '≥ ${pyStr(pt)}' : '< ${pyStr(thresholds[thresholds.length - 2])}',
+      for (final pt in thresholds) pt > 0 ? '≥ $pt' : '< ${thresholds[thresholds.length - 2]}',
     ];
     final colors = [
       for (final c in KTheme.evalColors[app.config('trainer/theme')]!)
@@ -189,10 +189,10 @@ class _GameReportDialogState extends State<GameReportDialog> {
         ],
       ),
       for (final (label, format, key, scale, moreIsBetter) in <(String, String Function(double), String, double, bool)>[
-        ('accuracy', (v) => pyFixed(v, 1), 'accuracy', 100, true),
-        ('meanpointloss', (v) => pyFixed(v, 2), 'mean_ptloss', 5, false),
-        ('aitopmove', (v) => pyPercent(v, 1), 'ai_top_move', 1, true),
-        ('aitop5', (v) => pyPercent(v, 1), 'ai_top5_move', 1, true),
+        ('accuracy', (v) => formatFixed(v, 1), 'accuracy', 100, true),
+        ('meanpointloss', (v) => formatFixed(v, 2), 'mean_ptloss', 5, false),
+        ('aitopmove', (v) => formatPercent(v, 1), 'ai_top_move', 1, true),
+        ('aitop5', (v) => formatPercent(v, 1), 'ai_top5_move', 1, true),
       ])
         TableRow(
           children: [

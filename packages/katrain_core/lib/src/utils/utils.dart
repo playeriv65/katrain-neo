@@ -3,8 +3,7 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'py_format.dart';
-import 'py_random.dart';
+import 'format.dart';
 
 /// Ownership or policy as a grid such that `grid[y][x]` is for the point (x, y). KataGo lists the top row first.
 List<List<T>> varToGrid<T>(List<T> array, (int, int) size) {
@@ -110,15 +109,15 @@ double _fromHalf(int h) {
 /// Visits as KaTrain shows them: 950, 1.2k, 120k, 3M.
 String formatVisits(num n) {
   if (n < 1000) return '$n';
-  if (n < 1e5) return '${pyFixed(n / 1000, 1)}k';
-  if (n < 1e6) return '${pyFixed(n / 1000, 0)}k';
-  return '${pyFixed(n / 1e6, 0)}M';
+  if (n < 1e5) return '${formatFixed(n / 1000, 1)}k';
+  if (n < 1e6) return '${formatFixed(n / 1000, 0)}k';
+  return '${formatFixed(n / 1e6, 0)}M';
 }
 
 /// Random items without replacement, each item's second element being its weight
 /// (`weighted_selection_without_replacement`: the "log(u) / w" trick, then the n largest keys).
-List<T> weightedSelectionWithoutReplacement<T>(List<T> items, int pickN, double Function(T) weight, PyRandom random) {
-  final keyed = [for (final item in items) (math.log(random.random()) / (weight(item) + 1e-18), item)];
+List<T> weightedSelectionWithoutReplacement<T>(List<T> items, int pickN, double Function(T) weight, math.Random random) {
+  final keyed = [for (final item in items) (math.log(random.nextDouble()) / (weight(item) + 1e-18), item)];
   final indexed = [for (var i = 0; i < keyed.length; i++) (keyed[i].$1, i, keyed[i].$2)];
   // heapq.nlargest: largest keys first; equal keys keep their order
   indexed.sort((a, b) {

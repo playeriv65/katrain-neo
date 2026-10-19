@@ -12,9 +12,9 @@ import '../i18n/i18n.dart';
 import '../sgf/go_node.dart';
 import '../sgf/move.dart';
 import '../sgf/parser.dart';
-import '../utils/py_format.dart';
-import '../utils/py_random.dart';
-import '../utils/py_str_format.dart';
+import '../utils/format.dart';
+import '../utils/random.dart';
+import '../utils/template.dart';
 import '../utils/utils.dart';
 
 /// The colour KaTrain uses for clickable PVs in comments (Theme.INFO_PV_COLOR).
@@ -33,7 +33,7 @@ List<String> analysisDumps(Map<String, dynamic> analysis) {
   }
   final ownershipData = packFloats(_doubles(copy.remove('ownership')));
   final policyData = packFloats(_doubles(copy.remove('policy')));
-  final mainData = utf8.encode(pyJsonDumps(copy)); // the same text as KaTrain's json.dumps
+  final mainData = utf8.encode(jsonEncode(copy)); // the same text as KaTrain's json.dumps
   // gzip.compress uses level 9; the deflate bytes can still differ between zlib builds, the content does not
   return [
     for (final data in [ownershipData, policyData, mainData]) base64.encode(GZipEncoder().encodeBytes(data, level: 9)),
@@ -65,7 +65,7 @@ class GameNode extends BaseGoNode<GameNode> {
   static int _nextSerial = 1;
   int? _serial;
 
-  GameNode({super.parent, super.properties, super.move}) : undoThreshold = globalRandom.random() {
+  GameNode({super.parent, super.properties, super.move}) : undoThreshold = random.nextDouble() {
     clearAnalysis();
   }
 
@@ -226,7 +226,7 @@ class GameNode extends BaseGoNode<GameNode> {
   @override
   List<GameNode> orderChildren(List<GameNode> children) {
     final sorted = List.of(children);
-    mergeSortBy(sorted, (c) => c.autoUndo == null ? 0.5 : (c.autoUndo! ? 1 : 0));
+    stableSortBy(sorted, (c) => c.autoUndo == null ? 0.5 : (c.autoUndo! ? 1 : 0));
     return sorted;
   }
 
@@ -352,7 +352,7 @@ class GameNode extends BaseGoNode<GameNode> {
     final s = (scoreArg != null && scoreArg != 0) ? scoreArg : score;
     if (s == null) return null;
     final leading = s >= 0 ? 'B' : 'W';
-    return '${i18n.tr('short color $leading')}+${pyFixed(s.abs(), 1)}';
+    return '${i18n.tr('short color $leading')}+${formatFixed(s.abs(), 1)}';
   }
 
   /// `B 63.2%` style; a win rate of exactly 0 given as argument falls back to this node's, as in KaTrain.
@@ -360,7 +360,7 @@ class GameNode extends BaseGoNode<GameNode> {
     final w = (winRateArg != null && winRateArg != 0) ? winRateArg : winrate;
     if (w == null) return null;
     final leading = w > 0.5 ? 'B' : 'W';
-    return '${i18n.tr('short color $leading')} ${pyPercent(math.max(w, 1 - w), 1)}';
+    return '${i18n.tr('short color $leading')} ${formatPercent(math.max(w, 1 - w), 1)}';
   }
 
   /// Rank of this move in the parent's policy (1-based), its probability, and the whole ranking.
@@ -392,14 +392,14 @@ class GameNode extends BaseGoNode<GameNode> {
       // root
       // KaTrain looks up even JSON rules lowercased; with no translation they show as they are, lowercased
       final rules = i18n.tr(getProperty('RU', 'Japanese')!.toLowerCase());
-      return '${i18n.tr('komi')}: ${pyFixed(komi, 1)}\n${i18n.tr('ruleset')}: $rules\n';
+      return '${i18n.tr('komi')}: ${formatFixed(komi, 1)}\n${i18n.tr('ruleset')}: $rules\n';
     }
-    var text = '${pyFormat(i18n.tr('move'), {'number': depth})}: ${single.player} ${single.gtp()}\n';
+    var text = '${fillTemplate(i18n.tr('move'), {'number': depth})}: ${single.player} ${single.gtp()}\n';
     if (analysisExists) {
       final s = score;
       if (sgf) {
-        text += '${pyFormat(i18n.tr('Info:score'), {'score': formatScore(s)})}\n';
-        text += '${pyFormat(i18n.tr('Info:winrate'), {'winrate': formatWinrate()})}\n';
+        text += '${fillTemplate(i18n.tr('Info:score'), {'score': formatScore(s)})}\n';
+        text += '${fillTemplate(i18n.tr('Info:winrate'), {'winrate': formatWinrate()})}\n';
       }
       if (p.analysisExists) {
         final previousTopMove = p.candidateMoves[0];
@@ -407,28 +407,28 @@ class GameNode extends BaseGoNode<GameNode> {
           if (previousTopMove['move'] != single.gtp()) {
             final lost = pointsLost!;
             if (sgf && lost > 0.5) {
-              text += '${pyFormat(i18n.tr('Info:point loss'), {'points_lost': lost})}\n';
+              text += '${fillTemplate(i18n.tr('Info:point loss'), {'points_lost': lost})}\n';
             }
             final topMove = previousTopMove['move'];
             final topScore = formatScore((previousTopMove['scoreLead'] as num).toDouble());
-            text += '${pyFormat(i18n.tr('Info:top move'), {'top_move': topMove, 'score': topScore})}\n';
+            text += '${fillTemplate(i18n.tr('Info:top move'), {'top_move': topMove, 'score': topScore})}\n';
           } else {
             text += '${i18n.tr('Info:best move')}\n';
           }
           final pv = previousTopMove['pv'] as List?;
           if (pv != null && pv.isNotEmpty && (sgf || details)) {
             final pvText = makePv(single.player, pv.cast<String>(), interactive);
-            text += '${pyFormat(i18n.tr('Info:PV'), {'pv': pvText})}\n';
+            text += '${fillTemplate(i18n.tr('Info:PV'), {'pv': pvText})}\n';
           }
         }
         if (sgf || details || teach) {
           final (rank, probability, ranking) = movePolicyStats();
           if (rank != null) {
-            text += '${pyFormat(i18n.tr('Info:policy rank'), {'rank': rank, 'probability': probability})}\n';
+            text += '${fillTemplate(i18n.tr('Info:policy rank'), {'rank': rank, 'probability': probability})}\n';
           }
           if (rank != 1 && ranking.isNotEmpty && (sgf || details)) {
             final (polProb, polMove) = ranking[0];
-            text += '${pyFormat(i18n.tr('Info:policy best'), {'move': polMove.gtp(), 'probability': polProb})}\n';
+            text += '${fillTemplate(i18n.tr('Info:policy best'), {'move': polMove.gtp(), 'probability': polProb})}\n';
           }
         }
       }
@@ -437,14 +437,14 @@ class GameNode extends BaseGoNode<GameNode> {
         final topPv = analysisExists ? candidateMoves[0]['pv'] as List? : null;
         if (topPv != null && topPv.isNotEmpty) {
           final pvText = '$nextPlayer${topPv.cast<String>().join(' ')}';
-          text += '${pyFormat(i18n.tr('Info:undo predicted PV'), {'pv': pvText})}\n';
+          text += '${fillTemplate(i18n.tr('Info:undo predicted PV'), {'pv': pvText})}\n';
         }
       }
     } else {
       text = sgf ? i18n.tr('No analysis available') : i18n.tr('Analyzing move...');
     }
     if (aiThoughts.isNotEmpty && (sgf || details)) {
-      text += '\n${pyFormat(i18n.tr('Info:AI thoughts'), {'thoughts': aiThoughts})}';
+      text += '\n${fillTemplate(i18n.tr('Info:AI thoughts'), {'thoughts': aiThoughts})}';
     }
     final c = properties['C'];
     if (c != null) {
@@ -536,7 +536,7 @@ class GameNode extends BaseGoNode<GameNode> {
         for (var y = 0; y < szy; y++) (grid[y][x], Move(coords: (x, y), player: nextPlayer)),
       (pol.last, Move(player: nextPlayer)),
     ];
-    mergeSortBy(moves, (mp) => -mp.$1);
+    stableSortBy(moves, (mp) => -mp.$1);
     return moves;
   }
 }

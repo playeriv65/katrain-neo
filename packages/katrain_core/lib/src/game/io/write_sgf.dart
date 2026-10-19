@@ -3,7 +3,7 @@
 import 'dart:io';
 
 import '../../i18n/i18n.dart';
-import '../../utils/py_str_format.dart';
+import '../../utils/template.dart';
 import '../game.dart';
 
 /// Saves [game] to [filename] (creating its folder) and returns the status message to show. KaTrain writes in text
@@ -14,5 +14,5 @@ String writeSgf(Game game, String filename, {Map<String, dynamic>? trainerConfig
   final file = File(filename);
   file.parent.createSync(recursive: true);
   file.writeAsStringSync(sgf);
-  return pyFormat(i18n.tr('sgf written'), {'file_name': filename});
+  return fillTemplate(i18n.tr('sgf written'), {'file_name': filename});
 }
