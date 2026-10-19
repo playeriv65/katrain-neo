@@ -1,6 +1,5 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/badukpan.py: the state of
-// BadukPanWidget that is not drawing (rotation, coordinates, the ghost stone, the animated principal variation and
-// the region being selected).
+// The board's state apart from drawing: rotation, coordinates, the ghost stone, the variation shown over the board,
+// the zoomed view and the region being selected.
 
 import 'package:flutter/foundation.dart';
 import 'package:katrain_core/api.dart' show PvOverlay;

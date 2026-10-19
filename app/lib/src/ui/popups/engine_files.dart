@@ -1,5 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/popups.py BaseConfigPopup: finding
-// KataGo models and programs on disk, and downloading them.
+// Finding KataGo models and programs on disk, and downloading them.
 
 import 'dart:convert';
 import 'dart:io';
@@ -12,7 +11,7 @@ import 'package:katrain_core/katrain_core.dart';
 
 import '../../state/app_controller.dart';
 
-/// Where KaTrain's models and KataGo builds can be downloaded from (assets/katago/downloads.json).
+/// Where models and KataGo builds can be downloaded from (assets/katago/downloads.json).
 class EngineDownloads {
   final Map<String, String> modelEndpoints;
   final Map<String, String> models;
@@ -31,7 +30,7 @@ class EngineDownloads {
     );
   }
 
-  /// KaTrain's (Kivy's) platform names, which key [katagos].
+  /// The platform names that key [katagos].
   static String get platform => Platform.isWindows
       ? 'win'
       : Platform.isLinux
@@ -52,7 +51,7 @@ String _dirname(String path) {
   return i < 0 ? '' : path.substring(0, i);
 }
 
-/// Finds models and KataGo programs in the folders KaTrain looks in, remembering folders where some were found.
+/// Finds models and KataGo programs in the usual folders, remembering folders where some were found.
 class EngineFileFinder {
   final AppController app;
   final EngineDownloads downloads;

@@ -1,6 +1,6 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/badukpan.py: BadukPanWidget's input
-// handling (the ghost stone and playing, selecting a region, hovering over hints to animate their variation,
-// clicking old moves for their comments, double clicking to go back there, middle clicking to add a variation).
+// The board's input: the ghost stone and playing, selecting a region, hovering over hints to animate their
+// variation, clicking old moves for their comments, double clicking to go back there, middle clicking to add a
+// variation, scrolling through moves.
 
 import 'dart:async';
 
@@ -38,7 +38,7 @@ class _BoardViewState extends State<BoardView> {
   @override
   void initState() {
     super.initState();
-    // animate the variation (badukpan.py schedules animate_pv every 0.1 s)
+    // animate the variation
     _animation = Timer.periodic(const Duration(milliseconds: 100), (_) {
       if (app.board.pv != null) app.board.notifyHover();
     });
@@ -219,7 +219,6 @@ class _BoardViewState extends State<BoardView> {
     }
     final animating = board.pv;
     if (animating != null && !animating.pinned) {
-      // badukpan.py squares only the x distance; kept as it is
       final dSq = (p.dx - animating.origin.$1) * (p.dx - animating.origin.$1) + (p.dy - animating.origin.$2);
       if (dSq > 2 * geo.stoneSize * geo.stoneSize) board.setHoverPv(null, null, enabled: _animEnabled);
     }

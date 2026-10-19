@@ -1,5 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/popups.py and popups.kv:
-// ConfigTeacherPopup and ConfigAIPopup.
+// The teaching settings and the AI settings dialogs.
 
 import 'package:flutter/material.dart';
 import 'package:katrain_core/katrain_core.dart';

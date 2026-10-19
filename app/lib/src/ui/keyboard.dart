@@ -1,5 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/__main__.py: shortcuts,
-// _on_keyboard_down, _on_keyboard_up and _single_key_action, with the keys of katrain/app/theme.py.
+// The keyboard shortcuts of the main window, and single Alt (menu) and Tab (play/analysis) presses.
 
 import 'dart:async';
 import 'dart:convert';
@@ -14,7 +13,7 @@ import '../state/dialogs.dart';
 
 typedef _K = LogicalKeyboardKey;
 
-/// The popups whose keys close an open popup instead (KaTrain switches between popups this way).
+/// The dialogs' keys close an open dialog instead.
 final _popupKeys = {_K.f2, _K.f3, _K.f5, _K.f6, _K.f7, _K.f8, _K.f9, _K.f10};
 
 /// What keys without Ctrl do (the analysis toggles are handled apart).
@@ -47,7 +46,7 @@ final _analysisToggles = {
   _K.keyR: 'policy',
 };
 
-/// KaTrain's keyboard shortcuts for the main window. Keys typed into a text field (the notes) are left to it.
+/// The main window's keyboard shortcuts. Keys typed into a text field (the notes) are left to it.
 ///
 /// It sits above the navigator, so that it sees the keys wherever the focus is, popups included.
 class KeyboardShortcuts extends StatefulWidget {

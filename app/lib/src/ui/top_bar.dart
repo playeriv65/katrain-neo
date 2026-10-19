@@ -1,5 +1,5 @@
-// KaTrain's analysis controls bar (katrain/app.kv AnalysisControls and AnalysisDropDown): the menu button, the
-// five display toggles with their shortcut keys, and the analysis menu.
+// The bar above the board: the menu button, the five display toggles with their shortcut keys, and the analysis
+// menu.
 
 import 'package:flutter/material.dart';
 import 'package:katrain_core/katrain_core.dart';

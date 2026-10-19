@@ -1,6 +1,5 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/widgets/movetree.py: the move tree
-// (stones numbered by move, the current and selected nodes, the insertion path, collapsed branches), scrolling to the
-// current node, clicking to go to a node and the right click menu.
+// The move tree: stones numbered by move, the current and selected nodes, the insertion path, collapsed branches;
+// scrolling to the current node, clicking to go to a node, and the right click menu.
 
 import 'package:flutter/material.dart';
 import 'package:katrain_core/katrain_core.dart';

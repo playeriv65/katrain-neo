@@ -1,5 +1,5 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/widgets/graph.py: ScoreGraph (score,
-// win rate and point loss lines with their scales, the dot at the current move, and pointing at a move to go there).
+// The score graph: score, win rate and point loss lines with their scales, the dot at the current move, and pointing
+// at a move to go there.
 
 import 'dart:math' as math;
 
@@ -53,7 +53,7 @@ class _GraphData {
   );
 }
 
-/// graph.py `update_graph`, in widget coordinates (y down).
+/// The lines and scales to draw, in widget coordinates (y down).
 _GraphData _graphData(GraphModel model, Size size) {
   final nodes = model.nodes;
   final w = size.width;
@@ -218,7 +218,7 @@ class _GraphPainter extends CustomPainter {
     var pen = false;
     for (final p in points) {
       if (p.dy.isNaN) {
-        pen = false; // Kivy leaves gaps where values are missing
+        pen = false; // gaps where values are missing
         continue;
       }
       if (pen) {

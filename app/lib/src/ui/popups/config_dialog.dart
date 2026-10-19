@@ -1,5 +1,5 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/popups.py and popups.kv: ConfigPopup
-// (general and engine settings).
+// General and engine settings: which KataGo to use (a local program, a remote server or a custom command) with its
+// search settings, sound, variation animation and logging.
 
 import 'dart:io';
 
@@ -92,7 +92,7 @@ class _ConfigDialogState extends State<ConfigDialog> {
   }
 
   void _downloadModels() {
-    // KaTrain ignores clicks within 5 seconds of the last one
+    // clicks within 5 seconds of the last one are ignored
     if (DateTime.now().difference(_lastModelDownload).inSeconds <= 5) return;
     _lastModelDownload = DateTime.now();
     for (final d in modelDownloads) {
@@ -298,7 +298,7 @@ class _ConfigDialogState extends State<ConfigDialog> {
         const SizedBox(height: 4),
         Text(i18n.tr('engine:backend:note'), style: text.bodySmall?.copyWith(color: scheme.tertiary)),
         const SizedBox(height: 8),
-        // All three stay mounted: KaTrain stores the settings of every tab, and the selected tab picks the backend.
+        // All three stay mounted: the settings of every tab are kept, and the selected tab picks the backend.
         Offstage(offstage: backend != 'local', child: _local()),
         Offstage(
           offstage: backend != 'remote',

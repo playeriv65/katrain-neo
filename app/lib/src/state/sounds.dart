@@ -1,4 +1,4 @@
-// The sounds of KaTrain (katrain/app/sound.py plays them; theme.py names them).
+// The app's sounds, and the player interface (silent in tests and headless runs).
 
 import 'dart:math' as math;
 
@@ -24,7 +24,7 @@ class Sounds {
   const Sounds();
   const Sounds.silent();
 
-  /// KaTrain has no mistake sounds by default (theme.py MISTAKE_SOUNDS).
+  /// No mistake sounds by default.
   List<String> get mistakeSounds => const [];
 
   void play(String sound, {double volume = 1}) {}

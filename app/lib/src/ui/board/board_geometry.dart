@@ -1,8 +1,5 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/badukpan.py: draw_board's layout
-// (grid size, margins and the pixel positions of the lines, rounded as KaTrain rounds them) and rotation.
-//
-// KaTrain works in Kivy coordinates (y up) and rotates by permuting its table of grid positions. Here a board point
-// is first rotated into display rows and columns, which gives the same picture.
+// The board's layout: grid size, margins and the pixel positions of the lines (whole pixels, so shaded squares
+// leave no gaps), rotation and the zoomed view. A board point is first turned into a displayed column and row.
 
 import 'dart:math' as math;
 import 'dart:ui';
@@ -45,7 +42,7 @@ class BoardGeometry {
   /// Pixel positions of the displayed columns, left to right.
   late final List<double> columnsX = [for (var i = 0; i < displayX; i++) _columnX(i)];
 
-  /// Pixel positions of the displayed rows, bottom to top, measured up from the bottom (as Kivy does).
+  /// Pixel positions of the displayed rows, bottom to top, measured up from the bottom.
   late final List<double> _rowsUp = [for (var i = 0; i < displayY; i++) _rowUp(i)];
 
   /// Pixel positions of the displayed rows, bottom to top, in screen coordinates (y down).
@@ -115,7 +112,7 @@ class BoardGeometry {
     gridSize * yGridSpaces,
   );
 
-  /// KaTrain's `_find_closest`: the nearest point and its distance from [p] along each axis.
+  /// The nearest point and its distance from [p] along each axis.
   ({int x, int y, double dx, double dy}) closest(Offset p) {
     var bestCol = 0;
     var bestRow = 0;
@@ -137,7 +134,7 @@ class BoardGeometry {
     return (x: x, y: y, dx: xd, dy: yd);
   }
 
-  /// Coordinate labels: the text under displayed column [i] and beside displayed row [i] (badukpan.py).
+  /// Coordinate labels: the text under displayed column [i] and beside displayed row [i].
   String xLabel(int i, List<String> gtpCoord) => zoom != null
       ? gtpCoord[i + zoom![0]]
       : switch (rotation) {

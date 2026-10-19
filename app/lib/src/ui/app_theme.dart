@@ -1,5 +1,5 @@
-// The app's look: Material 3, dark, seeded from KaTrain's blue-grey. KaTrain's own colours stay where they carry
-// meaning (score, win rate and point loss, evaluation classes, the board).
+// The app's look: Material 3, dark, seeded from a blue-grey. The board's own colours stay where they carry meaning
+// (score, win rate and point loss, evaluation classes, the board).
 
 import 'package:flutter/material.dart';
 
@@ -31,7 +31,7 @@ ThemeData appTheme() {
   );
 }
 
-/// The colours of the three kinds of evaluation, as KaTrain shows them everywhere.
+/// The colours of the three kinds of evaluation (score, win rate, point loss), the same everywhere.
 abstract final class StatColors {
   static Color get score => KTheme.scoreColor;
   static Color get winrate => KTheme.winrateColor;

@@ -1,4 +1,4 @@
-// KaTrain Neo: an unofficial Flutter rewrite of KaTrain (https://github.com/sanderland/katrain).
+// KaTrain Neo: review Go games with KataGo, play against AIs of any strength, and learn from your mistakes.
 
 import 'dart:io';
 
@@ -46,8 +46,8 @@ Future<void> main(List<String> args) async {
   onWindowClose(() async => api?.stop());
 }
 
-/// KaTrain finds `katrain/...` resources in its package; KaTrain Neo keeps them in its data folder, with KataGo's
-/// analysis settings from KaTrain. The KataGo program and model are the user's.
+/// Settings name packaged resources as `katrain/...`; they live in the data folder, with KataGo's analysis settings.
+/// The KataGo program and model are the user's.
 Future<String> prepareResources() async {
   final dir = Directory('${expandUser(neoDataFolder)}${Platform.pathSeparator}package');
   final cfg = File('${dir.path}${Platform.pathSeparator}KataGo${Platform.pathSeparator}analysis_config.cfg');

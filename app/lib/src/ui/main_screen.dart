@@ -1,5 +1,5 @@
-// The main window (KaTrain's AppController layout in katrain/app.kv): the board with its bars on the left, the side
-// panel on the right (0.4 times the window height wide, as in KaTrain). Zen mode hides the bars, then the panel.
+// The main window: the board with its bars on the left, the side panel on the right (0.4 times the window height
+// wide). Zen mode hides the bars, then the panel.
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
@@ -83,7 +83,7 @@ class _MainScreenState extends State<MainScreen> implements AppScreen {
         app.navDrawerOpen = open;
         if (!open) app.updateState(); // ai move etc on nav drawer close
       },
-      // KaTrain loads files dropped on the window
+      // files dropped on the window are loaded
       body: DropTarget(
         onDragDone: (details) {
           for (final file in details.files) {

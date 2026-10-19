@@ -1,5 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/__main__.py KaTrainApp: the window's
-// size and position, restored from the last session, and what happens when it closes.
+// The window's size and position, restored from the last session, and what happens when it closes.
 
 import 'dart:io';
 import 'dart:math' as math;
@@ -14,8 +13,8 @@ import 'state/app_controller.dart';
 /// Set to keep the window hidden (to try the app without it taking the screen).
 const hiddenWindowVariable = 'KATRAIN_NEO_HIDDEN';
 
-/// Sizes the window as KaTrain does and shows it; on closing, saves the ui state and window placement and stops
-/// the engine.
+/// Sizes the window (as last time, or to fit the screen) and shows it; on closing, saves the ui state and the
+/// window's placement and stops the engine.
 Future<void> setUpWindow(AppController app, String title) async {
   await windowManager.ensureInitialized();
   final displays = await screenRetriever.getAllDisplays();

@@ -1,5 +1,5 @@
-// What the local API (katrain_core's api library, ported from the playeriv65/katrain fork) uses of the app: the
-// game, the engine, the board display and the controls, by way of AppController.
+// What the local API (katrain_core's api library) uses of the app: the game, the engine, the board display and
+// the controls, by way of AppController.
 
 import 'package:katrain_core/api.dart';
 import 'package:katrain_core/katrain_core.dart';

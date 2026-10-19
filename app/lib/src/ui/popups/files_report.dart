@@ -1,6 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/__main__.py (_do_analyze_sgf_popup,
-// _do_save_game_as_popup) and katrain/app/popups.py: LoadSGFPopup, SaveSGFPopup and GameReportPopup. The system file
-// dialogs take the place of KaTrain's file browser.
+// Loading and saving games with the system's file dialogs, and the game report.
 
 import 'dart:async';
 import 'dart:io';

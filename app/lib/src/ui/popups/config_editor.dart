@@ -1,6 +1,5 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/popups.py: QuickConfigGui, which
-// popups use to read settings by path (`trainer/eval_thresholds::2` is an element of a list) and to write back the
-// changed ones.
+// Settings dialogs read settings by path (`trainer/eval_thresholds::2` is an element of a list) and write back the
+// ones that changed; plus the number field, slider and dialog frame they share.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,7 +21,7 @@ class ConfigEditor {
   ConfigEditor(this.app);
 
   /// `get_setting`: the value at [key], the map or list holding it, and the key or index in there. Missing
-  /// sections are created; a missing value is created empty and logged, as KaTrain does.
+  /// sections are created; a missing value is created empty and logged.
   (Object?, Object, Object) getSetting(String key) {
     final keys = key.split('/');
     Map<String, dynamic> config = app.configStore.data;
@@ -255,7 +254,7 @@ class SettingsDialog extends StatelessWidget {
     this.width = 560,
   });
 
-  /// Enter applies the dialog, as in KaTrain's popups.
+  /// Enter applies the dialog.
   KeyEventResult _onKey(FocusNode _, KeyEvent event) {
     if (event is KeyDownEvent &&
         (event.logicalKey == LogicalKeyboardKey.enter || event.logicalKey == LogicalKeyboardKey.numpadEnter)) {

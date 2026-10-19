@@ -1,7 +1,6 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/badukpan.py: draw_board (texture,
-// lines, star points, coordinates), draw_board_contents (territory, stones with evaluation dots, last move and move
-// numbers, policy) and draw_hover_contents (top moves, next moves, ghost stone, principal variation, region of
-// interest, the pass circle). KaTrain draws in Kivy coordinates (y up); positions come from BoardGeometry here.
+// Drawing the board in three layers: the board itself (texture, lines, star points, coordinates); its contents
+// (territory, stones with evaluation dots, last move and move numbers, policy); and what changes on hover (top moves,
+// next moves, the ghost stone, variations, the region of interest, the pass circle, marks).
 
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -15,7 +14,7 @@ import '../../theme.dart';
 import 'board_geometry.dart';
 import 'board_images.dart';
 
-/// Draws [text] centred on [pos], bold as KaTrain draws all canvas text.
+/// Draws [text] centred on [pos], bold, as all text on the board.
 void drawText(
   Canvas canvas,
   Offset pos,
@@ -40,7 +39,7 @@ void drawCircle(Canvas canvas, Offset pos, double r, Color color) {
   canvas.drawCircle(pos, r, Paint()..color = color);
 }
 
-/// Kivy's `Line(circle=(x, y, r, start, end))`: angles in degrees clockwise from the top.
+/// A circle or an arc of one: angles in degrees clockwise from the top.
 void drawArc(Canvas canvas, Offset pos, double r, Color color, double width, [double start = 0, double end = 360]) {
   final paint = Paint()
     ..color = color
@@ -54,7 +53,7 @@ void drawArc(Canvas canvas, Offset pos, double r, Color color, double width, [do
   }
 }
 
-/// The trainer settings the board uses (KaTrain's `trainer_config`).
+/// The trainer settings the board uses.
 Map<String, dynamic> trainerConfig(AppController app) => (app.config('trainer') as Map).cast<String, dynamic>();
 
 Color? evalColor(AppController app, double pointsLost, [List<bool>? showDotsForClass]) {
@@ -83,7 +82,7 @@ class BoardBackgroundPainter extends CustomPainter {
       ..strokeWidth = 1;
     final xs = geo.columnsX;
     final ys = geo.rowsY;
-    // zoomed: real board edges are edges, cut sides let the lines run on a little (app/zoomview.py)
+    // zoomed: real board edges are edges, cut sides let the lines run on a little
     final zoom = geo.zoom;
     final runOn = KTheme.zoomLineRunOn * geo.gridSize;
     final left = xs.first - (zoom == null || zoom[0] == 0 ? 0 : runOn);
@@ -318,7 +317,7 @@ class BoardContentsPainter extends CustomPainter {
     );
   }
 
-  /// KaTrain's blended territory: a texture with one pixel per point (and a transparent border), stretched over the
+  /// Blended territory: as a texture with one pixel per point (and a transparent border) stretched over the
   /// board with linear filtering. Drawn here as triangles with a colour at each point, which interpolates the same.
   void _drawTerritory(Canvas canvas, List<List<double>> grid, [Color? lossColor]) {
     if (KTheme.territoryDisplay == 'marks') {
@@ -412,7 +411,7 @@ List<double>? boardPolicy(AppController app) {
   return (policy == null || policy.isEmpty) ? null : policy;
 }
 
-/// badukpan.py `draw_stone`: the stone texture, with ownership marks, an evaluation dot, the last move mark and the
+/// A stone: its texture, with ownership marks, an evaluation dot, the last move mark and the
 /// move number.
 void paintStone(
   Canvas canvas,
@@ -511,7 +510,7 @@ void paintStone(
 /// A move with a variation that hovering shows: its point, the variation and the node it starts from.
 typedef PvMove = ((int, int), List<String>, GameNode);
 
-/// The top moves to show as hints (badukpan.py `draw_hover_contents`).
+/// The top moves to show as hints.
 List<Map<String, dynamic>> hintMoves(AppController app) {
   final game = app.game!;
   final cn = game.currentNode;
@@ -733,7 +732,7 @@ class BoardHoverPainter extends CustomPainter {
     canvas.restore();
   }
 
-  /// Marks added through the API (the playeriv65/katrain fork's api/overlay.py).
+  /// Marks added through the API.
   void _drawApiMarks(Canvas canvas, GameNode currentNode) {
     final marks = visibleMarks(app.apiState.marks, currentNode);
     if (marks.isEmpty) return;

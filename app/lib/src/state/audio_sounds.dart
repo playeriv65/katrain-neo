@@ -1,12 +1,12 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/sound.py: sounds play only when the
-// "timer/sound" setting is on, each file from one cached player, restarted when played again.
+// Sounds through audioplayers: played only when the "timer/sound" setting is on, each file from one cached player,
+// restarted when played again.
 
 import 'package:audioplayers/audioplayers.dart';
 
 import 'sounds.dart';
 
 class AudioSounds extends Sounds {
-  /// Whether sounds are on (KaTrain's "timer/sound").
+  /// Whether sounds are on (setting `timer/sound`).
   final bool Function() enabled;
   final Map<String, AudioPlayer> _players = {};
   AudioSounds(this.enabled);

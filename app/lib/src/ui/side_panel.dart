@@ -1,6 +1,6 @@
-// KaTrain's right column (katrain/app.kv PlayAnalyzeSelect and ControlsPanel), as Material cards: the play/analysis
-// switch, the players with their captures, the clock with undo and resign (play) or the move tree (analysis), and
-// the collapsable score graph, move statistics and info/notes panels with their toggles.
+// The right column as Material cards: the play/analysis switch, the players with their captures, the clock with
+// undo and resign (play) or the move tree (analysis), and the collapsable score graph, move statistics and
+// info/notes panels with their toggles.
 
 import 'package:flutter/material.dart';
 import 'package:katrain_core/katrain_core.dart';
@@ -256,7 +256,7 @@ class _ClockCard extends StatelessWidget {
   }
 }
 
-/// A collapsable panel (KaTrain's CollapsablePanel): toggles for its parts, and a button that folds it away.
+/// A collapsable panel: toggles for its parts, and a button that folds it away.
 class _PanelCard extends StatelessWidget {
   final AppController app;
   final String id;
@@ -438,7 +438,7 @@ class _InfoAndNotesState extends State<_InfoAndNotes> {
   }
 }
 
-/// The comments, with KaTrain's variation links `[u][ref=...][color=...]` clickable and `[color=...]` coloured.
+/// The comments, with variation links `[u][ref=...][color=...]` clickable and `[color=...]` coloured.
 class _InfoText extends StatelessWidget {
   final AppController app;
   const _InfoText({required this.app});

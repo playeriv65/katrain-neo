@@ -1,6 +1,5 @@
-// KaTrain's board controls (katrain/app.kv BadukPanControls): pass, navigation through the game and to mistakes,
-// rotation, who is to move, and the engine status light with its queue length. Passing's policy, when the policy
-// is shown, colours the pass button as badukpan.py colours the circle it draws on it.
+// The bar below the board: pass, navigation through the game and to mistakes, rotation, who is to move, and the
+// engine status light with its queue length. When the policy is shown, passing's policy colours the pass button.
 
 import 'dart:math' as math;
 

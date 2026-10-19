@@ -1,5 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/popups.py and popups.kv:
-// ConfigTimerPopup, TsumegoFramePopup, ReAnalyzeGamePopup and EngineRecoveryPopup.
+// The clock settings, tsumego frame, re-analysis and engine failure dialogs.
 
 import 'package:flutter/material.dart';
 import 'package:katrain_core/katrain_core.dart';
@@ -194,7 +193,7 @@ class EngineRecoveryDialog extends StatelessWidget {
   final VoidCallback openSettings;
   const EngineRecoveryDialog({super.key, required this.app, required this.failure, required this.openSettings});
 
-  /// KaTrain's message, without its Kivy markup (the links become buttons).
+  /// The translated message without its markup (the links become buttons).
   String _plain(String text) => text.replaceAll(RegExp(r'\[/?[a-z]+(=[^\]]*)?\]'), '');
 
   @override

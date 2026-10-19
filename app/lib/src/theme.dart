@@ -1,9 +1,9 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/theme.py: colours, sizes, textures,
-// sounds and keyboard shortcuts. KaTrain gives colours as RGBA lists of 0-1 values; [kc] converts them.
+// Colours, sizes, textures and sounds of the board and the panels. Colours are given as RGBA lists of 0-1 values;
+// [kc] converts them.
 
 import 'dart:ui';
 
-/// A colour from KaTrain's RGBA values between 0 and 1.
+/// A colour from RGBA values between 0 and 1.
 Color kc(List<double> rgba) =>
     Color.from(alpha: rgba.length > 3 ? rgba[3] : 1, red: rgba[0], green: rgba[1], blue: rgba[2]);
 
@@ -25,7 +25,7 @@ final blue = kc([0.3, 0.7, 0.9, 1]);
 abstract final class KTheme {
   // font
   static const defaultFont = 'NotoSansCJKsc';
-  static const boardFont = 'Roboto'; // Kivy's default font, which KaTrain draws the board text with
+  static const boardFont = 'Roboto';
   static const inputFontSize = 20.0; // sp
   static const descFontSize = 18.0; // sp
   static const notesFontSize = 16.0; // sp
@@ -96,7 +96,7 @@ abstract final class KTheme {
   static const mistakeSounds = <String>[];
 
   // eval dots
-  /// Grid spaces the lines run on past a cut side of the zoomed view (playeriv65/katrain fork, app/zoomview.py).
+  /// Grid spaces the lines run on past a cut side of the zoomed view.
   static const zoomLineRunOn = 0.5;
 
   static final evalColors = {

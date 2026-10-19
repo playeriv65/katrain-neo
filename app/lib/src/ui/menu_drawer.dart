@@ -1,6 +1,5 @@
-// KaTrain's hamburger menu (katrain/app.kv HamburgerMenuContents, katrain/app/widgets/panels.py PlayerSetupBlock):
-// who plays each colour, the game and settings actions with their shortcuts, the language, and links to KaTrain's
-// manual and support pages. Distributed training (contribute mode) is not part of KaTrain Neo.
+// The menu: who plays each colour, the game and settings actions with their shortcuts, the language, and links to
+// the manual and support pages.
 
 import 'dart:io';
 
@@ -11,7 +10,7 @@ import '../state/app_controller.dart';
 import '../state/dialogs.dart';
 import '../theme.dart';
 
-/// KaTrain's languages, in its menu's order (Spanish is translated but not offered there).
+/// The languages offered (Spanish is translated but not offered yet).
 const languages = [
   ('en', 'English'),
   ('de', 'Deutsch'),

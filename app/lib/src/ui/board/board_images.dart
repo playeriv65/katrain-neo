@@ -1,4 +1,4 @@
-// The textures KaTrain draws the board with (katrain/img, MIT), loaded once (drawing.py's cached_texture).
+// The textures the board is drawn with, loaded once.
 
 import 'dart:ui' as ui;
 
@@ -38,7 +38,7 @@ class BoardImages {
   ui.Image stone(String player) => this[KTheme.stoneTexture[player]!];
 }
 
-/// Draws [image] stretched over [rect], multiplied by [tint] as Kivy's `Color` multiplies a texture.
+/// Draws [image] stretched over [rect], its colours multiplied by [tint].
 void drawTexture(ui.Canvas canvas, ui.Image image, ui.Rect rect, [ui.Color? tint]) {
   final paint = ui.Paint()
     ..filterQuality = ui.FilterQuality.medium

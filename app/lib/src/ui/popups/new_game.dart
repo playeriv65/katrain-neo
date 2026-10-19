@@ -1,4 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/popups.py and popups.kv: NewGamePopup.
+// The new game dialog: a new game, a position set up by self-play, or the current game's players and rules.
 
 import 'package:flutter/material.dart';
 import 'package:katrain_core/katrain_core.dart';
@@ -242,7 +242,7 @@ class _NewGameDialogState extends State<NewGameDialog> {
               value: clearCache,
               onChanged: (v) => setState(() => clearCache = v),
             ),
-          // Kept mounted in every mode: KaTrain stores these settings whichever mode is used.
+          // Kept mounted in every mode: these settings are stored whichever mode is used.
           Offstage(
             offstage: mode != 'setupposition',
             child: Column(
