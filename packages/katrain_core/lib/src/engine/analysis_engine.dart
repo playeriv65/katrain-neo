@@ -17,6 +17,9 @@ abstract interface class AnalysisEngine<N> {
 
   void stopPondering();
 
+  /// Goes up when a new game or a restart throws the outstanding queries away; their callbacks never come.
+  int get queryGeneration;
+
   void requestAnalysis(
     N analysisNode, {
     required AnalysisCallback callback,

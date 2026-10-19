@@ -163,14 +163,10 @@ class RecordingEngine:
         self.host.events.append(["stop_pondering"])
 
 
-def build(katrain_base):
+def patch_katrain():
+    """Makes KaTrain deterministic for the fixtures: a fixed clock, and the analysis thread run in place."""
     import katrain.core.game as game_module
     import katrain.core.game_node as game_node_module
-    from pysgf import Move
-
-    from katrain.core.base_katrain import Player
-    from katrain.core.game import BaseGame, Game, IllegalMoveException
-    from katrain.core.game_node import GameNode
     from katrain.core.lang import i18n
 
     # the port writes its own name into AP; KaTrain only checks that AP contains "KaTrain"
@@ -195,17 +191,33 @@ def build(katrain_base):
     game_module.datetime = FixedDatetime
     game_module.threading = types.SimpleNamespace(Thread=SyncThread, RLock=threading.RLock)
 
-    config = copy.deepcopy(katrain_base._config)
-    players = {"B": Player("B"), "W": Player("W")}
-    host = Host(config, players)
-    engine = RecordingEngine(host, config["engine"])
-    rng = random.Random(2024)
-    ops = []
-    outputs = []
-    st = {"game": None}
 
-    def legal_points(node):
+class Script:
+    """Runs operations on KaTrain's Game and records them with their events and the state after each."""
+
+    def __init__(self, katrain_base, engine_class=None, seed=2024, normalize_policy=False):
+        from katrain.core.base_katrain import Player
+
+        patch_katrain()
+        self.config_at_start = copy.deepcopy(katrain_base._config)
+        self.config = copy.deepcopy(katrain_base._config)
+        self.players = {"B": Player("B"), "W": Player("W")}
+        self.host = Host(self.config, self.players)
+        self.engine = (engine_class or RecordingEngine)(self.host, self.config["engine"])
+        self.rng = random.Random(seed)
+        self.ops = []
+        self.outputs = []
+        self.game = None
+        self.handlers = {}  # more kinds of operations: kind -> function(op)
+        self.normalize_policy = normalize_policy  # policies that sum to 1, as KataGo's do
+
+    def result(self):
+        return {"config": self.config_at_start, "now": list(NOW), "ops": self.ops, "outputs": self.outputs}
+
+    def legal_points(self, node):
         """Empty points next to another empty point (so never suicide or ko) in the position at node."""
+        from katrain.core.game import BaseGame
+
         scratch = BaseGame.__new__(BaseGame)
         scratch._lock = threading.RLock()
         scratch.root = node.root
@@ -224,11 +236,16 @@ def build(katrain_base):
                     points.append((x, y))
         return points
 
-    def fake_result(node, n_moves=5, visits=400, root_score=None, spread=4.0, ownership=None, first=None):
+    def fake_result(
+        self, node, n_moves=5, visits=400, root_score=None, spread=4.0, ownership=None, first=None, move_ownership=False
+    ):
+        from pysgf import Move
+
+        rng = self.rng
         sx, sy = node.board_size
         squares = sx * sy
         sign = 1 if node.next_player == "B" else -1
-        points = legal_points(node)
+        points = self.legal_points(node)
         chosen = [Move(p).gtp() for p in rng.sample(points, min(n_moves, len(points)))]
         if first is not None:
             chosen = [first] + [c for c in chosen if c != first]
@@ -237,23 +254,27 @@ def build(katrain_base):
         moves = []
         for i, gtp in enumerate(chosen):
             loss = 0.0 if i == 0 else round(rng.uniform(0, spread) * i, 4)
-            moves.append(
-                {
-                    "move": gtp,
-                    "order": i,
-                    "visits": max(1, visits // (i + 2)),
-                    "winrate": round(rng.random(), 6),
-                    "scoreLead": round(root_score - sign * loss, 4),
-                    "prior": round(rng.random() / (i + 1), 6),
-                    "pv": [gtp] + [Move(rng.choice(points)).gtp() for _ in range(rng.randint(0, 4))],
-                }
-            )
+            move = {
+                "move": gtp,
+                "order": i,
+                "visits": max(1, visits // (i + 2)),
+                "winrate": round(rng.random(), 6),
+                "scoreLead": round(root_score - sign * loss, 4),
+                "prior": round(rng.random() / (i + 1), 6),
+                "pv": [gtp] + [Move(rng.choice(points)).gtp() for _ in range(rng.randint(0, 4))],
+            }
+            if move_ownership:
+                move["ownership"] = [round(rng.uniform(-1, 1), 4) for _ in range(squares)]
+            moves.append(move)
         if ownership is None:
             ownership = [round(rng.uniform(-1, 1), 4) for _ in range(squares)]
         policy = [-1.0] * (squares + 1)
         for x, y in points:
             policy[(sy - 1 - y) * sx + x] = round(rng.random() ** 3, 6)
         policy[squares] = round(rng.random() / 10, 6)
+        if self.normalize_policy:
+            total = sum(p for p in policy if p > 0)
+            policy = [round(p / total, 6) if p > 0 else p for p in policy]
         return {
             "id": "QUERY:0",
             "turnNumber": node.depth,
@@ -263,8 +284,8 @@ def build(katrain_base):
             "policy": policy,
         }
 
-    def snapshot():
-        game = st["game"]
+    def snapshot(self):
+        game = self.game
         if game is None:
             return None
         tree = []
@@ -296,10 +317,17 @@ def build(katrain_base):
             "tree": tree,
         }
 
-    def run(op):
-        game = st["game"]
+    def run(self, op):
+        import katrain.core.game as game_module
+        from pysgf import Move
+
+        from katrain.core.game import Game
+
+        game, host, engine, config, players = self.game, self.host, self.engine, self.config, self.players
         kind = op["op"]
-        if kind == "seed":
+        if kind in self.handlers:
+            self.handlers[kind](op)
+        elif kind == "seed":
             random.seed(op["seed"])
         elif kind == "config":
             cat, key = op["key"].split("/")
@@ -313,7 +341,7 @@ def build(katrain_base):
             move_tree = game_module.KaTrainSGF.parse_sgf(op["sgf"]) if op["sgf"] is not None else None
             engine.callbacks.clear()
             game = Game(host, engine, move_tree=move_tree, analyze_fast=op["analyze_fast"], game_properties=op["props"])
-            host.game = st["game"] = game
+            host.game = self.game = game
         elif kind == "play":
             player = op["player"] or game.current_node.next_player
             game.play(Move.from_gtp(op["move"], player=player), ignore_ko=op["ignore_ko"], analyze=op["analyze"])
@@ -361,45 +389,63 @@ def build(katrain_base):
         else:
             raise ValueError(kind)
 
-    def do(kind, **args):
+    def do(self, kind, **args):
+        from katrain.core.game import IllegalMoveException
+
         op = {"op": kind, **copy.deepcopy(args)}
-        ops.append(op)
-        host.events = []
+        self.ops.append(op)
+        self.host.events = []
         error = None
         try:
-            run(op)
+            self.run(op)
         except IllegalMoveException as e:
             error = str(e)
-        outputs.append({"events": host.events, "error": error, "state": snapshot()})
-        host.events = []
+        except Exception as e:  # noqa: BLE001 - KaTrain raises plain exceptions, e.g. from the AI strategies
+            if kind not in self.handlers:
+                raise
+            error = str(e)
+        self.outputs.append({"events": self.host.events, "error": error, "state": self.snapshot()})
+        self.host.events = []
         return error
 
-    def last_query():
-        return len(engine.callbacks) - 1
+    def last_query(self):
+        return len(self.engine.callbacks) - 1
 
-    def feed(query, node, partial=False, **kwargs):
-        do("feed", query=query, result=fake_result(node, **kwargs), partial=partial)
+    def feed(self, query, node, partial=False, **kwargs):
+        self.do("feed", query=query, result=self.fake_result(node, **kwargs), partial=partial)
 
-    def game():
-        return st["game"]
+    def play(self, gtp=None, analyze=True, feed_it=True, partial_first=False, ignore_ko=False, player=None, **kwargs):
+        from pysgf import Move
 
-    def play(gtp=None, analyze=True, feed_it=True, partial_first=False, ignore_ko=False, player=None, **kwargs):
-        g = game()
+        g = self.game
         if gtp is None:
-            gtp = Move(rng.choice(legal_points(g.current_node))).gtp()
-        error = do("play", move=gtp, player=player, analyze=analyze, ignore_ko=ignore_ko)
+            gtp = Move(self.rng.choice(self.legal_points(g.current_node))).gtp()
+        error = self.do("play", move=gtp, player=player, analyze=analyze, ignore_ko=ignore_ko)
         if error is None and analyze and feed_it:
             node = g.current_node
             if partial_first:
-                feed(last_query(), node, partial=True, visits=40, **kwargs)
-            feed(last_query(), node, **kwargs)
+                self.feed(self.last_query(), node, partial=True, visits=40, **kwargs)
+            self.feed(self.last_query(), node, **kwargs)
         return error
 
-    def saved_sgf():
-        return next(e[1] for e in outputs[-1]["events"] if e[0] == "sgf")
+    def saved_sgf(self):
+        return next(e[1] for e in self.outputs[-1]["events"] if e[0] == "sgf")
 
-    def default_player(bw):
-        do("player", bw=bw, type="player:human", subtype="game:normal", rank=None, name="")
+    def default_player(self, bw):
+        self.do("player", bw=bw, type="player:human", subtype="game:normal", rank=None, name="")
+
+
+def build(katrain_base):
+    from pysgf import Move
+
+    s = Script(katrain_base)
+    do, feed, play, last_query = s.do, s.feed, s.play, s.last_query
+    saved_sgf, default_player, fake_result, rng = s.saved_sgf, s.default_player, s.fake_result, s.rng
+    legal_points, outputs, config = s.legal_points, s.outputs, s.config
+
+    def game():
+        return s.game
+
 
     # -- 1. a game played move by move, with analysis --
     do("seed", seed=1)
@@ -631,4 +677,4 @@ def build(katrain_base):
     do("play", move="J9", player="W", analyze=False, ignore_ko=False)
     do("play", move="Z9", player="B", analyze=False, ignore_ko=False)
 
-    return {"config": katrain_base._config, "now": list(NOW), "ops": ops, "outputs": outputs}
+    return s.result()

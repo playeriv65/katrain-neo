@@ -5,13 +5,49 @@ library;
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-/// The string Python's `str()` gives for property values set from code (ints, floats, strings).
+/// The string Python's `str()` (and so an f-string) gives for None, bools, numbers, strings, lists and dicts.
 String pyStr(Object? value) {
   if (value == null) return 'None';
   if (value is String) return value;
   if (value is bool) return value ? 'True' : 'False';
   if (value is double) return pyFloatRepr(value);
+  if (value is List || value is Map) return pyRepr(value);
   return value.toString();
+}
+
+/// Python's `repr()` of the values ported code writes into log lines: None, bools, numbers, strings, and lists and
+/// dicts of them. (Tuples have no Dart equivalent; callers format those themselves.)
+String pyRepr(Object? value) {
+  if (value is String) return _pyStrRepr(value);
+  if (value is List) return '[${value.map(pyRepr).join(', ')}]';
+  if (value is Map) return '{${[for (final e in value.entries) '${pyRepr(e.key)}: ${pyRepr(e.value)}'].join(', ')}}';
+  return pyStr(value);
+}
+
+String _pyStrRepr(String s) {
+  final quote = s.contains("'") && !s.contains('"') ? '"' : "'";
+  final out = StringBuffer(quote);
+  for (final rune in s.runes) {
+    if (rune == 0x5c) {
+      out.write(r'\\');
+    } else if (rune == quote.codeUnitAt(0)) {
+      out.write('\\$quote');
+    } else if (rune == 0x0a) {
+      out.write(r'\n');
+    } else if (rune == 0x0d) {
+      out.write(r'\r');
+    } else if (rune == 0x09) {
+      out.write(r'\t');
+    } else if (rune < 0x20 || (rune >= 0x7f && rune <= 0xa0) || rune == 0xad) {
+      // not printable (Python checks the full Unicode tables; these are the ones that come up)
+      out.write(r'\x');
+      out.write(rune.toRadixString(16).padLeft(2, '0'));
+    } else {
+      out.writeCharCode(rune);
+    }
+  }
+  out.write(quote);
+  return out.toString();
 }
 
 /// Python's `repr(float)`/`str(float)`: the shortest digits that round-trip (Dart computes the same ones), written
@@ -54,6 +90,39 @@ int pyInt(String value) {
   final parsed = int.tryParse(value.trim());
   if (parsed == null) throw FormatException('invalid literal for int(): $value');
   return parsed;
+}
+
+/// Python's `sum(values)` (3.12 and later): ints are added exactly until the first float, then floats are added
+/// with Neumaier's compensated summation, which can give a different last digit than adding one by one.
+num pySum(Iterable<num> values) {
+  final it = values.iterator;
+  var intResult = 0;
+  while (it.moveNext()) {
+    final v = it.current;
+    if (v is int) {
+      intResult += v;
+      continue;
+    }
+    var f = intResult + v.toDouble();
+    var c = 0.0;
+    while (it.moveNext()) {
+      final w = it.current;
+      if (w is double) {
+        final t = f + w;
+        if (f.abs() >= w.abs()) {
+          c += (f - t) + w;
+        } else {
+          c += (w - t) + f;
+        }
+        f = t;
+      } else {
+        f += w.toDouble();
+      }
+    }
+    if (c != 0 && c.isFinite) f += c;
+    return f;
+  }
+  return intResult;
 }
 
 /// Stable sort by a key, like Python's `list.sort(key=...)` (Dart's List.sort is not guaranteed stable).

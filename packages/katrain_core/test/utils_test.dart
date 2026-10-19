@@ -83,6 +83,13 @@ void main() {
     for (final e in misc['json_dumps'] as List) {
       expect(pyJsonDumps(e[0]), e[1]);
     }
+    for (final e in misc['repr'] as List) {
+      expect(pyRepr(e[0]), e[1]);
+    }
+    for (final e in misc['sums'] as List) {
+      final values = [for (final v in e[0] as List) v is String ? doubleFromHex(v) : v as num];
+      expect(pyStr(pySum(values)), e[1], reason: 'sum of $values');
+    }
   });
 
   test('translations and rank labels match KaTrain', () {

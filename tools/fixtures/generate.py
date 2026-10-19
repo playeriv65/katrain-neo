@@ -13,6 +13,7 @@ Reads the records in packages/katrain_core/test/fixtures/inputs/ and writes next
 - game_node.json       analysis merging, comments and SGF writing (game_node_fixtures.py)
 - engine.json          KataGo queries and results (engine_fixtures.py)
 - game.json            a script of game operations with the events and state after each (game_fixtures.py)
+- ai.json              the same for the AI strategies, rank estimation and the game report (ai_fixtures.py)
 
 The output is reproducible: string hashes and the gzip time stamps in KT data are fixed.
 """
@@ -212,6 +213,10 @@ def main():
     ]
     misc = {
         "json_dumps": [[v, json.dumps(v)] for v in json_values],
+        "repr": [[v, repr(v)] for v in json_values + ["it's", 'say "hi"', "both ' and \"", "tab\tnl\n\x01"]],
+        "sums": [[[struct.pack("<d", x).hex() if isinstance(x, float) else x for x in xs], repr(sum(xs))]
+                 for xs in [[value_rng.uniform(-1, 1) for _ in range(n)] for n in (0, 1, 5, 50, 400)]
+                 + [[1, 2, 0.1, 0.2, 3, 0.3], [1e16, 1.0, -1e16], [0.1] * 10, [3, 4], [-0.0], [5, -0.0]]],
         "var_to_grid": var_to_grid(list(range(12)), (4, 3)),
         "evaluation_class": [[pl, evaluation_class(pl, [12, 6, 3, 1.5, 0.5, 0])] for pl in [-1, 0, 0.3, 0.5, 1, 1.5, 2.9, 3, 5, 6, 11.9, 12, 40]],
         "format_visits": [[n, format_visits(n)] for n in [0, 5, 999, 1000, 1049, 1050, 1250, 99949, 99950, 100000, 125500, 999999, 1000000, 1500000, 2500000]],
@@ -238,6 +243,10 @@ def main():
 
     game_data = game_fixtures.build(katrain)
 
+    import ai_fixtures
+
+    ai_data = ai_fixtures.build(katrain)
+
     import subprocess
     from importlib.metadata import version
 
@@ -256,6 +265,7 @@ def main():
         ("game_node.json", game_node_data),
         ("engine.json", engine_data),
         ("game.json", game_data),
+        ("ai.json", ai_data),
     ]:
         with open(out / name, "w", encoding="utf-8", newline="\n") as fh:
             json.dump({"generated_by": meta, "data": data}, fh, ensure_ascii=False, indent=None, separators=(",", ":"))

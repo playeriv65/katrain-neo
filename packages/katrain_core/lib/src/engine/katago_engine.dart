@@ -73,6 +73,7 @@ class KataGoEngine implements AnalysisEngine<GameNode> {
   Map<String, dynamic>? _ponderQuery;
   int _queryCounter = 0;
   int basePriority = 0;
+  @override
   int queryGeneration = 0;
   final Map<String, dynamic> overrideSettings = {'reportAnalysisWinratesAs': 'BLACK'};
 

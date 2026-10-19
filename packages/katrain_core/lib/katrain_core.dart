@@ -4,6 +4,7 @@ library;
 export 'src/constants.dart';
 export 'src/engine/analysis_engine.dart';
 export 'src/engine/katago_engine.dart';
+export 'src/game/ai.dart';
 export 'src/game/game.dart';
 export 'src/game/game_node.dart';
 export 'src/game/player.dart';
