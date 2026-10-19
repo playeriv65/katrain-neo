@@ -142,6 +142,64 @@ def main():
                     )
                 scenarios.append({"size": size, "rules": rules, "attempts": attempts})
 
+    # -- utils: number formatting, half floats, random numbers, translations
+    import struct
+
+    from katrain.core.lang import i18n, rank_label
+    from katrain.core.utils import (
+        evaluation_class,
+        format_visits,
+        pack_floats,
+        unpack_floats,
+        var_to_grid,
+        weighted_selection_without_replacement,
+    )
+
+    value_rng = random.Random(7)
+    specials = [0.0, -0.0, 0.5, 1.5, 2.5, -0.5, -1.5, 0.125, 0.375, 2.675, -0.04, 0.05, 0.15, 0.25, 1e-5, 1.23e-7,
+                1e16, 1.5e16, 123456789.125, 99.95, -99.95, 0.995, -0.995, 0.005, 1 / 3, 2 / 3, 1e300, 5e-324]
+    values = specials + [value_rng.uniform(-100, 100) for _ in range(300)] + [value_rng.uniform(-1, 1) * 10 ** value_rng.randint(-8, 6) for _ in range(300)]
+    formats = []
+    for x in values:
+        formats.append({
+            "x": struct.pack("<d", x).hex(),
+            "repr": repr(x),
+            "f0": f"{x:.0f}", "f1": f"{x:.1f}", "f2": f"{x:.2f}", "f6": f"{x:.6f}", "p1f": f"{x:+.1f}",
+            "pc1": f"{x:.1%}", "pc2": f"{x:.2%}", "ppc1": f"{x:+.1%}",
+            "round": round(x) if abs(x) < 1e15 else None,
+            "round1": repr(round(x, 1)), "round2": repr(round(x, 2)),
+        })
+    half_lists = [[v for v in specials if abs(v) < 65504], [value_rng.uniform(-1, 1) for _ in range(200)], [value_rng.uniform(0, 1e-3) for _ in range(100)],
+                  [1 + 2 ** -11, 1 + 3 * 2 ** -11, 2 ** -24, 2 ** -25, 3 * 2 ** -26, 2 ** -15, 65504.0, 65519.0]]
+    halves = [{"values": [struct.pack("<d", v).hex() for v in vs], "packed": pack_floats(vs).hex(),
+               "unpacked": [repr(v) for v in unpack_floats(pack_floats(vs), len(vs))]} for vs in half_lists]
+    randoms = {}
+    for seed in [0, 1, 42, 2 ** 40 + 5, 20261019, 2 ** 70 + 3]:
+        r = random.Random(seed)
+        randoms[str(seed)] = [repr(r.random()) for _ in range(30)]
+    selections = []
+    for seed in [3, 11, 2026]:
+        items = [(f"m{i}", value_rng.uniform(0, 1) ** 3) for i in range(40)]
+        for n in [1, 5, 40, 50]:
+            random.seed(seed)
+            picked = weighted_selection_without_replacement(items, n)
+            selections.append({"seed": seed, "n": n, "items": [[k, struct.pack("<d", w).hex()] for k, w in items],
+                               "picked": [k for k, _ in picked]})
+    misc = {
+        "var_to_grid": var_to_grid(list(range(12)), (4, 3)),
+        "evaluation_class": [[pl, evaluation_class(pl, [12, 6, 3, 1.5, 0.5, 0])] for pl in [-1, 0, 0.3, 0.5, 1, 1.5, 2.9, 3, 5, 6, 11.9, 12, 40]],
+        "format_visits": [[n, format_visits(n)] for n in [0, 5, 999, 1000, 1049, 1050, 1250, 99949, 99950, 100000, 125500, 999999, 1000000, 1500000, 2500000]],
+    }
+    ranks = [None, -20, -10.4, -0.6, -0.5, 0, 0.4, 0.5, 0.6, 1.5, 2.5, 3.49, 9]
+    translations = {}
+    sample_keys = ["menu:newgame", "strength:kyu", "strength:dan", "board-pass", "Info:point loss", "no such key"]
+    for lang in ["en", "cn", "tw", "jp", "ko", "de", "fr", "ru", "tr", "ua", "es"]:
+        i18n.switch_lang(lang)
+        translations[lang] = {"keys": {k: i18n._(k) for k in sample_keys}, "rank_labels": [rank_label(r) for r in ranks]}
+    i18n.switch_lang("en")
+    utils_data = {"formats": formats, "halves": halves, "randoms": randoms, "selections": selections, "misc": misc,
+                  "ranks": ranks, "translations": translations}
+
     import subprocess
     from importlib.metadata import version
 
@@ -156,6 +214,7 @@ def main():
         ("sgf_parse.json", parse_results),
         ("rules_mainline.json", mainline),
         ("rules_random.json", {"scenarios": scenarios}),
+        ("utils.json", utils_data),
     ]:
         with open(out / name, "w", encoding="utf-8", newline="\n") as fh:
             json.dump({"generated_by": meta, "data": data}, fh, ensure_ascii=False, indent=None, separators=(",", ":"))

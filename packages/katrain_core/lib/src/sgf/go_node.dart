@@ -4,7 +4,7 @@ import 'dart:collection';
 import 'dart:math' as math;
 
 import 'move.dart';
-import 'py_format.dart';
+import '../utils/py_format.dart';
 
 /// A node of an SGF game tree: its properties, children and the Go-specific views on them (moves, placements,
 /// players, board size).
