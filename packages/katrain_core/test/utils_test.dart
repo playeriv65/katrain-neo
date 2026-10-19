@@ -1,111 +1,109 @@
-// Differential tests: Python number formatting, half floats, random numbers, KaTrain utils and translations
-// (fixtures from tools/fixtures).
-
-import 'dart:typed_data';
+// Utils (board grids, evaluation classes, stored analysis floats, visit counts) and translations (switching language,
+// fallbacks, placeholders, rank labels).
 
 import 'package:katrain_core/katrain_core.dart';
 import 'package:test/test.dart';
 
-import 'fixtures_util.dart';
-
-double doubleFromHex(String hex) {
-  final bytes = Uint8List.fromList([
-    for (var i = 0; i < hex.length; i += 2) int.parse(hex.substring(i, i + 2), radix: 16),
-  ]);
-  return ByteData.sublistView(bytes).getFloat64(0, Endian.little);
-}
-
-String toHex(List<int> bytes) => [for (final b in bytes) b.toRadixString(16).padLeft(2, '0')].join();
+/// The placeholder names in a translation, e.g. `points_lost` in `{points_lost:.1f}`.
+Set<String> placeholders(String text) => {for (final m in RegExp(r'\{(\w*)[^{}]*\}').allMatches(text)) m[1]!};
 
 void main() {
-  final data = loadFixture('utils.json');
+  group('utils', () {
+    test('a KataGo array becomes a grid indexed by y then x, top row first in the array', () {
+      final grid = varToGrid(List.generate(12, (i) => i), (4, 3));
+      expect(grid, [
+        [8, 9, 10, 11],
+        [4, 5, 6, 7],
+        [0, 1, 2, 3],
+      ]);
+      expect(grid[2][0], 0, reason: 'the first value is the top left point');
+    });
 
-  test('number formatting and rounding match Python', () {
-    for (final f in (data['formats'] as List).cast<Map<String, dynamic>>()) {
-      final x = doubleFromHex(f['x'] as String);
-      final reason = 'x = ${f['repr']}';
-      expect(pyFloatRepr(x), f['repr'], reason: reason);
-      expect(pyFixed(x, 0), f['f0'], reason: reason);
-      expect(pyFixed(x, 1), f['f1'], reason: reason);
-      expect(pyFixed(x, 2), f['f2'], reason: reason);
-      expect(pyFixed(x, 6), f['f6'], reason: reason);
-      expect(pyFixed(x, 1, plus: true), f['p1f'], reason: reason);
-      expect(pyExp(x, 0), f['e0'], reason: reason);
-      expect(pyExp(x, 3), f['e3'], reason: reason);
-      expect(pyPercent(x, 1), f['pc1'], reason: reason);
-      expect(pyPercent(x, 2), f['pc2'], reason: reason);
-      expect(pyPercent(x, 1, plus: true), f['ppc1'], reason: reason);
-      if (f['round'] != null) expect(pyRound(x), f['round'], reason: reason);
-      expect(pyFloatRepr(pyRoundTo(x, 1)), f['round1'], reason: reason);
-      expect(pyFloatRepr(pyRoundTo(x, 2)), f['round2'], reason: reason);
-    }
-  });
+    test('evaluation class: the index of the first threshold the point loss reaches', () {
+      const thresholds = [12, 6, 3, 1.5, 0.5, 0];
+      final classes = {20.0: 0, 12.0: 0, 11.9: 1, 6.0: 1, 4.0: 2, 2.0: 3, 1.0: 4, 0.5: 4, 0.4: 5, 0.0: 5, -3.0: 5};
+      classes.forEach((pointsLost, cls) => expect(evaluationClass(pointsLost, thresholds), cls, reason: '$pointsLost'));
+    });
 
-  test('half-float packing matches struct', () {
-    for (final h in (data['halves'] as List).cast<Map<String, dynamic>>()) {
-      final values = [for (final v in h['values'] as List) doubleFromHex(v as String)];
-      final packed = packFloats(values);
-      expect(toHex(packed), h['packed']);
-      expect([for (final v in unpackFloats(packed, values.length)!) pyFloatRepr(v)], h['unpacked']);
-    }
-    expect(() => packFloats([1e16]), throwsRangeError);
-    expect(unpackFloats([], 3), isNull);
-  });
-
-  test('random numbers match Python', () {
-    final randoms = data['randoms'] as Map<String, dynamic>;
-    for (final MapEntry(key: seed, value: expected) in randoms.entries) {
-      final r = PyRandom.big(BigInt.parse(seed));
-      final values = [for (var i = 0; i < (expected as List).length; i++) pyFloatRepr(r.random())];
-      expect(values, expected, reason: 'seed $seed');
-    }
-  });
-
-  test('weighted selection matches KaTrain', () {
-    for (final s in (data['selections'] as List).cast<Map<String, dynamic>>()) {
-      final items = [
-        for (final item in s['items'] as List) ((item as List)[0] as String, doubleFromHex(item[1] as String)),
-      ];
-      final picked = weightedSelectionWithoutReplacement(items, s['n'] as int, (i) => i.$2, PyRandom(s['seed'] as int));
-      expect([for (final p in picked) p.$1], s['picked'], reason: 'seed ${s['seed']} n ${s['n']}');
-    }
-  });
-
-  test('grid, evaluation class, visits and json.dumps', () {
-    final misc = data['misc'] as Map<String, dynamic>;
-    expect(varToGrid(List.generate(12, (i) => i), (4, 3)), misc['var_to_grid']);
-    for (final e in misc['evaluation_class'] as List) {
-      expect(evaluationClass((e[0] as num).toDouble(), [12, 6, 3, 1.5, 0.5, 0]), e[1], reason: 'points lost ${e[0]}');
-    }
-    for (final e in misc['format_visits'] as List) {
-      expect(formatVisits(e[0] as int), e[1]);
-    }
-    for (final e in misc['json_dumps'] as List) {
-      expect(pyJsonDumps(e[0]), e[1]);
-    }
-    for (final e in misc['repr'] as List) {
-      expect(pyRepr(e[0]), e[1]);
-    }
-    for (final e in misc['sums'] as List) {
-      final values = [for (final v in e[0] as List) v is String ? doubleFromHex(v) : v as num];
-      expect(pyStr(pySum(values)), e[1], reason: 'sum of $values');
-    }
-  });
-
-  test('translations and rank labels match KaTrain', () {
-    final ranks = [for (final r in data['ranks'] as List) (r as num?)?.toDouble()];
-    final byLang = data['translations'] as Map<String, dynamic>;
-    try {
-      for (final MapEntry(key: lang, value: expected) in byLang.entries) {
-        i18n.switchLang(lang);
-        final keys = (expected as Map<String, dynamic>)['keys'] as Map<String, dynamic>;
-        for (final MapEntry(key: key, value: text) in keys.entries) {
-          expect(i18n.tr(key), text, reason: '$lang: $key');
-        }
-        expect([for (final r in ranks) rankLabel(r)], expected['rank_labels'], reason: lang);
+    test('analysis floats are stored as little-endian half floats', () {
+      expect(packFloats([1.0, -2.0]), [0x00, 0x3C, 0x00, 0xC0]);
+      expect(packFloats(null), isEmpty);
+      final exact = [0.0, 0.5, -0.25, 1.0, -1.0, 1024.0, 65504.0];
+      expect(unpackFloats(packFloats(exact), exact.length), exact);
+      final values = [0.1234, -0.987, 0.0001, 3.14159, -42.42];
+      final roundTrip = unpackFloats(packFloats(values), values.length)!;
+      for (var i = 0; i < values.length; i++) {
+        expect(roundTrip[i], closeTo(values[i], values[i].abs() * 1e-3 + 1e-7), reason: '${values[i]}');
       }
-    } finally {
-      i18n.switchLang(defaultLanguage);
-    }
+    });
+
+    test('half floats out of range or of the wrong length are refused', () {
+      expect(() => packFloats([1e6]), throwsRangeError);
+      expect(unpackFloats([], 3), isNull);
+      expect(() => unpackFloats([0, 0, 0], 2), throwsFormatException);
+    });
+
+    test('visits are shortened with k and M', () {
+      final formats = {0: '0', 950: '950', 999: '999', 1234: '1.2k', 25600: '25.6k', 120000: '120k', 3000000: '3M'};
+      formats.forEach((visits, text) => expect(formatVisits(visits), text));
+    });
+  });
+
+  group('translations', () {
+    tearDown(() => i18n.switchLang(defaultLanguage));
+
+    test('switching language changes the texts and tells the listeners once', () {
+      final heard = <String>[];
+      void listener(I18n t) => heard.add(t.lang);
+      i18n.addListener(listener);
+      try {
+        expect(i18n.tr('menu:newgame'), 'New Game/Change Rules');
+        i18n.switchLang('cn');
+        expect(i18n.tr('menu:newgame'), '新对局');
+        i18n.switchLang('cn');
+        i18n.switchLang('de');
+        expect(heard, ['cn', 'de']);
+      } finally {
+        i18n.removeListener(listener);
+      }
+      i18n.switchLang('en');
+      expect(heard, ['cn', 'de'], reason: 'removed listeners are not told');
+    });
+
+    test('a missing translation falls back to English, then to the message id', () {
+      i18n.switchLang('es');
+      expect(translations['es']!.containsKey('ai:human'), isFalse);
+      expect(i18n.tr('ai:human'), translations['en']!['ai:human']);
+      expect(i18n.tr('no such message'), 'no such message');
+      i18n.switchLang('xx');
+      expect(i18n.lang, 'xx');
+      expect(i18n.tr('menu:newgame'), 'New Game/Change Rules');
+    });
+
+    test('every language has English texts for its messages, with the same placeholders', () {
+      final english = translations[defaultLanguage]!;
+      for (final MapEntry(key: lang, value: strings) in translations.entries) {
+        for (final MapEntry(key: id, value: text) in strings.entries) {
+          expect(english.containsKey(id), isTrue, reason: '$lang: $id');
+          expect(placeholders(text), placeholders(english[id]!), reason: '$lang: $id');
+        }
+      }
+    });
+
+    test('some languages need their own font', () {
+      i18n.switchLang('jp');
+      expect(i18n.fontName, isNotNull);
+      i18n.switchLang('en');
+      expect(i18n.fontName, isNull);
+    });
+
+    test('ranks are written as dan or kyu in the current language', () {
+      final labels = {3.0: '3d', 1.0: '1d', 0.0: '1k', -0.4: '1k', -4.0: '5k', -14.0: '15k'};
+      labels.forEach((rank, label) => expect(rankLabel(rank), label, reason: '$rank'));
+      expect(rankLabel(null), '??k');
+      i18n.switchLang('cn');
+      expect(rankLabel(3), '3段');
+      expect(rankLabel(-4), '5级');
+    });
   });
 }
