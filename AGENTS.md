@@ -31,5 +31,9 @@ dart format -l 120 packages app/lib app/test
 `app/test/render_test.dart` renders the main screen and every dialog to PNGs when `NEO_RENDER_SGF` (a game) and
 `NEO_RENDER_OUT` (a folder) are set.
 
+When the user plays while you edit, they run `cd app && dart tool/dev_run.dart`: every saved Dart file in `app/lib`
+or `packages/katrain_core/lib` hot reloads into their running game. Prefer changes hot reload can take; when one
+needs a hot restart (it loses the game in memory), tell them before, so they can save the game.
+
 The test against a real KataGo runs only when `KATAGO_EXE`, `KATAGO_MODEL` and `KATAGO_CONFIG` point at a KataGo
 binary, model and analysis config; otherwise it is skipped (as in CI).
