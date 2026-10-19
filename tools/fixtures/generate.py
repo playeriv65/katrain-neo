@@ -20,6 +20,7 @@ from pathlib import Path
 
 os.environ["KIVY_NO_ARGS"] = "1"  # KaTrain imports Kivy, which otherwise parses our command line
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
 REPO = HERE.parent.parent
 
 
@@ -200,6 +201,10 @@ def main():
     utils_data = {"formats": formats, "halves": halves, "randoms": randoms, "selections": selections, "misc": misc,
                   "ranks": ranks, "translations": translations}
 
+    import game_node_fixtures
+
+    game_node_data = game_node_fixtures.build(katrain)
+
     import subprocess
     from importlib.metadata import version
 
@@ -215,6 +220,7 @@ def main():
         ("rules_mainline.json", mainline),
         ("rules_random.json", {"scenarios": scenarios}),
         ("utils.json", utils_data),
+        ("game_node.json", game_node_data),
     ]:
         with open(out / name, "w", encoding="utf-8", newline="\n") as fh:
             json.dump({"generated_by": meta, "data": data}, fh, ensure_ascii=False, indent=None, separators=(",", ":"))
