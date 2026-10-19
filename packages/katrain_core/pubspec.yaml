@@ -1,5 +1,5 @@
 name: katrain_core
-description: "Pure Dart core of KaTrain Neo: rules, SGF, game tree, KataGo protocol and AIs, ported from KaTrain."
+description: "Pure Dart core of KaTrain Neo: rules, SGF, games, KataGo protocol, AIs, settings and the local API."
 version: 0.1.0
 publish_to: none
 resolution: workspace

@@ -1,5 +1,5 @@
 name: katrain_neo
-description: "KaTrain Neo: an unofficial Flutter rewrite of KaTrain"
+description: "KaTrain Neo: review Go games with KataGo, play calibrated AIs, learn in teaching mode."
 publish_to: 'none'
 version: 0.1.0+1
 resolution: workspace

@@ -16,6 +16,3 @@ Thumbs.db
 katago*.exe
 local/
 
-# Python
-__pycache__/
-*.pyc
