@@ -15,3 +15,7 @@ Thumbs.db
 *.onnx
 katago*.exe
 local/
+
+# Python
+__pycache__/
+*.pyc

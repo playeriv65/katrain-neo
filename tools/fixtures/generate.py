@@ -9,6 +9,12 @@ Reads the records in packages/katrain_core/test/fixtures/inputs/ and writes next
 - sgf_parse.json   every node of every record as pysgf sees it, and the SGF it writes back
 - rules_mainline.json  board and captures after every move of each record's main line (KaTrain BaseGame)
 - rules_random.json    random move attempts on small boards under several rulesets, with legality and positions
+- utils.json           number formatting, half floats, random numbers, translations
+- game_node.json       analysis merging, comments and SGF writing (game_node_fixtures.py)
+- engine.json          KataGo queries and results (engine_fixtures.py)
+- game.json            a script of game operations with the events and state after each (game_fixtures.py)
+
+The output is reproducible: string hashes and the gzip time stamps in KT data are fixed.
 """
 
 import argparse
@@ -19,6 +25,17 @@ import sys
 from pathlib import Path
 
 os.environ["KIVY_NO_ARGS"] = "1"  # KaTrain imports Kivy, which otherwise parses our command line
+if os.environ.get("PYTHONHASHSEED") != "0":
+    # set iteration order (e.g. handicap stones) depends on string hashes: run again with fixed ones
+    import subprocess
+
+    sys.exit(subprocess.run([sys.executable, *sys.argv], env={**os.environ, "PYTHONHASHSEED": "0"}).returncode)
+sys.dont_write_bytecode = True
+
+import functools  # noqa: E402
+import gzip  # noqa: E402
+
+gzip.compress = functools.partial(gzip.compress, mtime=0)  # KT data without the time of writing in it
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 REPO = HERE.parent.parent
@@ -158,7 +175,8 @@ def main():
 
     value_rng = random.Random(7)
     specials = [0.0, -0.0, 0.5, 1.5, 2.5, -0.5, -1.5, 0.125, 0.375, 2.675, -0.04, 0.05, 0.15, 0.25, 1e-5, 1.23e-7,
-                1e16, 1.5e16, 123456789.125, 99.95, -99.95, 0.995, -0.995, 0.005, 1 / 3, 2 / 3, 1e300, 5e-324]
+                1e16, 1.5e16, 123456789.125, 99.95, -99.95, 0.995, -0.995, 0.005, 1 / 3, 2 / 3, 1e300, 5e-324,
+                9.9995, 9.9996, 9.9995e-5, 1.0625, 1e-310, 1e100, 1e-100]
     values = specials + [value_rng.uniform(-100, 100) for _ in range(300)] + [value_rng.uniform(-1, 1) * 10 ** value_rng.randint(-8, 6) for _ in range(300)]
     formats = []
     for x in values:
@@ -166,6 +184,7 @@ def main():
             "x": struct.pack("<d", x).hex(),
             "repr": repr(x),
             "f0": f"{x:.0f}", "f1": f"{x:.1f}", "f2": f"{x:.2f}", "f6": f"{x:.6f}", "p1f": f"{x:+.1f}",
+            "e0": f"{x:.0e}", "e3": f"{x:.3e}",
             "pc1": f"{x:.1%}", "pc2": f"{x:.2%}", "ppc1": f"{x:+.1%}",
             "round": round(x) if abs(x) < 1e15 else None,
             "round1": repr(round(x, 1)), "round2": repr(round(x, 2)),
@@ -186,7 +205,13 @@ def main():
             picked = weighted_selection_without_replacement(items, n)
             selections.append({"seed": seed, "n": n, "items": [[k, struct.pack("<d", w).hex()] for k, w in items],
                                "picked": [k for k, _ in picked]})
+    json_values = [
+        {"moves": {"D4": {"visits": 12, "winrate": 0.5, "pv": ["D4", "Q16"], "prior": 1e-05}}, "root": None, "ok": True},
+        ["caf\u00e9 \u56f4\u68cb \U0001f600", "quote \" backslash \\ tab \t nl \n cr \r bell \x07 del \x7f", [], {}],
+        [1.0, -0.0, 123456789012345678, 1e16, 2.5e-07, 0.1 + 0.2],
+    ]
     misc = {
+        "json_dumps": [[v, json.dumps(v)] for v in json_values],
         "var_to_grid": var_to_grid(list(range(12)), (4, 3)),
         "evaluation_class": [[pl, evaluation_class(pl, [12, 6, 3, 1.5, 0.5, 0])] for pl in [-1, 0, 0.3, 0.5, 1, 1.5, 2.9, 3, 5, 6, 11.9, 12, 40]],
         "format_visits": [[n, format_visits(n)] for n in [0, 5, 999, 1000, 1049, 1050, 1250, 99949, 99950, 100000, 125500, 999999, 1000000, 1500000, 2500000]],
@@ -209,6 +234,10 @@ def main():
 
     engine_data = engine_fixtures.build()
 
+    import game_fixtures
+
+    game_data = game_fixtures.build(katrain)
+
     import subprocess
     from importlib.metadata import version
 
@@ -226,6 +255,7 @@ def main():
         ("utils.json", utils_data),
         ("game_node.json", game_node_data),
         ("engine.json", engine_data),
+        ("game.json", game_data),
     ]:
         with open(out / name, "w", encoding="utf-8", newline="\n") as fh:
             json.dump({"generated_by": meta, "data": data}, fh, ensure_ascii=False, indent=None, separators=(",", ":"))

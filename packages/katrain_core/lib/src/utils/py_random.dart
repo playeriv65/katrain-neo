@@ -99,3 +99,7 @@ class PyRandom {
     return (a * 67108864.0 + b) * (1.0 / 9007199254740992.0);
   }
 }
+
+/// The equivalent of Python's module-level `random`: KaTrain draws undo thresholds, self-play choices and AI moves
+/// from one shared stream, so seeding this reproduces KaTrain's choices after `random.seed(n)`.
+PyRandom globalRandom = PyRandom(DateTime.now().microsecondsSinceEpoch);

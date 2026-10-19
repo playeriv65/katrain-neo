@@ -2,6 +2,7 @@
 /// and number formatting/rounding with Python's exact round-half-even rules.
 library;
 
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 /// The string Python's `str()` gives for property values set from code (ints, floats, strings).
@@ -85,11 +86,13 @@ void mergeSortBy<T>(List<T> list, Comparable Function(T) key, {bool reverse = fa
 }
 
 /// round(|x| * 10^digits) to an integer, ties to even, using the exact binary value of x (as Python does).
+/// [digits] may be negative.
 BigInt _scaledRounded(double x, int digits) {
   final (numerator, shift) = _exact(x);
-  var n = numerator * BigInt.from(10).pow(digits);
-  if (shift == 0) return n;
-  final d = BigInt.one << shift;
+  final ten = BigInt.from(10);
+  final n = digits >= 0 ? numerator * ten.pow(digits) : numerator;
+  final d = (BigInt.one << shift) * (digits >= 0 ? BigInt.one : ten.pow(-digits));
+  if (d == BigInt.one) return n;
   final q = n ~/ d;
   final r = n - q * d;
   final twice = r * BigInt.two;
@@ -110,6 +113,35 @@ String pyFixed(double x, int digits, {bool plus = false}) {
   return '${negative ? '-' : (plus ? '+' : '')}$s';
 }
 
+/// Python's `format(x, '.Ne')`: one digit before the point, [digits] after it, and an exponent of at least two digits.
+String pyExp(double x, int digits) {
+  if (x.isNaN) return 'nan';
+  if (x.isInfinite) return x > 0 ? 'inf' : '-inf';
+  final negative = x < 0 || (x == 0 && x.isNegative);
+  var exponent = 0;
+  var mantissa = BigInt.zero;
+  if (x != 0) {
+    exponent = (math.log(x.abs()) / math.ln10).floor();
+    final low = BigInt.from(10).pow(digits);
+    final high = low * BigInt.from(10);
+    // the estimate can be one off either way; rounding up can also carry into the next power of ten
+    for (var i = 0; i < 4; i++) {
+      mantissa = _scaledRounded(x, digits - exponent);
+      if (mantissa >= high) {
+        exponent += 1;
+      } else if (mantissa < low) {
+        exponent -= 1;
+      } else {
+        break;
+      }
+    }
+  }
+  var s = mantissa.toString().padLeft(digits + 1, '0');
+  if (digits > 0) s = '${s[0]}.${s.substring(1)}';
+  final e = exponent.abs().toString().padLeft(2, '0');
+  return '${negative ? '-' : ''}${s}e${exponent < 0 ? '-' : '+'}$e';
+}
+
 /// Python's `format(x, '.N%')`: x * 100 in floating point, then fixed with a percent sign.
 String pyPercent(double x, int digits, {bool plus = false}) => '${pyFixed(x * 100, digits, plus: plus)}%';
 
@@ -124,4 +156,78 @@ double pyRoundTo(double x, int n) {
   if (!x.isFinite) return x;
   final s = pyFixed(x, n);
   return double.parse(s);
+}
+
+/// Python's `json.dumps(value)` with its defaults: `', '` and `': '` separators, Python's float repr, and every
+/// character outside printable ASCII escaped as `\uXXXX`.
+String pyJsonDumps(Object? value) {
+  final out = StringBuffer();
+  void write(Object? v) {
+    if (v == null) {
+      out.write('null');
+    } else if (v is bool) {
+      out.write(v ? 'true' : 'false');
+    } else if (v is int) {
+      out.write(v);
+    } else if (v is double) {
+      if (v.isNaN) {
+        out.write('NaN');
+      } else if (v.isInfinite) {
+        out.write(v > 0 ? 'Infinity' : '-Infinity');
+      } else {
+        out.write(pyFloatRepr(v));
+      }
+    } else if (v is String) {
+      out.write('"');
+      for (final unit in v.codeUnits) {
+        switch (unit) {
+          case 0x22:
+            out.write(r'\"');
+          case 0x5c:
+            out.write(r'\\');
+          case 0x0a:
+            out.write(r'\n');
+          case 0x0d:
+            out.write(r'\r');
+          case 0x09:
+            out.write(r'\t');
+          case 0x08:
+            out.write(r'\b');
+          case 0x0c:
+            out.write(r'\f');
+          default:
+            if (unit < 0x20 || unit > 0x7e) {
+              out.write(r'\u');
+              out.write(unit.toRadixString(16).padLeft(4, '0'));
+            } else {
+              out.writeCharCode(unit);
+            }
+        }
+      }
+      out.write('"');
+    } else if (v is List) {
+      out.write('[');
+      for (var i = 0; i < v.length; i++) {
+        if (i > 0) out.write(', ');
+        write(v[i]);
+      }
+      out.write(']');
+    } else if (v is Map) {
+      out.write('{');
+      var first = true;
+      for (final e in v.entries) {
+        if (!first) out.write(', ');
+        first = false;
+        write(e.key.toString());
+        out.write(': ');
+        write(e.value);
+      }
+      out.write('}');
+    } else {
+      throw ArgumentError('Object of type ${v.runtimeType} is not JSON serializable');
+    }
+  }
+
+  write(value);
+  return out.toString();
 }

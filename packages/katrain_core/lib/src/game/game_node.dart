@@ -13,6 +13,7 @@ import '../sgf/go_node.dart';
 import '../sgf/move.dart';
 import '../sgf/parser.dart';
 import '../utils/py_format.dart';
+import '../utils/py_random.dart';
 import '../utils/py_str_format.dart';
 import '../utils/utils.dart';
 
@@ -32,9 +33,10 @@ List<String> analysisDumps(Map<String, dynamic> analysis) {
   }
   final ownershipData = packFloats(_doubles(copy.remove('ownership')));
   final policyData = packFloats(_doubles(copy.remove('policy')));
-  final mainData = utf8.encode(jsonEncode(copy));
+  final mainData = utf8.encode(pyJsonDumps(copy)); // the same text as KaTrain's json.dumps
+  // gzip.compress uses level 9; the deflate bytes can still differ between zlib builds, the content does not
   return [
-    for (final data in [ownershipData, policyData, mainData]) base64.encode(GZipEncoder().encodeBytes(data)),
+    for (final data in [ownershipData, policyData, mainData]) base64.encode(GZipEncoder().encodeBytes(data, level: 9)),
   ];
 }
 
@@ -63,10 +65,7 @@ class GameNode extends BaseGoNode<GameNode> {
   static int _nextSerial = 1;
   int? _serial;
 
-  /// Random source for [undoThreshold]; KaTrain uses Python's global `random`.
-  static math.Random random = math.Random();
-
-  GameNode({super.parent, super.properties, super.move}) : undoThreshold = random.nextDouble() {
+  GameNode({super.parent, super.properties, super.move}) : undoThreshold = globalRandom.random() {
     clearAnalysis();
   }
 

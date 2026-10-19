@@ -30,6 +30,8 @@ void main() {
       expect(pyFixed(x, 2), f['f2'], reason: reason);
       expect(pyFixed(x, 6), f['f6'], reason: reason);
       expect(pyFixed(x, 1, plus: true), f['p1f'], reason: reason);
+      expect(pyExp(x, 0), f['e0'], reason: reason);
+      expect(pyExp(x, 3), f['e3'], reason: reason);
       expect(pyPercent(x, 1), f['pc1'], reason: reason);
       expect(pyPercent(x, 2), f['pc2'], reason: reason);
       expect(pyPercent(x, 1, plus: true), f['ppc1'], reason: reason);
@@ -69,7 +71,7 @@ void main() {
     }
   });
 
-  test('grid, evaluation class and visits', () {
+  test('grid, evaluation class, visits and json.dumps', () {
     final misc = data['misc'] as Map<String, dynamic>;
     expect(varToGrid(List.generate(12, (i) => i), (4, 3)), misc['var_to_grid']);
     for (final e in misc['evaluation_class'] as List) {
@@ -77,6 +79,9 @@ void main() {
     }
     for (final e in misc['format_visits'] as List) {
       expect(formatVisits(e[0] as int), e[1]);
+    }
+    for (final e in misc['json_dumps'] as List) {
+      expect(pyJsonDumps(e[0]), e[1]);
     }
   });
 

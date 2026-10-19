@@ -62,6 +62,7 @@ class KataGoEngine implements AnalysisEngine<GameNode> {
   static const ponderKey = '_kt_continuous';
 
   final EngineHost host;
+  @override
   final Map<String, dynamic> config;
 
   /// 'local' or 'remote', passed to the recovery popup so it can tailor its advice.
@@ -109,6 +110,7 @@ class KataGoEngine implements AnalysisEngine<GameNode> {
     _sentPayloads.clear();
   }
 
+  @override
   void terminateQueries({GameNode? onlyForNode}) {
     for (final entry in _queries.entries.toList()) {
       if (onlyForNode == null || identical(onlyForNode, entry.value.node)) {
@@ -117,6 +119,7 @@ class KataGoEngine implements AnalysisEngine<GameNode> {
     }
   }
 
+  @override
   void stopPondering() {
     final pq = _ponderQuery;
     _ponderQuery = null;

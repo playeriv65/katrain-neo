@@ -9,7 +9,9 @@ the same layout and settings, in a smoother, modern desktop app. It talks to a l
 over WebSocket.
 
 **Status:** early development. Nothing is usable yet; see [docs/DESIGN.md](docs/DESIGN.md) for the plan and the parity
-checklist.
+checklist. Ported to the core so far, each tested against Python KaTrain: SGF reading and writing, board rules,
+constants and translations, the game tree with analysis data, the KataGo engine (local and remote), and the game
+logic (navigation, insert mode, extra analysis modes, self-play, teaching undo, scoring, saving). Next: the AIs.
 
 ## Layout
 

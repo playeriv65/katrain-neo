@@ -1,5 +1,5 @@
 // Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/core/game.py: class BaseGame
-// (board state and capture rules). Analysis, players and timing come with the Game class later.
+// (board state and capture rules). Navigation, scoring, saving and analysis are in game/game.dart.
 
 import '../sgf/go_node.dart';
 import '../sgf/move.dart';
@@ -31,7 +31,16 @@ class BaseGame<N extends BaseGoNode<N>> {
   late List<Move> lastCapture;
 
   /// [defaultRules] fills in a missing `RU` property, as KaTrain does from its game/rules setting.
-  BaseGame(this.root, {String defaultRules = 'japanese'}) {
+  /// [loaded] is true for a tree read from a file, whose handicap stones may still need placing.
+  BaseGame(this.root, {String defaultRules = 'japanese', bool loaded = true}) {
+    if (loaded) _placeMissingHandicap();
+    if ((root.getProperty('RU') ?? '').isEmpty) {
+      root.setProperty('RU', defaultRules);
+    }
+    setCurrentNode(root);
+  }
+
+  void _placeMissingHandicap() {
     final handicap = root.handicap;
     var numStartingMovesBlack = 0;
     var node = root;
@@ -50,10 +59,6 @@ class BaseGame<N extends BaseGoNode<N>> {
       // not really according to sgf, kept from KaTrain; the last clause is for fox
       root.placeHandicapStones(handicap);
     }
-    if ((root.getProperty('RU') ?? '').isEmpty) {
-      root.setProperty('RU', defaultRules);
-    }
-    setCurrentNode(root);
   }
 
   (int, int) get boardSize => root.boardSize;
@@ -76,7 +81,7 @@ class BaseGame<N extends BaseGoNode<N>> {
     try {
       for (final node in currentNode.nodesFromRoot) {
         for (final m in node.moveWithPlacements) {
-          _validateMoveAndUpdateChains(m, true); // ignore ko since we didn't know if it was forced
+          validateMoveAndUpdateChains(m, true); // ignore ko since we didn't know if it was forced
         }
         final clear = node.clearPlacements;
         if (clear.isNotEmpty) {
@@ -89,7 +94,7 @@ class BaseGame<N extends BaseGoNode<N>> {
           ];
           _initState();
           for (final m in stones) {
-            _validateMoveAndUpdateChains(m, true);
+            validateMoveAndUpdateChains(m, true);
           }
         }
       }
@@ -112,7 +117,9 @@ class BaseGame<N extends BaseGoNode<N>> {
     return result;
   }
 
-  void _validateMoveAndUpdateChains(Move move, bool ignoreKo) {
+  /// Puts [move] on the board, updating chains and captures; throws [IllegalMoveException] and leaves the board
+  /// half-updated if it is not legal (callers recalculate).
+  void validateMoveAndUpdateChains(Move move, bool ignoreKo) {
     final koOrSnapback = lastCapture.length == 1 && lastCapture[0] == move;
     lastCapture = [];
 
@@ -187,15 +194,17 @@ class BaseGame<N extends BaseGoNode<N>> {
     }
   }
 
-  /// Plays [move] from the current position; throws [IllegalMoveException] if it is not legal.
-  N play(Move move, {bool ignoreKo = false}) {
+  /// Plays [move] from the current position; throws [IllegalMoveException] if it is not legal. Returns null without
+  /// playing when [expectedNode] is given and is no longer the current node.
+  N? play(Move move, {bool ignoreKo = false, N? expectedNode}) {
     final (sizeX, sizeY) = boardSize;
     final c = move.coords;
     if (c != null && !(0 <= c.$1 && c.$1 < sizeX && 0 <= c.$2 && c.$2 < sizeY)) {
       throw IllegalMoveException('Move $move outside of board coordinates');
     }
+    if (expectedNode != null && !identical(currentNode, expectedNode)) return null;
     try {
-      _validateMoveAndUpdateChains(move, ignoreKo);
+      validateMoveAndUpdateChains(move, ignoreKo);
     } on IllegalMoveException {
       calculateGroups(); // roll the half-applied move back off the board
       rethrow;
