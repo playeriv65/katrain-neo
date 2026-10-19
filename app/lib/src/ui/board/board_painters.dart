@@ -528,7 +528,7 @@ List<Map<String, dynamic>> hintMoves(AppController app) {
   return [];
 }
 
-/// The moves whose variations hovering shows: hints and the next moves (`active_pv_moves`).
+/// The moves whose variations hovering shows: hints and the next moves.
 List<PvMove> activePvMoves(AppController app) {
   final cn = app.game!.currentNode;
   final result = <PvMove>[];

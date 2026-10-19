@@ -36,7 +36,7 @@ abstract interface class EngineConnection {
   Future<void> close();
 }
 
-/// `resolve_engine_backend`: 'local', 'remote' or 'custom'.
+/// The engine backend to use: 'local', 'remote' or 'custom'.
 String resolveEngineBackend(Map<String, dynamic> config) {
   final backend = ((config['backend'] as String?) ?? '').trim().toLowerCase();
   if (const ['local', 'remote', 'custom'].contains(backend)) return backend;

@@ -204,9 +204,10 @@ class EngineRecoveryDialog extends StatelessWidget {
       i18n.tr(remote ? 'remote engine disconnected popup opening message' : 'engine died popup opening message'),
       {'code': failure.code, 'error_message': failure.message},
     );
-    final suggestion = fillTemplate(i18n.tr(remote ? 'remote engine check url suggestion' : 'change engine suggestion'), {
-      'link': settings,
-    });
+    final suggestion = fillTemplate(
+      i18n.tr(remote ? 'remote engine check url suggestion' : 'change engine suggestion'),
+      {'link': settings},
+    );
     final help = fillTemplate(i18n.tr('go to engine help page'), {'link': i18n.tr('link_here')});
     return AlertDialog(
       icon: const Icon(Icons.error_outline),

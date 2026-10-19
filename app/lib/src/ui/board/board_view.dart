@@ -165,7 +165,10 @@ class _BoardViewState extends State<BoardView> {
           app.mode == modePlay &&
           (app.config('timer/main_time', 0) as num) * 60 - game.mainTimeUsed <= 0 &&
           currentNode.timeUsed < minimalUse) {
-        app.setStatus(fillTemplate(i18n.tr('move too fast'), {'num': app.config('timer/minimal_use', 0)}), statusTeaching);
+        app.setStatus(
+          fillTemplate(i18n.tr('move too fast'), {'num': app.config('timer/minimal_use', 0)}),
+          statusTeaching,
+        );
       } else {
         app.play(board.ghostStone);
       }

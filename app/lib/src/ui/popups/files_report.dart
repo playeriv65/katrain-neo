@@ -145,9 +145,7 @@ class _GameReportDialogState extends State<GameReportDialog> {
     final app = widget.app;
     final thresholds = (app.config('trainer/eval_thresholds') as List).cast<num>();
     final (sumStats, histogram, playerPtloss) = gameReport(app.game!, thresholds, depthFilter: depthFilter);
-    final labels = [
-      for (final pt in thresholds) pt > 0 ? '≥ $pt' : '< ${thresholds[thresholds.length - 2]}',
-    ];
+    final labels = [for (final pt in thresholds) pt > 0 ? '≥ $pt' : '< ${thresholds[thresholds.length - 2]}'];
     final colors = [
       for (final c in KTheme.evalColors[app.config('trainer/theme')]!)
         Color.from(alpha: 1, red: c.r * 0.75, green: c.g * 0.75, blue: c.b * 0.75),

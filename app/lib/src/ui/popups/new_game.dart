@@ -64,7 +64,7 @@ class _NewGameDialogState extends State<NewGameDialog> {
     return null;
   }
 
-  /// `update_playername`: the current names when editing the game, and empty fields otherwise.
+  /// The current names when editing the game, and empty fields otherwise.
   void _setMode(String newMode) {
     setState(() => mode = newMode);
     for (final bw in const ['B', 'W']) {
@@ -118,10 +118,7 @@ class _NewGameDialogState extends State<NewGameDialog> {
       ]) {
         if (current != value) {
           changed = true;
-          app.log(
-            'Property $k changed from $current to $value, triggering re-analysis of entire game.',
-            outputInfo,
-          );
+          app.log('Property $k changed from $current to $value, triggering re-analysis of entire game.', outputInfo);
           root.setProperty(k, value);
         }
       }

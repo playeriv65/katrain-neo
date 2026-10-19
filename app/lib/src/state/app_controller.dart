@@ -298,7 +298,10 @@ class AppController extends HostBase with ChangeNotifier {
       moveTree = gameParser.parseSgf(text);
     } on Object catch (e) {
       final contents = text.substring(0, math.min(50, text.length));
-      setStatus(fillTemplate(i18n.tr('Failed to import from clipboard'), {'error': e, 'contents': contents}), statusInfo);
+      setStatus(
+        fillTemplate(i18n.tr('Failed to import from clipboard'), {'error': e, 'contents': contents}),
+        statusInfo,
+      );
       return false;
     }
     moveTree.nodesInTree.last.analyze(engine!); // the end of the game first, where one usually looks

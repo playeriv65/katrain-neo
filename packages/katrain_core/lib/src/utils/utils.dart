@@ -115,7 +115,7 @@ String formatVisits(num n) {
 }
 
 /// Random items without replacement, each item's second element being its weight
-/// (`weighted_selection_without_replacement`: the "log(u) / w" trick, then the n largest keys).
+/// (the "log(u) / w" trick, then the n largest keys).
 List<T> weightedSelectionWithoutReplacement<T>(
   List<T> items,
   int pickN,

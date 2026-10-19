@@ -14,13 +14,13 @@ class InputParseError implements Exception {
   String toString() => message;
 }
 
-/// Values entered in a popup, by setting path, and how to store them (QuickConfigGui).
+/// Values entered in a popup, by setting path, and how to store them.
 class ConfigEditor {
   final AppController app;
   final Map<String, Object? Function()> _fields = {};
   ConfigEditor(this.app);
 
-  /// `get_setting`: the value at [key], the map or list holding it, and the key or index in there. Missing
+  /// The value at [key], the map or list holding it, and the key or index in there. Missing
   /// sections are created; a missing value is created empty and logged.
   (Object?, Object, Object) getSetting(String key) {
     final keys = key.split('/');

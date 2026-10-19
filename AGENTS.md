@@ -1,22 +1,17 @@
 # Notes for coding agents
 
-KaTrain Neo is a Flutter/Dart rewrite of KaTrain aiming for parity. Read [docs/DESIGN.md](docs/DESIGN.md) first.
+KaTrain Neo is a Flutter/Dart desktop app for Go with KataGo. Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) first.
 
 ## Rules
 
-- Parity of behaviour, not of code: KaTrain Neo must do what KaTrain (`https://github.com/sanderland/katrain`) does —
-  same features, results, settings and shortcuts. How it is written is ours: port the behaviour, not the structure,
-  and write clean, idiomatic Dart (typed classes instead of dicts, async instead of threads, no Python artefacts such
-  as CPython set order). Note the behaviour differences you find or make. New features go to the "Later" list in the
-  design doc.
 - `packages/katrain_core` stays pure Dart (no `package:flutter` imports) so it is testable with `dart test`.
-- Every ported module gets tests. Where KaTrain's behaviour is the reference, use the differential fixtures generated
-  from Python KaTrain (`tools/fixtures/`), not hand-written expectations.
-- Say where ported code comes from in a short header comment (KaTrain file and function).
-- The agent API (`packages/katrain_core/lib/src/api`) and CLI (`packages/katrain_cli`) come from the
-  playeriv65/katrain fork; keep their commands, arguments and JSON results (what agents rely on), not its code.
-- Do not commit KataGo binaries or models, or anything from KaTrain that is not MIT (its Flaticon icons, the
-  DIGITAL-7 font). See CREDITS.md.
+- Every change to behaviour comes with tests of the behaviour (what a user or an agent sees), on the fakes in
+  `packages/katrain_core/test/support` rather than recorded outputs. A bug found and not fixed yet is a skipped test
+  with `skip: 'bug: ...'`.
+- Keep the settings keys, the SGF analysis format (`KT`, `KTV`) and the local API's commands, arguments and JSON
+  results compatible: settings files, game records and agents rely on them. Change them on purpose and say so.
+- Comments say what the code does and why, not where it came from.
+- Do not commit KataGo binaries or models, or assets under licences that do not allow it (see CREDITS.md).
 - Never open app windows during checks: use `dart test`, `flutter test` (widget and golden tests render headlessly)
   and `flutter analyze`. Launch the app only when a person wants to look at it, or with `KATRAIN_NEO_HIDDEN=1`, which
   keeps its window hidden (e.g. to try a real KataGo end to end).
@@ -29,15 +24,12 @@ flutter pub get
 cd packages/katrain_core && dart test
 cd packages/katrain_cli && dart test
 dart compile exe packages/katrain_cli/bin/katrain_neo.dart -o katrain-neo   # the CLI as one program
-cd app && flutter analyze && flutter test
-python tools/fixtures/generate.py --katrain <path to a KaTrain checkout>   # refresh differential fixtures
-python tools/port/generate.py --katrain <path to a KaTrain checkout>       # regenerate constants, translations, defaults
-python tools/port/codecs_gen.py                                            # regenerate the codec tables (needs charset_normalizer)
-dart format -l 120 packages/katrain_core/lib                               # the generators do not format
+cd app && flutter analyze --fatal-infos && flutter test
+dart format -l 120 packages app/lib app/test
 ```
 
-`app/test/render_test.dart` renders the main screen and every popup to PNGs when `NEO_RENDER_SGF` (a game) and
-`NEO_RENDER_OUT` (a folder) are set, to compare with screenshots of KaTrain.
+`app/test/render_test.dart` renders the main screen and every dialog to PNGs when `NEO_RENDER_SGF` (a game) and
+`NEO_RENDER_OUT` (a folder) are set.
 
 The test against a real KataGo runs only when `KATAGO_EXE`, `KATAGO_MODEL` and `KATAGO_CONFIG` point at a KataGo
 binary, model and analysis config; otherwise it is skipped (as in CI).

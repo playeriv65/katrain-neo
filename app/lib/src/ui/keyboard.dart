@@ -181,7 +181,7 @@ class _KeyboardShortcutsState extends State<KeyboardShortcuts> {
     return true;
   }
 
-  /// `_single_key_action`: Alt alone opens or closes the menu, Tab alone switches between play and analysis.
+  /// Alt alone opens or closes the menu, Tab alone switches between play and analysis.
   void _singleKeyAction(LogicalKeyboardKey key, LogicalKeyboardKey? lastKeyDown) {
     final normalized = _isAlt(key) ? _K.alt : key;
     if (!mounted || _textFocused() || app.popupOpen || normalized != lastKeyDown || normalized != _lastKeyDown) return;
@@ -192,7 +192,7 @@ class _KeyboardShortcutsState extends State<KeyboardShortcuts> {
     }
   }
 
-  /// `load_sgf_from_clipboard`: a game record, or a link to one.
+  /// A game record, or a link to one.
   Future<void> _loadSgfFromClipboard() async {
     var clipboard = (await Clipboard.getData(Clipboard.kTextPlain))?.text ?? '';
     if (clipboard.isEmpty) {

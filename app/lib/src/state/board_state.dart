@@ -18,8 +18,8 @@ class BoardState extends ChangeNotifier {
   PvOverlay? _pv;
   (double, double) lastMousePos = (0, 0);
 
-  /// `[xmin, xmax, ymin, ymax]` to show only part of the board, like a book diagram (from the playeriv65/katrain
-  /// fork's zoomed tsumego view); drawn unrotated.
+  /// `[xmin, xmax, ymin, ymax]` to show only part of the board, like a book diagram (the zoomed tsumego view);
+  /// drawn unrotated.
   List<int>? zoomRegion;
 
   /// Stones kept in the game but not drawn (e.g. a tsumego frame).

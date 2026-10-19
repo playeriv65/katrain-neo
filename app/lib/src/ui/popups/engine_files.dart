@@ -100,7 +100,7 @@ class EngineFileFinder {
     return 0;
   }
 
-  /// `check_models`: all models, and the human-like ones among them, recommended and known ones first.
+  /// All models, and the human-like ones among them, recommended and known ones first.
   (List<FoundFile>, List<FoundFile>) models(String modelPath, String humanlikeModelPath) {
     final distModels = ((app.config('dist_models') as Map?) ?? const {}).cast<String, dynamic>();
     final fileToDesc = <String, String>{
@@ -134,7 +134,7 @@ class EngineFileFinder {
 
   static Comparable _key(Object v) => v is bool ? (v ? 1 : 0) : v as Comparable;
 
-  /// `check_katas`: KataGo programs, known builds first and builds for big boards (bs29) after the others.
+  /// KataGo programs, known builds first and builds for big boards (bs29) after the others.
   List<FoundFile> katagos(String katagoPath) {
     final fileToDesc = <String, String>{
       for (final builds in downloads.katagos.values)
@@ -204,7 +204,7 @@ class Download extends ChangeNotifier {
   }
 }
 
-/// `_download_models`: asks katagotraining.org for its latest and strongest networks, then downloads every model
+/// Asks katagotraining.org for its latest and strongest networks, then downloads every model
 /// not yet on disk to the data folder. Returns the started downloads.
 Future<List<Download>> downloadModels(
   AppController app,
@@ -252,7 +252,7 @@ Future<List<Download>> downloadModels(
   return started;
 }
 
-/// `download_katas`: downloads the KataGo builds for this platform not yet on disk, and unpacks the program (and
+/// Downloads the KataGo builds for this platform not yet on disk, and unpacks the program (and
 /// its DLLs) next to the data folder. Null when there are none for this platform.
 List<Download>? downloadKatagos(
   AppController app,

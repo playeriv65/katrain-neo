@@ -15,7 +15,7 @@ const _movesVert = 3;
 class MoveTree extends StatefulWidget {
   final AppController app;
 
-  /// The height the tree has in play mode, which sizes its nodes (`min_height`).
+  /// The height the tree has in play mode, which sizes its nodes.
   final double minHeight;
   const MoveTree({super.key, required this.app, required this.minHeight});
 
