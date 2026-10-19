@@ -1,0 +1,10 @@
+# Pub workspace: `flutter pub get` here resolves every package of the repository.
+name: katrain_neo_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+workspace:
+  - app
+  - packages/katrain_core

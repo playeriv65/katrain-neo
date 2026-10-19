@@ -1,0 +1,17 @@
+# Dart / Flutter
+.dart_tool/
+build/
+*.iml
+.idea/
+.vscode/
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Never commit KataGo binaries, models or local settings
+*.bin.gz
+*.onnx
+katago*.exe
+local/
