@@ -229,9 +229,16 @@ double pyRoundTo(double x, int n) {
 
 /// Python's `json.dumps(value)` with its defaults: `', '` and `': '` separators, Python's float repr, and every
 /// character outside printable ASCII escaped as `\uXXXX`.
-String pyJsonDumps(Object? value) {
+///
+/// With [indent], like `json.dumps(value, indent=indent)`: one item per line, and `','` without a space.
+String pyJsonDumps(Object? value, {int? indent}) {
   final out = StringBuffer();
-  void write(Object? v) {
+  final itemSeparator = indent == null ? ', ' : ',';
+  void newline(int level) {
+    if (indent != null) out.write('\n${' ' * (indent * level)}');
+  }
+
+  void write(Object? v, int level) {
     if (v == null) {
       out.write('null');
     } else if (v is bool) {
@@ -275,28 +282,40 @@ String pyJsonDumps(Object? value) {
       }
       out.write('"');
     } else if (v is List) {
+      if (v.isEmpty) {
+        out.write('[]');
+        return;
+      }
       out.write('[');
       for (var i = 0; i < v.length; i++) {
-        if (i > 0) out.write(', ');
-        write(v[i]);
+        if (i > 0) out.write(itemSeparator);
+        newline(level + 1);
+        write(v[i], level + 1);
       }
+      newline(level);
       out.write(']');
     } else if (v is Map) {
+      if (v.isEmpty) {
+        out.write('{}');
+        return;
+      }
       out.write('{');
       var first = true;
       for (final e in v.entries) {
-        if (!first) out.write(', ');
+        if (!first) out.write(itemSeparator);
         first = false;
-        write(e.key.toString());
+        newline(level + 1);
+        write(e.key.toString(), level + 1);
         out.write(': ');
-        write(e.value);
+        write(e.value, level + 1);
       }
+      newline(level);
       out.write('}');
     } else {
       throw ArgumentError('Object of type ${v.runtimeType} is not JSON serializable');
     }
   }
 
-  write(value);
+  write(value, 0);
   return out.toString();
 }

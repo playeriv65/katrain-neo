@@ -12,7 +12,7 @@ over WebSocket.
 checklist. Ported to the core so far, each tested against Python KaTrain: SGF reading and writing, board rules,
 constants and translations, the game tree with analysis data, the KataGo engine (local and remote), and the game
 logic (navigation, insert mode, extra analysis modes, self-play, teaching undo, scoring, saving), and the AIs (all
-strategies, rank estimation, game report). Next: the tsumego frame, settings and file encodings, then the app.
+strategies, rank estimation, game report), the tsumego frame, and settings. Next: file encodings, then the app.
 
 ## Layout
 

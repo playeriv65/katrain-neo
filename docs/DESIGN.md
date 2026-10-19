@@ -49,6 +49,11 @@ Why pure Dart and not a Python sidecar: the analysis viewer does not need KaTrai
 KaTrain's core is about 6000 lines, small enough to port with tests. One language and one process keep packaging
 simple.
 
+### Settings
+
+Same keys and file format as KaTrain (its defaults, saved like Kivy's JsonStore), but in `~/.katrain-neo` instead of
+`~/.katrain`, so KaTrain Neo and KaTrain never overwrite each other's settings.
+
 ### Engine
 
 KaTrain talks to KataGo's JSON analysis engine; KaTrain Neo uses the same protocol and builds the same queries

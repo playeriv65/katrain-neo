@@ -14,6 +14,7 @@ Reads the records in packages/katrain_core/test/fixtures/inputs/ and writes next
 - engine.json          KataGo queries and results (engine_fixtures.py)
 - game.json            a script of game operations with the events and state after each (game_fixtures.py)
 - ai.json              the same for the AI strategies, rank estimation and the game report (ai_fixtures.py)
+- tsumego.json         tsumego frames for problems all over boards of several sizes (tsumego_fixtures.py)
 
 The output is reproducible: string hashes and the gzip time stamps in KT data are fixed.
 """
@@ -247,6 +248,10 @@ def main():
 
     ai_data = ai_fixtures.build(katrain)
 
+    import tsumego_fixtures
+
+    tsumego_data = tsumego_fixtures.build(katrain)
+
     import subprocess
     from importlib.metadata import version
 
@@ -266,6 +271,7 @@ def main():
         ("engine.json", engine_data),
         ("game.json", game_data),
         ("ai.json", ai_data),
+        ("tsumego.json", tsumego_data),
     ]:
         with open(out / name, "w", encoding="utf-8", newline="\n") as fh:
             json.dump({"generated_by": meta, "data": data}, fh, ensure_ascii=False, indent=None, separators=(",", ":"))

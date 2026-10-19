@@ -24,7 +24,8 @@ flutter pub get
 dart test packages/katrain_core
 cd app && flutter analyze && flutter test
 python tools/fixtures/generate.py --katrain <path to a KaTrain checkout>   # refresh differential fixtures
-python tools/port/generate.py --katrain <path to a KaTrain checkout>       # regenerate constants and translations
+python tools/port/generate.py --katrain <path to a KaTrain checkout>       # regenerate constants, translations, defaults
+dart format -l 120 packages/katrain_core/lib                               # the generators do not format
 ```
 
 The test against a real KataGo runs only when `KATAGO_EXE`, `KATAGO_MODEL` and `KATAGO_CONFIG` point at a KataGo

@@ -55,14 +55,14 @@ num interp2d(List<Object> gridspec, num x, num y) {
 }
 
 /// The rank (1 = 1 dan, 0 = 1 kyu, negative for weaker kyu ranks) an AI with these settings plays at.
-num aiRankEstimation(String strategy, Map<String, dynamic> settings) {
+num aiRankEstimation(String strategy, Map<String, dynamic>? settings) {
   if (const [aiDefault, aiHandicap, aiJigo, aiPro].contains(strategy)) return 9;
-  if (strategy == aiRank) return 1 - (settings['kyu_rank'] as num);
-  if (strategy == aiHuman) return 1 - (settings['human_kyu_rank'] as num);
-  num pickGrid(List<Object> grid) => interp2d(grid, settings['pick_frac'] as num, settings['pick_n'] as num);
+  if (strategy == aiRank) return 1 - (settings!['kyu_rank'] as num);
+  if (strategy == aiHuman) return 1 - (settings!['human_kyu_rank'] as num);
+  num pickGrid(List<Object> grid) => interp2d(grid, settings!['pick_frac'] as num, settings['pick_n'] as num);
   final num? elo = switch (strategy) {
-    aiWeighted => interp1d(aiWeightedElo, settings['weaken_fac'] as num),
-    aiScoreloss => interp1d(aiScorelossElo, settings['strength'] as num),
+    aiWeighted => interp1d(aiWeightedElo, settings!['weaken_fac'] as num),
+    aiScoreloss => interp1d(aiScorelossElo, settings!['strength'] as num),
     aiPick => pickGrid(aiPickEloGrid),
     aiLocal => pickGrid(aiLocalEloGrid),
     aiTenuki => pickGrid(aiTenukiEloGrid),

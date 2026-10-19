@@ -4,6 +4,7 @@
 
 - lib/src/constants.dart       every constant of katrain/core/constants.py
 - lib/src/i18n/strings/*.dart  the translations, read from KaTrain's compiled .mo catalogues (what KaTrain loads)
+- lib/src/config/default_config.dart  KaTrain's default settings (katrain/config.json), as JSON text
 
 Uses a Python environment with KaTrain's dependencies (it imports katrain.core.constants).
 """
@@ -15,6 +16,7 @@ import sys
 from pathlib import Path
 
 os.environ["KIVY_NO_ARGS"] = "1"
+sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 REPO = HERE.parent.parent
@@ -75,6 +77,22 @@ def generate_strings(katrain_path: Path):
     print(f"wrote {out_dir / 'all.dart'}")
 
 
+def generate_default_config(katrain_path: Path):
+    text = (katrain_path / "katrain" / "config.json").read_text(encoding="utf-8")
+    assert "'''" not in text
+    out = CORE / "config" / "default_config.dart"
+    out.parent.mkdir(exist_ok=True)
+    lines = [
+        "/// KaTrain's default settings, the JSON text of its katrain/config.json.",
+        "const String defaultConfigJson = r'''",
+        text.rstrip("\n"),
+        "''';",
+        "",
+    ]
+    out.write_text(header("katrain/config.json", SCRIPT) + "\n".join(lines), encoding="utf-8", newline="\n")
+    print(f"wrote {out}")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--katrain", required=True, help="path to a KaTrain checkout")
@@ -83,6 +101,7 @@ def main():
     sys.path.insert(0, str(katrain_path))
     generate_constants(katrain_path)
     generate_strings(katrain_path)
+    generate_default_config(katrain_path)
 
 
 if __name__ == "__main__":
