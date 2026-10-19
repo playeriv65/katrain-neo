@@ -205,6 +205,10 @@ def main():
 
     game_node_data = game_node_fixtures.build(katrain)
 
+    import engine_fixtures
+
+    engine_data = engine_fixtures.build()
+
     import subprocess
     from importlib.metadata import version
 
@@ -221,6 +225,7 @@ def main():
         ("rules_random.json", {"scenarios": scenarios}),
         ("utils.json", utils_data),
         ("game_node.json", game_node_data),
+        ("engine.json", engine_data),
     ]:
         with open(out / name, "w", encoding="utf-8", newline="\n") as fh:
             json.dump({"generated_by": meta, "data": data}, fh, ensure_ascii=False, indent=None, separators=(",", ":"))

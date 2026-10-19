@@ -3,6 +3,7 @@ library;
 
 export 'src/constants.dart';
 export 'src/engine/analysis_engine.dart';
+export 'src/engine/katago_engine.dart';
 export 'src/game/game_node.dart';
 export 'src/i18n/i18n.dart';
 export 'src/rules/base_game.dart';
