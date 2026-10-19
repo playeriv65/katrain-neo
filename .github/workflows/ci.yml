@@ -90,7 +90,8 @@ jobs:
           (cd "$dir" && 7z a -tzip "$GITHUB_WORKSPACE/dist/KaTrainNeo-$VERSION-windows-x64.zip" . > /dev/null)
           iscc="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
           if [ ! -f "$iscc" ]; then choco install innosetup --no-progress -y; fi
-          "$iscc" //DAppVersion="$VERSION" //DSourceDir="$GITHUB_WORKSPACE/$dir" //O"$GITHUB_WORKSPACE/dist" installer/windows/katrain_neo.iss
+          # no MSYS path conversion: ISCC takes /D and /O options with Windows paths
+          MSYS_NO_PATHCONV=1 "$iscc" /DAppVersion="$VERSION" /DSourceDir="$(cygpath -w "$GITHUB_WORKSPACE/$dir")"             /O"$(cygpath -w "$GITHUB_WORKSPACE/dist")" installer/windows/katrain_neo.iss
       - name: Package (macOS)
         if: matrix.target == 'macos'
         env:
