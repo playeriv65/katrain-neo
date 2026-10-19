@@ -3,16 +3,8 @@
 // the region being selected).
 
 import 'package:flutter/foundation.dart';
+import 'package:katrain_core/api.dart' show PvOverlay;
 import 'package:katrain_core/katrain_core.dart';
-
-/// A principal variation being shown: its moves from [node], when it started and where the mouse was then.
-class AnimatingPv {
-  final List<String> pv;
-  final GameNode node;
-  final DateTime startTime;
-  final (double, double) mousePos;
-  AnimatingPv(this.pv, this.node, this.startTime, this.mousePos);
-}
 
 class BoardState extends ChangeNotifier {
   /// Clockwise, in steps of 90.
@@ -24,11 +16,7 @@ class BoardState extends ChangeNotifier {
 
   /// The region being selected, `[x1, x2, y1, y2]`.
   List<int> regionOfInterest = [];
-  AnimatingPv? _animatingPv;
-  int? animatingPvIndex;
-
-  /// A variation shown through the API: survives mouse hovers, cleared by clicks.
-  bool pvPinned = false;
+  PvOverlay? _pv;
   (double, double) lastMousePos = (0, 0);
 
   /// `[xmin, xmax, ymin, ymax]` to show only part of the board, like a book diagram (from the playeriv65/katrain
@@ -44,11 +32,15 @@ class BoardState extends ChangeNotifier {
   /// Changes when the hover layer (ghost stone, variation, selection) must be drawn again.
   final ValueNotifier<int> hoverChanges = ValueNotifier(0);
 
-  AnimatingPv? get animatingPv => _animatingPv;
-  set animatingPv(AnimatingPv? value) {
-    _animatingPv = value;
+  /// The variation drawn over the board: from hovering a hint or move, or shown through the API (pinned: hovering
+  /// leaves it, a click clears it).
+  PvOverlay? get pv => _pv;
+  set pv(PvOverlay? value) {
+    _pv = value;
     hoverChanges.value += 1;
   }
+
+  bool get pvPinned => _pv?.pinned ?? false;
 
   void notifyBoardChanged() => boardChanges.value += 1;
 
@@ -81,37 +73,39 @@ class BoardState extends ChangeNotifier {
     return drawCoordsEnabled;
   }
 
-  /// Shows [pv] played from [node], or stops showing one; [enabled] is the `general/anim_pv_moves` setting.
-  void setAnimatingPv(List<String>? pv, GameNode? node, {required bool enabled}) {
-    animatingPvIndex = null;
-    pvPinned = false;
-    if (!enabled || pv == null) {
-      _animatingPv = null;
-    } else if (node != null &&
-        (_animatingPv == null || !(listEquals(_animatingPv!.pv, pv) && identical(_animatingPv!.node, node)))) {
-      _animatingPv = AnimatingPv(pv, node, DateTime.now(), lastMousePos);
+  /// Shows [moves] played from [node] while hovering, or stops showing one; [enabled] is the
+  /// `general/anim_pv_moves` setting. Hovering the same variation again keeps its animation going.
+  void setHoverPv(List<String>? moves, GameNode? node, {required bool enabled}) {
+    if (!enabled || moves == null || node == null) {
+      _pv = null;
+    } else if (_pv == null || _pv!.pinned || !(listEquals(_pv!.moves, moves) && identical(_pv!.node, node))) {
+      _pv = PvOverlay(moves, node, origin: lastMousePos);
+    } else {
+      _pv!.index = null;
     }
     notifyHover();
   }
 
   /// The last move of the variation to show: it grows by one every [delay] seconds, up to [maxMoves] moves, unless
-  /// the user scrolled through it.
+  /// a step was chosen (scrolling, or the API).
   double animatePvIndex({required double delay, required int maxMoves}) {
-    if (animatingPvIndex != null) return animatingPvIndex!.toDouble();
-    final pv = _animatingPv;
+    final pv = _pv;
     if (pv == null) return 0;
-    final elapsed = DateTime.now().difference(pv.startTime).inMicroseconds / 1e6;
+    if (pv.index != null) return pv.index!.toDouble();
+    final elapsed = DateTime.now().difference(pv.started).inMicroseconds / 1e6;
     // drawn as an inclusive index, so one less to show max_moves moves
     return [
-      pv.pv.length.toDouble(),
+      pv.moves.length.toDouble(),
       (maxMoves - 1).toDouble(),
       elapsed / (delay < 0.1 ? 0.1 : delay),
     ].reduce((a, b) => a < b ? a : b);
   }
 
   void adjustAnimatePvIndex(int delta, {required double delay, required int maxMoves}) {
+    final pv = _pv;
+    if (pv == null) return;
     final current = animatePvIndex(delay: delay, maxMoves: maxMoves).floor();
-    animatingPvIndex = current + delta < 0 ? 0 : current + delta;
+    pv.index = current + delta < 0 ? 0 : current + delta;
     notifyHover();
   }
 

@@ -287,12 +287,12 @@ class KaTrainGui extends KaTrainBase with ChangeNotifier {
       case 'resign':
         game!.currentNode.endState = '${game!.currentNode.player}+R';
       case 'redo':
-        board.animatingPv = null;
+        board.pv = null;
         game!.redo((arg(0) ?? 1) as int);
       case 'rotate':
         board.rotate();
       case 'find_mistake':
-        board.animatingPv = null;
+        board.pv = null;
         final threshold = _evalThresholds[_evalThresholds.length - 4].toDouble();
         if ((arg(0) ?? 'redo') == 'undo') {
           game!.undo(9999, threshold);
@@ -300,7 +300,7 @@ class KaTrainGui extends KaTrainBase with ChangeNotifier {
           game!.redo(9999, threshold);
         }
       case 'switch_branch':
-        board.animatingPv = null;
+        board.pv = null;
         switchBranch(arg(0) as int);
       case 'play':
         _doPlay(arg(0) as (int, int)?);
@@ -419,7 +419,7 @@ class KaTrainGui extends KaTrainBase with ChangeNotifier {
     if ((moveTree != null && mode == modePlay) || (moveTree == null && mode == modeAnalyze)) {
       switchUiMode(); // for new game, go to play, for loaded, analyze
     }
-    board.animatingPv = null;
+    board.pv = null;
     board.resetRotation();
     // the zoomed problem view belongs to the old game (the fork only clears it for games loaded through its API)
     board.setZoom(null);
@@ -473,14 +473,14 @@ class KaTrainGui extends KaTrainBase with ChangeNotifier {
       n = 1;
       if (mode == modePlay && lastPlayerInfo.ai && nextPlayerInfo.human) n = 2;
     }
-    board.animatingPv = null;
+    board.pv = null;
     game!.undo(n);
   }
 
   void _playStoneSound() => sounds.play(KThemeSounds.randomStone());
 
   void _doPlay((int, int)? coords) {
-    board.animatingPv = null;
+    board.pv = null;
     final g = game!;
     try {
       final oldPrisonerCount = g.prisonerCount['W']! + g.prisonerCount['B']!;

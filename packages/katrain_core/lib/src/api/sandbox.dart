@@ -1,27 +1,25 @@
-// Ported from the playeriv65/katrain fork (https://github.com/playeriv65/katrain), katrain/api/sandbox.py:
-// background exploration cursors ("sandboxes") inside the user's own game tree.
+// Background exploration cursors ("sandboxes") inside the user's own game tree (the playeriv65/katrain fork's
+// katrain/api/sandbox.py).
 //
 // A sandbox is a cursor of the agent's, separate from the position the app shows. Moves the agent plays become
 // ordinary variations in the user's game, and every analysis is stored in those nodes, so nothing computed in the
 // background is thrown away: the user can browse the lines and their evaluations later without re-analysis.
-// What the sandbox never does is move the user's board, draw overlays, or outrank the app's own queries.
+// What a sandbox never does is move the user's board, draw over it, or outrank the app's own queries;
 // `sandbox.show` is the explicit step that brings a line to the user's attention.
 
 import '../game/game_node.dart';
-import '../sgf/move.dart';
-import '../utils/py_format.dart';
+import 'args.dart';
 import 'commands.dart';
 import 'model.dart';
 import 'protocol.dart';
 
-var _nextSandboxId = 1;
-
 class Sandbox {
   final String id;
   final GameNode origin; // node of the user's game the exploration starts from
-  final GameNode root;
   GameNode cursor;
-  Sandbox(this.id, this.origin) : root = origin.root, cursor = origin;
+  Sandbox(this.id, this.origin) : cursor = origin;
+
+  GameNode get root => origin.root;
 
   /// Nodes after the origin up to the cursor.
   List<GameNode> line() => cursor.nodesFromRoot.sublist(origin.nodesFromRoot.length);
@@ -34,7 +32,7 @@ class Sandbox {
       'from_move_number': origin.depth,
       'moves': [
         for (final n in nodes)
-          if (n.move != null) '${n.move!.player}:${n.move!.gtp()}',
+          if (n.move case final m?) '${m.player}:${m.gtp()}',
       ],
       'nodes': [for (final n in nodes) nodeRef(n)],
       'at': nodeRef(cursor),
@@ -42,14 +40,14 @@ class Sandbox {
       'to_move': cursor.nextPlayer,
     };
   }
+
+  Map<String, Object?> withBoard() => {...summary(), 'board': boardJson(cursor)['ascii']};
 }
 
 Sandbox _get(CommandHandler h, ApiArgs a) {
   final boxes = h.state.sandboxes;
-  final sb = boxes[pyStr(truthy(a['id']) ? a['id'] : '')];
-  if (sb == null) {
-    throw ApiError('not_found', "no sandbox '${pyStr(a['id'])}'", {'available': boxes.keys.toList()..sort()});
-  }
+  final id = a.text('id');
+  final sb = boxes[id] ?? (throw ApiError('not_found', "no sandbox '$id'", {'available': boxes.keys.toList()..sort()}));
   if (!identical(h.game.root, sb.root)) {
     throw ApiError('game_changed', "the user's board shows a different game than this sandbox belongs to");
   }
@@ -59,121 +57,85 @@ Sandbox _get(CommandHandler h, ApiArgs a) {
   return sb;
 }
 
-String _ascii(GameNode node) => boardJson(node)['ascii'] as String;
-
-Object? _cmdSandboxNew(CommandHandler h, ApiArgs a) {
-  final origin = h.node(a, 'from');
-  final sid = truthy(a['name']) ? pyStr(a['name']) : 's${_nextSandboxId++}';
-  if (h.state.sandboxes.containsKey(sid)) throw ApiError('exists', "sandbox '$sid' already exists");
-  final sb = Sandbox(sid, origin);
-  h.state.sandboxes[sid] = sb;
-  return {...sb.summary(), 'board': _ascii(sb.cursor)};
+Object? _new(CommandHandler h, ApiArgs a) {
+  final id = a.text('name') ?? h.state.nextSandboxId();
+  if (h.state.sandboxes.containsKey(id)) throw ApiError('exists', "sandbox '$id' already exists");
+  return (h.state.sandboxes[id] = Sandbox(id, h.node(a, 'from'))).withBoard();
 }
 
-Object? _cmdSandboxPlay(CommandHandler h, ApiArgs a) {
+Object? _play(CommandHandler h, ApiArgs a) {
   final sb = _get(h, a);
-  final cur = sb.cursor;
-  final startPlayer = parseColor(a['color']) ?? cur.nextPlayer;
-  final moves = parseMoves(a['moves'] ?? const [], cur.boardSize, startPlayer);
-  if (moves.isEmpty) throw ApiError('bad_argument', 'no moves given');
-  final (nodes, created) = h.addNodes(cur, moves, analyze: 'none'); // validates legality first
+  final (nodes, created) = h.addNodes(sb.cursor, h.moves(a, sb.cursor), analyze: 'none');
   sb.cursor = nodes.last;
   h.host.redrawMoveTree();
-  return {...sb.summary(), 'created_nodes': created, 'board': _ascii(sb.cursor)};
+  return {...sb.withBoard(), 'created_nodes': created};
 }
 
-Object? _cmdSandboxBack(CommandHandler h, ApiArgs a) {
+Object? _back(CommandHandler h, ApiArgs a) {
   final sb = _get(h, a);
-  for (var i = 0; i < apiInt(a, 'n', defaultValue: 1, minimum: 1)!; i++) {
-    if (identical(sb.cursor, sb.origin)) break;
+  for (var i = a.integer('n', orElse: 1, min: 1)!; i > 0 && !identical(sb.cursor, sb.origin); i--) {
     sb.cursor = sb.cursor.parent!;
   }
-  return {...sb.summary(), 'board': _ascii(sb.cursor)};
+  return sb.withBoard();
 }
 
-Object? _cmdSandboxBoard(CommandHandler h, ApiArgs a) {
-  final sb = _get(h, a);
-  return {...sb.summary(), ...boardJson(sb.cursor)};
-}
-
-Future<Object?> _cmdSandboxAnalyze(CommandHandler h, ApiArgs a) async {
-  final timeout = apiInt(a, 'timeout', defaultValue: 300, minimum: 1)!;
+Future<Object?> _analyze(CommandHandler h, ApiArgs a) async {
+  final timeout = a.integer('timeout', orElse: 300, min: 1)!;
   final sb = _get(h, a);
   final node = sb.cursor;
   final engine = h.engineFor(node);
-  final visits = apiInt(a, 'visits', defaultValue: engine.config['max_visits'] as int, minimum: 1)!;
-  final raw = a['moves'] ?? const [];
-  final names = raw is String ? splitWords(raw) : List<Object?>.of(raw as List);
-  final moves = [for (final m in names) Move(coords: parseCoords(m, node.boardSize), player: node.nextPlayer)];
-  for (final m in moves) {
-    checkMovesLegal(node, [m]);
-  }
-  final cached = moves.isEmpty && node.analysisComplete && node.rootVisits >= 0.95 * visits && !apiBool(a['force']);
-  if (!cached || (moves.isNotEmpty && !node.analysisExists)) {
+  final visits = a.integer('visits', orElse: h.defaultVisits(engine), min: 1)!;
+  final moves = h.candidates(node, a.words('moves'));
+  final cached = moves.isEmpty && !a.flag('force') && node.analysisComplete && node.rootVisits >= 0.95 * visits;
+  if (!cached && (moves.isEmpty || !node.analysisExists)) {
     await h.search(node, engine, visits, timeout: timeout, background: true);
   }
   for (final m in moves) {
-    // sequential: each comparison already fills the GPU
+    // one after the other: each comparison already fills the GPU
     await h.search(node, engine, visits, refineMove: m, timeout: timeout, background: true);
   }
   final result = analysisJson(
     node,
-    top: moves.isNotEmpty ? null : apiInt(a, 'top', defaultValue: 10),
-    includePv: apiBool(a['pv'], true),
-    pvLimit: apiInt(a, 'pv_limit'),
-    ownership: apiBool(a['ownership']),
+    top: moves.isEmpty ? a.integer('top', orElse: 10) : null,
+    includePv: a.flag('pv', orElse: true),
+    pvLimit: a.integer('pv_limit'),
+    ownership: a.flag('ownership'),
     moves: moves.isEmpty ? null : [for (final m in moves) m.gtp()],
   );
-  if (moves.isNotEmpty) {
-    mergeSortBy(result['candidates'] as List<Map<String, Object?>>, (c) => (c['points_lost'] as num?) ?? 1e9);
-  }
-  return {'sandbox': sb.summary(), 'reused_existing': cached && moves.isEmpty, 'requested_visits': visits, ...result};
+  if (moves.isNotEmpty) sortByPointsLost(result['candidates'] as List<Map<String, Object?>>);
+  return {'sandbox': sb.summary(), 'reused_existing': cached, 'requested_visits': visits, ...result};
 }
 
-Object? _cmdSandboxShow(CommandHandler h, ApiArgs a) {
+Object? _show(CommandHandler h, ApiArgs a) {
   final sb = _get(h, a);
   final nodes = sb.line();
   if (nodes.isEmpty) throw ApiError('bad_argument', 'the sandbox has no moves yet');
-  if ((a['as'] ?? 'pv') == 'goto') {
+  if (a.text('as') == 'goto') {
     h.goto(sb.cursor);
     return {'shown': 'goto', ...h.currentJson()};
   }
-  final moves = [
-    for (final n in nodes)
-      if (n.move != null) n.move!,
-  ];
-  return {'shown': 'pv', ...showPv(h, sb.origin, moves, apiInt(a, 'step', minimum: 1))};
+  final moves = [for (final n in nodes) ?n.move];
+  return {'shown': 'pv', ...showPv(h, sb.origin, moves, a.integer('step', min: 1))};
 }
 
-Object? _cmdSandboxList(CommandHandler h, ApiArgs a) {
-  final root = h.game.root;
-  return [
-    for (final sb in h.state.sandboxes.values)
-      if (identical(sb.root, root)) sb.summary(),
-  ];
-}
+Object? _list(CommandHandler h, ApiArgs a) => [
+  for (final sb in h.state.sandboxes.values)
+    if (identical(sb.root, h.game.root)) sb.summary(),
+];
 
-Object? _cmdSandboxDrop(CommandHandler h, ApiArgs a) {
+Object? _drop(CommandHandler h, ApiArgs a) {
   final boxes = h.state.sandboxes;
-  final targets = a['id'] == 'all' ? boxes.values.toList() : [_get(h, a)];
+  final targets = a.text('id') == 'all' ? boxes.values.toList() : [_get(h, a)];
   var pruned = 0;
-  if (apiBool(a['prune'])) {
+  if (a.flag('prune')) {
     final current = h.game.currentNode;
-    for (final sb in targets) {
-      if (!identical(sb.root, h.game.root)) continue;
-      GameNode? firstAdded;
-      for (final n in sb.line()) {
-        if (h.state.created.contains(n)) {
-          firstAdded = n;
-          break;
-        }
-      }
-      if (firstAdded == null || firstAdded.parent == null) continue;
-      final subtree = firstAdded.nodesInTree;
+    for (final sb in targets.where((sb) => identical(sb.root, h.game.root))) {
+      // the variation it added, as long as it holds only API-made nodes and nobody is looking at it
+      final first = sb.line().where(h.state.created.contains).firstOrNull;
+      if (first == null || first.parent == null) continue;
+      final subtree = first.nodesInTree;
       if (subtree.every(h.state.created.contains) && !subtree.any((n) => identical(n, current))) {
-        final added = firstAdded;
-        added.parent!.children.removeWhere((c) => identical(c, added));
-        pruned += subtree.length;
+        pruned += h.removeSubtree(first);
       }
     }
     h.host.redrawMoveTree();
@@ -186,30 +148,30 @@ Object? _cmdSandboxDrop(CommandHandler h, ApiArgs a) {
 
 final Map<String, ApiCommand> sandboxCommands = {
   'sandbox.new': const ApiCommand(
-    _cmdSandboxNew,
+    _new,
     "Start a background cursor at a node of the user's game (default: the position the user is viewing).",
   ),
   'sandbox.play': const ApiCommand(
-    _cmdSandboxPlay,
+    _play,
     "Play moves at the sandbox cursor. They are kept as variations in the user's game; the board does not move.",
   ),
-  'sandbox.back': const ApiCommand(
-    _cmdSandboxBack,
-    'Move the sandbox cursor back n moves (not past where it started).',
-  ),
-  'sandbox.board': const ApiCommand(_cmdSandboxBoard, 'Board at the sandbox cursor.'),
+  'sandbox.back': const ApiCommand(_back, 'Move the sandbox cursor back n moves (not past where it started).'),
+  'sandbox.board': ApiCommand((h, a) {
+    final sb = _get(h, a);
+    return {...sb.summary(), ...boardJson(sb.cursor)};
+  }, 'Board at the sandbox cursor.'),
   'sandbox.analyze': const ApiCommand(
-    _cmdSandboxAnalyze,
+    _analyze,
     "Analyze the sandbox position at low priority; results are stored in the user's game. moves=[...] compares",
     waitsForEngine: true,
   ),
   'sandbox.show': const ApiCommand(
-    _cmdSandboxShow,
+    _show,
     "Bring a sandbox line to the user's board: as=pv (numbered-stone overlay from the start, default) or as=goto",
   ),
-  'sandbox.list': const ApiCommand(_cmdSandboxList, 'All sandboxes of the current game.'),
+  'sandbox.list': const ApiCommand(_list, 'All sandboxes of the current game.'),
   'sandbox.drop': const ApiCommand(
-    _cmdSandboxDrop,
+    _drop,
     'Forget a sandbox (id=all for every one). prune=true also deletes the variations it added, as long as they',
   ),
 };

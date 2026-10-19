@@ -7,22 +7,6 @@ import 'package:katrain_core/katrain_core.dart';
 import 'board_state.dart';
 import 'katrain_gui.dart';
 
-/// The variation on the board as the API sees it; its step and pinning are the board's.
-class _BoardPv extends ApiPv {
-  final BoardState board;
-  _BoardPv(this.board, AnimatingPv pv) : super(pv.pv, pv.node);
-
-  @override
-  int? get index => board.animatingPvIndex;
-  @override
-  set index(int? value) => board.animatingPvIndex = value;
-
-  @override
-  bool get pinned => board.pvPinned;
-  @override
-  set pinned(bool value) => board.pvPinned = value;
-}
-
 class GuiApiHost implements ApiHost {
   final KaTrainGui gui;
   GuiApiHost(this.gui);
@@ -88,22 +72,10 @@ class GuiApiHost implements ApiHost {
   void tsumegoFrame(bool ko, int margin) => gui.doTsumegoFrame(ko, margin);
 
   @override
-  ApiPv? get pv {
-    final p = _board.animatingPv;
-    return p == null ? null : _BoardPv(_board, p);
-  }
+  PvOverlay? get pv => _board.pv;
 
   @override
-  set pv(ApiPv? value) {
-    if (value == null) {
-      _board.animatingPv = null;
-      _board.pvPinned = false;
-      return;
-    }
-    _board.animatingPv = AnimatingPv(value.moves, value.node, DateTime.now(), _board.lastMousePos);
-    _board.animatingPvIndex = value.index;
-    _board.pvPinned = value.pinned;
-  }
+  set pv(PvOverlay? value) => _board.pv = value;
 
   @override
   bool analysisControl(String key) => gui.analysisControls[key] ?? false;

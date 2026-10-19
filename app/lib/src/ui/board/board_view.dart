@@ -40,7 +40,7 @@ class _BoardViewState extends State<BoardView> {
     super.initState();
     // animate the variation (badukpan.py schedules animate_pv every 0.1 s)
     _animation = Timer.periodic(const Duration(milliseconds: 100), (_) {
-      if (gui.board.animatingPv != null) gui.board.notifyHover();
+      if (gui.board.pv != null) gui.board.notifyHover();
     });
   }
 
@@ -106,7 +106,7 @@ class _BoardViewState extends State<BoardView> {
   }
 
   void _onPointerDown(PointerDownEvent e) {
-    final animating = gui.board.animatingPv;
+    final animating = gui.board.pv;
     if (e.buttons & kPrimaryButton != 0) {
       if (gui.board.selectingRegionOfInterest) {
         _updateBoxSelection(e.localPosition, secondPoint: false);
@@ -115,18 +115,18 @@ class _BoardViewState extends State<BoardView> {
       }
     } else if (e.buttons & kMiddleMouseButton != 0 && animating != null) {
       var node = animating.node;
-      final upto = gui.board.animatingPvIndex ?? 1 << 30;
-      for (var i = 0; i < animating.pv.length; i++) {
+      final upto = animating.index ?? 1 << 30;
+      for (var i = 0; i < animating.moves.length; i++) {
         if (i <= upto) {
           // up to move when scrolling, or all
-          node = node.play(Move.fromGtp(animating.pv[i], player: node.nextPlayer));
+          node = node.play(Move.fromGtp(animating.moves[i], player: node.nextPlayer));
           node.analyze(gui.engine!, analyzeFast: true);
         }
       }
       gui.redrawMoveTree();
     }
     if (e.buttons & kMiddleMouseButton == 0) {
-      gui.board.setAnimatingPv(null, null, enabled: _animEnabled); // any click/touch kills PV from label/move
+      gui.board.pv = null; // any click/touch kills the variation, also one the API showed
     }
   }
 
@@ -185,7 +185,7 @@ class _BoardViewState extends State<BoardView> {
           gui.infoText = node.comment(sgf: true);
           gui.activeCommentNode = node;
           if (node.parent!.analysisExists) {
-            board.setAnimatingPv(
+            board.setHoverPv(
               (node.parent!.candidateMoves[0]['pv'] as List).cast<String>(),
               node.parent,
               enabled: _animEnabled,
@@ -212,16 +212,16 @@ class _BoardViewState extends State<BoardView> {
             (pv, node),
       ];
       if (near.isNotEmpty) {
-        board.setAnimatingPv(near[0].$1, near[0].$2, enabled: _animEnabled);
-      } else if (board.animatingPv != null) {
-        board.setAnimatingPv(null, null, enabled: _animEnabled);
+        board.setHoverPv(near[0].$1, near[0].$2, enabled: _animEnabled);
+      } else if (board.pv != null) {
+        board.setHoverPv(null, null, enabled: _animEnabled);
       }
     }
-    final animating = board.animatingPv;
-    if (animating != null && !board.pvPinned) {
+    final animating = board.pv;
+    if (animating != null && !animating.pinned) {
       // badukpan.py squares only the x distance; kept as it is
-      final dSq = (p.dx - animating.mousePos.$1) * (p.dx - animating.mousePos.$1) + (p.dy - animating.mousePos.$2);
-      if (dSq > 2 * geo.stoneSize * geo.stoneSize) board.setAnimatingPv(null, null, enabled: _animEnabled);
+      final dSq = (p.dx - animating.origin.$1) * (p.dx - animating.origin.$1) + (p.dy - animating.origin.$2);
+      if (dSq > 2 * geo.stoneSize * geo.stoneSize) board.setHoverPv(null, null, enabled: _animEnabled);
     }
     board.lastMousePos = (p.dx, p.dy);
   }
@@ -230,7 +230,7 @@ class _BoardViewState extends State<BoardView> {
     if (e is! PointerScrollEvent) return;
     final up = e.scrollDelta.dy < 0;
     final board = gui.board;
-    if (board.animatingPv != null) {
+    if (board.pv != null) {
       board.adjustAnimatePvIndex(
         up ? 1 : -1,
         delay: ((gui.config('general/anim_pv_time', 0.5) as num?) ?? 0.5).toDouble(),

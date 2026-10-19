@@ -55,7 +55,7 @@ void main() {
 
     test('integers are checked', () async {
       expect((await fails('nav.next', {'n': 'two'})).code, 'bad_argument');
-      expect((await fails('nav.next', {'n': 0})).message, contains('>= 1'));
+      expect((await fails('nav.next', {'n': 0})).message, 'n must be at least 1');
       await load();
       expect((await run('nav.next', {'n': '2'}))['current']['move_number'], 2);
     });
@@ -492,7 +492,7 @@ void main() {
       final listed = await run('tsumego.list', {'source': folder});
       expect(listed['total'], 3);
       expect([for (final p in listed['problems']) p['name']], ['center 3d', 'p-2', 'ten']);
-      expect(listed['difficulties'], {'3d': 1, 'None': 2});
+      expect(listed['difficulties'], {'3d': 1, 'unknown': 2});
       expect((await run('tsumego.list', {'source': folder, 'set': 'cho'}))['total'], 2);
       expect((await fails('tsumego.list', {'source': '$folder/missing'})).code, 'not_found');
     });

@@ -1,6 +1,6 @@
-// Ported from the playeriv65/katrain fork (https://github.com/playeriv65/katrain), katrain/api/commands.py: the
-// commands of the local API, run in the app. Commands that wait for KataGo (`waitsForEngine`) await its results;
-// the app stays responsive meanwhile.
+// The commands of the local API (from the playeriv65/katrain fork's katrain/api/commands.py, same commands,
+// arguments and results), run in the app. Commands that wait for KataGo (`waitsForEngine`) await its results; the
+// app stays responsive meanwhile.
 
 import 'dart:async';
 import 'dart:convert';
@@ -14,15 +14,21 @@ import '../game/game.dart';
 import '../game/game_node.dart';
 import '../game/player.dart';
 import '../sgf/move.dart';
-import '../utils/py_format.dart';
+import '../utils/py_format.dart' show mergeSortBy;
+import 'args.dart';
 import 'model.dart';
 import 'overlay.dart';
 import 'protocol.dart';
 import 'sandbox.dart';
+import 'state.dart';
 import 'tsumego.dart';
 
-const backgroundPriority = -50; // below KaTrain's interactive queries (PRIORITY_DEFAULT=1000), above re-analysis
-const engineSettings = {'max_visits': int, 'fast_visits': int, 'max_time': double, 'wide_root_noise': double};
+const backgroundPriority = -50; // below the app's interactive queries (priorityDefault), above game re-analysis
+
+/// The search settings agents may change, and whether each is a whole number.
+const engineSettings = {'max_visits': true, 'fast_visits': true, 'max_time': false, 'wide_root_noise': false};
+
+/// API names of the display toggles, and the app's analysis control each sets.
 const viewToggles = {
   'hints': 'hints',
   'ownership': 'ownership',
@@ -31,28 +37,17 @@ const viewToggles = {
   'children': 'show_children',
 };
 
-typedef ApiArgs = Map<String, dynamic>;
 typedef CommandFn = FutureOr<Object?> Function(CommandHandler h, ApiArgs a);
 
 /// A command: what it does, its help line, and whether it waits for KataGo.
 class ApiCommand {
-  final CommandFn fn;
+  final CommandFn run;
   final String help;
   final bool waitsForEngine;
-  const ApiCommand(this.fn, this.help, {this.waitsForEngine = false});
+  const ApiCommand(this.run, this.help, {this.waitsForEngine = false});
 }
 
-/// A principal variation drawn over the board (KaTrain's `animating_pv`); [pinned] for one shown through the API,
-/// which survives mouse hovers.
-class ApiPv {
-  final List<String> moves;
-  final GameNode node;
-  int? index;
-  bool pinned;
-  ApiPv(this.moves, this.node, {this.index, this.pinned = false});
-}
-
-/// What the commands use of the app (KaTrain's GUI object and its widgets).
+/// What the commands use of the app: its game and engine, settings, display and controls.
 abstract interface class ApiHost {
   Game? get game;
 
@@ -66,10 +61,10 @@ abstract interface class ApiHost {
   Object? config(String setting, [Object? defaultValue]);
   void saveConfig([String? key]);
 
-  /// KaTrain's `update_state`.
+  /// KaTrain's `update_state`: AI moves, teaching, pondering, redraws.
   void updateState({bool redrawBoard = false});
 
-  /// Redraws the hover layer (PV, marks).
+  /// Redraws the variation and marks over the board.
   void redrawOverlay();
   void redrawMoveTree();
 
@@ -84,14 +79,15 @@ abstract interface class ApiHost {
   String get statusMessage;
   void showStatus(String text);
 
-  /// KaTrain's `_do_new_game`.
+  /// Starts reviewing [moveTree] as a new game.
   void newGame(GameNode moveTree, {bool analyzeFast = false, String? sgfFilename});
 
-  /// KaTrain's `_do_tsumego_frame`.
+  /// Puts KaTrain's tsumego frame around the problem on the board.
   void tsumegoFrame(bool ko, int margin);
 
-  ApiPv? get pv;
-  set pv(ApiPv? value);
+  /// The variation drawn over the board (the board's own, also for hovering).
+  PvOverlay? get pv;
+  set pv(PvOverlay? value);
 
   bool analysisControl(String key);
   void setAnalysisControl(String key, bool value);
@@ -104,93 +100,6 @@ abstract interface class ApiHost {
   void setZoom(List<int>? region, [Set<(int, int)> hidden = const {}]);
 }
 
-/// Python's truth value of a JSON argument (`if a.get(key)`, `a.get(key) or default`).
-bool truthy(Object? v) {
-  if (v == null) return false;
-  if (v is bool) return v;
-  if (v is num) return v != 0;
-  if (v is String) return v.isNotEmpty;
-  if (v is List) return v.isNotEmpty;
-  if (v is Map) return v.isNotEmpty;
-  return true;
-}
-
-/// The API's `_bool`: strings count as true only for 1/true/yes/on.
-bool apiBool(Object? v, [bool defaultValue = false]) {
-  if (v == null) return defaultValue;
-  if (v is String) return const ['1', 'true', 'yes', 'on'].contains(v.trim().toLowerCase());
-  if (v is bool) return v;
-  if (v is num) return v != 0;
-  if (v is List) return v.isNotEmpty;
-  if (v is Map) return v.isNotEmpty;
-  return true;
-}
-
-/// Python's `int(v)`.
-int? _pyIntOrNull(Object? v) {
-  if (v is bool) return v ? 1 : 0;
-  if (v is int) return v;
-  if (v is double) return v.isFinite ? v.truncate() : null;
-  if (v is String) return int.tryParse(v.trim().replaceAll('_', ''));
-  return null;
-}
-
-int? apiInt(ApiArgs a, String key, {int? defaultValue, int? minimum}) {
-  final v = a[key];
-  if (v == null || v == '') return defaultValue;
-  final i = _pyIntOrNull(v);
-  if (i == null) throw ApiError('bad_argument', "'$key' must be an integer, got ${pyRepr(v)}");
-  if (minimum != null && i < minimum) throw ApiError('bad_argument', "'$key' must be >= $minimum");
-  return i;
-}
-
-/// Python's `float(v)`.
-double? _pyFloatOrNull(Object? v) {
-  if (v is bool) return v ? 1 : 0;
-  if (v is num) return v.toDouble();
-  if (v is String) return double.tryParse(v.trim());
-  return null;
-}
-
-/// Python's `urllib.parse.quote(text, safe='')`.
-String pyQuote(String text) {
-  final out = StringBuffer();
-  for (final b in utf8.encode(text)) {
-    final c = String.fromCharCode(b);
-    if (RegExp(r'[A-Za-z0-9_.\-~]').hasMatch(c)) {
-      out.write(c);
-    } else {
-      out.write('%${b.toRadixString(16).toUpperCase().padLeft(2, '0')}');
-    }
-  }
-  return out.toString();
-}
-
-String _isoSeconds(DateTime t) =>
-    '${t.year.toString().padLeft(4, '0')}-${_two(t.month)}-${_two(t.day)}T${_two(t.hour)}:${_two(t.minute)}:'
-    '${_two(t.second)}';
-String _two(int v) => v.toString().padLeft(2, '0');
-
-/// API-side state kept by the app (marks, snapshots, demo, registered variations, tsumego, sandboxes).
-class ApiState {
-  List<Map<String, Object?>> marks = [];
-  int _markId = 1;
-  final Map<String, Map<String, Object?>> snapshots = {};
-  Map<String, Object?>? demo;
-  final Set<GameNode> created = Set.identity(); // nodes created through the API
-  final Map<String, Map<String, Object?>> variations = {};
-  int _variationId = 1;
-  TsumegoState? tsumego;
-  final Map<String, Sandbox> sandboxes = {};
-
-  int nextMarkId() => _markId++;
-  int nextVariationId() => _variationId++;
-}
-
-List<Map<String, Object?>> _copyMarks(List<Map<String, Object?>> marks) => [
-  for (final m in marks) {for (final MapEntry(:key, :value) in m.entries) key: value is List ? List.of(value) : value},
-];
-
 /// Every command, by name.
 final Map<String, ApiCommand> apiCommands = {..._coreCommands, ...tsumegoCommands, ...sandboxCommands};
 
@@ -202,23 +111,17 @@ class CommandHandler {
   final String dataFolder;
   CommandHandler(this.host, this.state, {String? dataFolder}) : dataFolder = dataFolder ?? expandUser(neoDataFolder);
 
-  // -- plumbing
-
-  Future<Object?> dispatch(String name, ApiArgs args) async {
-    final entry = apiCommands[name];
-    if (entry == null) {
+  Future<Object?> dispatch(String name, Map<String, dynamic> args) async {
+    final command = apiCommands[name];
+    if (command == null) {
       throw ApiError('unknown_command', "unknown command '$name'", {'available': apiCommands.keys.toList()..sort()});
     }
-    return await entry.fn(this, args);
+    return await command.run(this, ApiArgs(args));
   }
 
-  Game get game {
-    final g = host.game;
-    if (g == null) throw ApiError('no_game', 'no game loaded');
-    return g;
-  }
+  Game get game => host.game ?? (throw ApiError('no_game', 'no game loaded'));
 
-  GameNode node(ApiArgs a, [String key = 'node']) => resolveNode(game, a[key]);
+  GameNode node(ApiArgs a, [String key = 'node']) => resolveNode(game, a.text(key));
 
   AnalysisEngine<GameNode> engineFor(GameNode node) {
     final engine = game.engines[node.nextPlayer];
@@ -228,131 +131,124 @@ class CommandHandler {
     return engine;
   }
 
+  int defaultVisits(AnalysisEngine<GameNode> engine) => engine.config['max_visits'] as int;
+
   void refresh([bool redraw = true]) {
     host.updateState(redrawBoard: redraw);
     host.redrawOverlay();
   }
 
+  void ensureNotInserting() {
+    if (game.insertMode) throw ApiError('insert_mode', "finish KaTrain's insert mode before navigating");
+  }
+
   void goto(GameNode node) {
-    final g = game;
-    if (g.insertMode) throw ApiError('insert_mode', "finish KaTrain's insert mode before navigating");
+    ensureNotInserting();
     host.pv = null;
-    g.setCurrentNode(node);
+    game.setCurrentNode(node);
     refresh();
   }
 
-  Map<String, Object?> currentJson([ApiArgs? a]) {
-    final out = <String, Object?>{'current': nodeJson(game.currentNode)};
-    if (a != null && apiBool(a['board'])) out['board'] = boardJson(game.currentNode);
-    return out;
-  }
+  Map<String, Object?> currentJson([ApiArgs? a]) => {
+    'current': nodeJson(game.currentNode),
+    if (a != null && a.flag('board')) 'board': boardJson(game.currentNode),
+  };
 
   void setMode(String mode) {
     if (host.mode != mode) host.selectMode(mode);
   }
 
-  /// Creates (or reuses) nodes for [moves] below [start]. Returns the nodes and how many were created.
+  /// The moves in [key], colours alternating from [start]'s player to move unless `color` says otherwise.
+  List<Move> moves(ApiArgs a, GameNode start, [String key = 'moves']) {
+    final moves = parseMoves(a.words(key), start.boardSize, parseColor(a.text('color')) ?? start.nextPlayer);
+    if (moves.isEmpty) throw ApiError('bad_argument', 'no moves given');
+    return moves;
+  }
+
+  /// Moves for the player to move at [node], one each (candidates to compare).
+  List<Move> candidates(GameNode node, List<String> names) {
+    final moves = [for (final m in names) Move(coords: parseCoords(m, node.boardSize), player: node.nextPlayer)];
+    for (final m in moves) {
+      checkMovesLegal(node, [m]);
+    }
+    return moves;
+  }
+
+  /// Creates (or reuses) nodes for [moves] below [start]; returns the nodes and how many were created. New nodes
+  /// are analysed fast, fully or not at all ([analyze]).
   (List<GameNode>, int) addNodes(GameNode start, List<Move> moves, {String analyze = 'fast'}) {
     checkMovesLegal(start, moves);
     var node = start;
     final nodes = <GameNode>[];
     var created = 0;
     for (final move in moves) {
-      GameNode? existing;
-      for (final c in node.children) {
-        if (c.move == move) {
-          existing = c;
-          break;
-        }
-      }
+      final existing = node.children.where((c) => c.move == move).firstOrNull;
       node = existing ?? node.play(move);
       if (existing == null) {
         nodeId(node); // number new nodes in move order
         created += 1;
         state.created.add(node);
-        if (analyze != 'none') {
-          node.analyze(game.engines[node.nextPlayer]!, analyzeFast: analyze == 'fast');
-        }
+        if (analyze != 'none') node.analyze(game.engines[node.nextPlayer]!, analyzeFast: analyze == 'fast');
       }
       nodes.add(node);
     }
     return (nodes, created);
   }
 
-  Map<String, Object?> editNotice(int created) {
-    if (created > 0 && state.demo == null) {
-      return {
-        'game_modified': true,
-        'hint': "moves were added to the game record; use 'demo start' for throwaway lines",
-      };
+  Map<String, Object?> editNotice(int created) => created > 0 && state.demo == null
+      ? {'game_modified': true, 'hint': "moves were added to the game record; use 'demo start' for throwaway lines"}
+      : {'game_modified': created > 0, 'in_demo': state.demo != null};
+
+  /// Removes [node] and the nodes below it from the tree; returns how many.
+  int removeSubtree(GameNode node) {
+    final subtree = node.nodesInTree;
+    for (final n in subtree) {
+      n.removeShortcut();
     }
-    return {'game_modified': created > 0, 'in_demo': state.demo != null};
+    node.parent!.children.removeWhere((c) => identical(c, node));
+    return subtree.length;
   }
 
   // -- snapshots
 
-  Map<String, Object?> capture() {
-    final g = game;
-    final p = host.pv;
-    Map<String, Object?>? pv;
-    if (p != null && p.pinned) pv = {'moves': List.of(p.moves), 'node': p.node, 'index': p.index};
-    return {
-      'root': g.root,
-      'node': g.currentNode,
-      'mode': host.mode,
-      'region': g.regionOfInterest == null ? null : List.of(g.regionOfInterest!),
-      'marks': _copyMarks(state.marks),
-      'pv': pv,
-      'message': host.statusMessage,
-      'time': DateTime.now(),
-    };
+  Snapshot capture() {
+    final pv = host.pv;
+    return Snapshot(
+      root: game.root,
+      node: game.currentNode,
+      mode: host.mode,
+      region: game.regionOfInterest,
+      marks: state.marks,
+      pv: pv != null && pv.pinned ? pv.copy() : null, // only variations the API showed, not mouse hovers
+      message: host.statusMessage,
+    );
   }
 
-  void restore(Map<String, Object?> snap) {
+  void restore(Snapshot snap) {
     final g = game;
-    if (!identical(g.root, snap['root'])) {
+    if (!identical(g.root, snap.root)) {
       throw ApiError('game_changed', 'the snapshot belongs to a different game than the one loaded');
     }
-    var node = snap['node'] as GameNode;
     final tree = Set<GameNode>.identity()..addAll(g.root.nodesInTree);
+    var node = snap.node;
     while (!tree.contains(node) && node.parent != null) {
-      node = node.parent!;
+      node = node.parent!; // the saved node was deleted: its nearest remaining ancestor
     }
-    state.marks = _copyMarks(snap['marks'] as List<Map<String, Object?>>);
+    state.marks = List.of(snap.marks);
     goto(node);
-    final region = snap['region'] as List<int>?;
-    g.regionOfInterest = region == null ? null : List.of(region);
-    setMode(snap['mode'] as String);
-    final pv = snap['pv'] as Map<String, Object?>?;
-    if (pv != null && tree.contains(pv['node'])) {
-      host.pv = ApiPv(pv['moves'] as List<String>, pv['node'] as GameNode, index: pv['index'] as int?, pinned: true);
-    }
-    host.showStatus((snap['message'] as String?) ?? '');
+    g.regionOfInterest = snap.region == null ? null : List.of(snap.region!);
+    setMode(snap.mode);
+    final pv = snap.pv;
+    if (pv != null && tree.contains(pv.node)) host.pv = PvOverlay(pv.moves, pv.node, index: pv.index, pinned: true);
+    host.showStatus(snap.message);
     refresh();
-  }
-
-  static Map<String, Object?> snapshotJson(String name, Map<String, Object?> snap) {
-    final node = snap['node'] as GameNode;
-    final pv = snap['pv'] as Map<String, Object?>?;
-    final message = snap['message'] as String?;
-    return {
-      'name': name,
-      'node': nodeRef(node),
-      'move_number': node.depth,
-      'mode': snap['mode'],
-      'marks': (snap['marks'] as List).length,
-      'pv': pv?['moves'],
-      'message': message == null || message.isEmpty ? null : message,
-      'link': 'katrain://state/${pyQuote(name)}',
-      'saved': _isoSeconds(snap['time'] as DateTime),
-    };
   }
 
   // -- analysis plumbing
 
-  /// Sends one KataGo query, feeds the results into the node as the GUI does, and waits for the final one.
+  /// Sends one KataGo query, feeds the results into the node as the app does, and waits for the final one.
   ///
-  /// [background] is for sandbox positions the user cannot see: below the GUI's own queries in priority, no
+  /// [background] is for sandbox positions the user cannot see: below the app's own queries in priority, no
   /// progress reports and no refresh. [regionRoot] stores a region result as the node's evaluation.
   Future<Map<String, dynamic>> search(
     GameNode node,
@@ -380,9 +276,7 @@ class CommandHandler {
         }
       },
       errorCallback: (result) {
-        if (!done.isCompleted) {
-          done.completeError(ApiError('engine_error', pyStr(result.containsKey('error') ? result['error'] : result)));
-        }
+        if (!done.isCompleted) done.completeError(ApiError('engine_error', '${result['error'] ?? result}'));
       },
       visits: visits,
       timeLimit: false,
@@ -390,7 +284,7 @@ class CommandHandler {
       regionOfInterest: region,
       priority: background ? backgroundPriority : priorityExtraAnalysis,
       reportEvery: (refineMove != null || background) ? null : reportDt.toDouble(),
-      extraSettings: maxTime != null && maxTime != 0 ? {'maxTime': maxTime} : null,
+      extraSettings: maxTime != null && maxTime > 0 ? {'maxTime': maxTime} : null,
       ownership: ownership,
     );
     final Map<String, dynamic> result;
@@ -406,49 +300,40 @@ class CommandHandler {
   }
 }
 
-// -- meta / reading
+/// Candidates sorted by points lost, unknown losses last.
+void sortByPointsLost(List<Map<String, Object?>> candidates) =>
+    mergeSortBy(candidates, (c) => (c['points_lost'] as num?) ?? double.infinity);
 
-Object? _cmdCommands(CommandHandler h, ApiArgs a) => {
+// -- meta and reading
+
+Object? _commands(CommandHandler h, ApiArgs a) => {
   for (final name in apiCommands.keys.toList()..sort())
     name: {'help': apiCommands[name]!.help, 'waits_for_engine': apiCommands[name]!.waitsForEngine},
 };
 
-String _basename(String path) => path.split(RegExp(r'[/\\]')).last;
-
-Map<String, Object?> cmdStatus(CommandHandler h, ApiArgs a) {
+Map<String, Object?> status(CommandHandler h) {
   final host = h.host, game = h.game;
   final root = game.root, cn = game.currentNode;
   final engine = host.engine;
-  final players = <String, Object?>{};
-  for (final bw in const ['B', 'W']) {
-    final info = host.playersInfo[bw]!;
-    final name = root.getProperty('P$bw');
-    players[bw] = {
-      'name': name != null && name.isNotEmpty ? name : (info.name.isNotEmpty ? info.name : null),
-      'rank': root.getProperty('${bw}R'),
-      'type': info.playerType,
-      'subtype': info.playerSubtype,
-    };
-  }
-  Map<String, Object?>? engineInfo;
-  if (engine != null) {
-    engineInfo = {
-      'alive': host.engineAlive(engine),
-      'idle': host.engineIdle(engine),
-      'queries_remaining': host.engineQueriesRemaining(engine),
-      'model': _basename(pyStr(engine.config['model'] ?? '')),
-      for (final key in engineSettings.keys) key: engine.config[key],
-    };
-  }
   final demo = h.state.demo;
-  final ts = h.state.tsumego;
   return {
     'game': {
       'board_size': [game.boardSize.$1, game.boardSize.$2],
       'komi': game.komi,
       'rules': root.ruleset,
       'handicap': root.handicap,
-      'players': players,
+      'players': {
+        for (final bw in const ['B', 'W'])
+          bw: {
+            'name': [
+              root.getProperty('P$bw'),
+              host.playersInfo[bw]!.name,
+            ].firstWhere(ApiArgs.isGiven, orElse: () => null),
+            'rank': root.getProperty('${bw}R'),
+            'type': host.playersInfo[bw]!.playerType,
+            'subtype': host.playersInfo[bw]!.playerSubtype,
+          },
+      },
       'result': root.getProperty('RE'),
       'sgf_filename': game.sgfFilename,
       'game_id': game.gameId,
@@ -462,83 +347,88 @@ Map<String, Object?> cmdStatus(CommandHandler h, ApiArgs a) {
     'pondering': host.pondering,
     'insert_mode': game.insertMode,
     'region_of_interest': regionJson(game.regionOfInterest),
-    'engine': engineInfo,
-    'demo': demo == null
+    'engine': engine == null
         ? null
-        : {'started_at': nodeRef((demo['snapshot'] as Map)['node'] as GameNode), 'label': demo['label']},
+        : {
+            'alive': host.engineAlive(engine),
+            'idle': host.engineIdle(engine),
+            'queries_remaining': host.engineQueriesRemaining(engine),
+            'model': '${engine.config['model'] ?? ''}'.split(RegExp(r'[/\\]')).last,
+            for (final key in engineSettings.keys) key: engine.config[key],
+          },
+    'demo': demo == null ? null : {'started_at': nodeRef(demo.snapshot.node), 'label': demo.label},
     'pv_shown': host.pv != null,
     'marks': h.state.marks.length,
-    'tsumego': ts?.summary(),
+    'tsumego': h.state.tsumego?.summary(),
   };
 }
 
-Object? _cmdBoard(CommandHandler h, ApiArgs a) => boardJson(h.node(a), asciiBoard: apiBool(a['ascii'], true));
-
-Object? _cmdNode(CommandHandler h, ApiArgs a) => nodeJson(h.node(a), detail: true);
-
-Object? _cmdHistory(CommandHandler h, ApiArgs a) {
+Object? _history(CommandHandler h, ApiArgs a) {
   final node = h.node(a);
-  final nodes = apiBool(a['future']) ? lineNodes(node) : node.nodesFromRoot;
-  final withEval = apiBool(a['eval'], true);
   final cur = h.game.currentNode;
-  final out = <Map<String, Object?>>[];
-  for (final n in nodes) {
-    final entry = nodeJson(n, withEval: withEval);
-    if (identical(n, cur)) entry['current'] = true;
-    if (n.children.length > 1) entry['variations'] = n.children.length;
-    out.add(entry);
-  }
-  return {'node': nodeRef(node), 'nodes': out};
-}
-
-Object? _cmdTree(CommandHandler h, ApiArgs a) {
-  final start = resolveNode(h.game, truthy(a['node']) ? a['node'] : 'root');
-  return {'current': nodeRef(h.game.currentNode), 'tree': treeJson(start, apiInt(a, 'max_depth'))};
-}
-
-Object? _cmdVariations(CommandHandler h, ApiArgs a) {
-  final node = h.node(a);
-  final branchPoints = <Map<String, Object?>>[];
-  for (final n in lineNodes(node)) {
-    if (n.children.length > 1) {
-      branchPoints.add({
-        'node': nodeRef(n),
-        'move_number': n.depth,
-        'branches': [for (final c in n.orderedChildren) branchJson(c, 8)],
-      });
-    }
-  }
-  final siblings = node.parent != null ? node.parent!.orderedChildren : [node];
+  final withEval = a.flag('eval', orElse: true);
   return {
     'node': nodeRef(node),
-    'children': [for (final c in node.orderedChildren) branchJson(c, apiInt(a, 'max_len', defaultValue: 20))],
-    'siblings': [for (final s in siblings) nodeRef(s)],
-    'sibling_index': siblings.indexWhere((s) => identical(s, node)),
-    'branch_points_on_line': branchPoints,
+    'nodes': [
+      for (final n in a.flag('future') ? lineNodes(node) : node.nodesFromRoot)
+        {
+          ...nodeJson(n, withEval: withEval),
+          if (identical(n, cur)) 'current': true,
+          if (n.children.length > 1) 'variations': n.children.length,
+        },
+    ],
   };
 }
 
-// -- SGF
+Object? _tree(CommandHandler h, ApiArgs a) => {
+  'current': nodeRef(h.game.currentNode),
+  'tree': treeJson(resolveNode(h.game, a.text('node', orElse: 'root')), a.integer('max_depth')),
+};
 
-String _stamp(DateTime t) =>
-    '${t.year}${_two(t.month)}${_two(t.day)}_${_two(t.hour)}${_two(t.minute)}${_two(t.second)}_'
-    '${(t.millisecond * 1000 + t.microsecond).toString().padLeft(6, '0')}';
+Object? _variations(CommandHandler h, ApiArgs a) {
+  final node = h.node(a);
+  final siblings = node.parent?.orderedChildren ?? [node];
+  return {
+    'node': nodeRef(node),
+    'children': [for (final c in node.orderedChildren) branchJson(c, a.integer('max_len', orElse: 20))],
+    'siblings': [for (final s in siblings) nodeRef(s)],
+    'sibling_index': siblings.indexWhere((s) => identical(s, node)),
+    'branch_points_on_line': [
+      for (final n in lineNodes(node))
+        if (n.children.length > 1)
+          {
+            'node': nodeRef(n),
+            'move_number': n.depth,
+            'branches': [for (final c in n.orderedChildren) branchJson(c, 8)],
+          },
+    ],
+  };
+}
+
+// -- SGF and games
 
 /// Saves the current game before replacing it, so nothing is lost by an API import.
 String? _backupGame(CommandHandler h) {
   final game = h.game;
   if (game.root.nodesInTree.length <= 1) return null;
   final folder = Directory('${h.dataFolder}${Platform.pathSeparator}api_backups')..createSync(recursive: true);
-  final path = '${folder.path}${Platform.pathSeparator}backup_${_stamp(DateTime.now())}.sgf';
+  final stamp = DateTime.now()
+      .toIso8601String()
+      .replaceAll(RegExp(r'[-:]'), '')
+      .replaceAll('T', '_')
+      .replaceAll('.', '_');
+  final path = '${folder.path}${Platform.pathSeparator}backup_$stamp.sgf';
   File(path).writeAsStringSync(game.root.sgf());
   return path;
 }
 
+/// Replaces the game with [moveTree] (after backing it up); the API's own state of the old game goes.
 String? loadTree(CommandHandler h, GameNode moveTree, {bool fast = false, bool atEnd = false, String? sgfFilename}) {
   final backup = _backupGame(h);
-  h.state.demo = null;
-  h.state.marks = [];
-  h.state.tsumego = null;
+  h.state
+    ..demo = null
+    ..marks = []
+    ..tsumego = null;
   h.host.setZoom(null);
   h.host.newGame(moveTree, analyzeFast: fast, sgfFilename: sgfFilename);
   if (atEnd) h.game.redo(9999);
@@ -546,186 +436,154 @@ String? loadTree(CommandHandler h, GameNode moveTree, {bool fast = false, bool a
   return backup;
 }
 
-String _absolute(String path) => absPath(path);
-
-Object? _cmdSgfExport(CommandHandler h, ApiArgs a) {
-  final game = h.game;
-  final trainer = ((h.host.config('trainer', const {}) as Map?) ?? const {}).cast<String, dynamic>();
-  final comments = apiBool(a['comments']);
-  final sgf = game.root.sgf(
+Object? _sgfExport(CommandHandler h, ApiArgs a) {
+  final trainer = ((h.host.config('trainer') as Map?) ?? const {}).cast<String, dynamic>();
+  final comments = a.flag('comments');
+  final sgf = h.game.root.sgf(
     SgfSaveOptions(
       saveCommentsPlayer: comments ? const {'B': true, 'W': true} : null,
       saveCommentsClass: comments ? (trainer['save_feedback'] as List?)?.cast<bool>() : null,
       evalThresholds: (trainer['eval_thresholds'] as List?)?.cast<num>(),
-      saveAnalysis: apiBool(a['analysis']),
-      saveMarks: apiBool(a['marks']),
+      saveAnalysis: a.flag('analysis'),
+      saveMarks: a.flag('marks'),
     ),
   );
-  final pathArg = a['path'];
-  if (!truthy(pathArg)) return {'sgf': sgf};
-  final path = _absolute(pyStr(pathArg));
-  final file = File(path);
-  if (file.existsSync() && !apiBool(a['overwrite'])) {
-    throw ApiError('file_exists', '$path exists', {'hint': 'pass overwrite=true to replace it'});
+  final path = a.text('path');
+  if (path == null) return {'sgf': sgf};
+  final file = File(absPath(path));
+  if (file.existsSync() && !a.flag('overwrite')) {
+    throw ApiError('file_exists', '${file.path} exists', {'hint': 'pass overwrite=true to replace it'});
   }
   file.parent.createSync(recursive: true);
   file.writeAsStringSync(sgf);
-  return {'path': path, 'bytes': utf8.encode(sgf).length};
+  return {'path': file.path, 'bytes': utf8.encode(sgf).length};
 }
 
-Object? _cmdSgfImport(CommandHandler h, ApiArgs a) {
-  final fast = apiBool(a['fast']), atEnd = apiBool(a['at_end']);
-  GameNode tree;
-  String? filename;
+Object? _sgfImport(CommandHandler h, ApiArgs a) {
+  final content = a.text('content'), path = a.text('path');
+  if (content == null && path == null) throw ApiError('bad_argument', "give 'path' or 'content'");
+  final filename = content == null ? absPath(path!) : null;
+  final GameNode tree;
   try {
-    if (truthy(a['content'])) {
-      tree = gameParser.parseSgf(pyStr(a['content']));
-    } else if (truthy(a['path'])) {
-      filename = _absolute(pyStr(a['path']));
-      tree = gameParser.parseBytes(File(filename).readAsBytesSync(), fileName: filename);
-    } else {
-      throw ApiError('bad_argument', "give 'path' or 'content'");
-    }
-  } on ApiError {
-    rethrow;
+    tree = filename == null
+        ? gameParser.parseSgf(content!)
+        : gameParser.parseBytes(File(filename).readAsBytesSync(), fileName: filename);
   } on Object catch (e) {
     throw ApiError('sgf_parse_error', 'could not read SGF: $e');
   }
-  final backup = loadTree(h, tree, fast: fast, atEnd: atEnd, sgfFilename: filename);
-  return {'loaded': filename ?? '<content>', 'previous_game_backup': backup, ...cmdStatus(h, {})};
+  final backup = loadTree(h, tree, fast: a.flag('fast'), atEnd: a.flag('at_end'), sgfFilename: filename);
+  return {'loaded': filename ?? '<content>', 'previous_game_backup': backup, ...status(h)};
 }
 
-Object? _cmdGameNew(CommandHandler h, ApiArgs a) {
+Object? _gameNew(CommandHandler h, ApiArgs a) {
   final host = h.host;
-  final size = pyStr(truthy(a['size']) ? a['size'] : host.config('game/size'));
-  final komi = a.containsKey('komi') ? a['komi'] : host.config('game/komi');
-  final rules = truthy(a['rules']) ? a['rules'] : host.config('game/rules');
-  final tree = gameParser.parseSgf('(;GM[1]FF[4]SZ[$size]KM[${pyStr(komi)}]RU[${pyStr(rules)}])');
-  final handicap = apiInt(a, 'handicap', defaultValue: 0)!;
-  if (handicap != 0) {
+  final size = a.text('size', orElse: '${host.config('game/size')}');
+  final komi = a['komi'] ?? host.config('game/komi'); // 0 is a komi
+  final rules = a.text('rules', orElse: '${host.config('game/rules')}');
+  final tree = gameParser.parseSgf('(;GM[1]FF[4]SZ[$size]KM[$komi]RU[$rules])');
+  final handicap = a.integer('handicap', orElse: 0, min: 0)!;
+  if (handicap > 0) {
     tree.setProperty('HA', handicap);
     tree.placeHandicapStones(handicap);
   }
-  final backup = loadTree(h, tree);
-  return {'previous_game_backup': backup, ...cmdStatus(h, {})};
+  return {'previous_game_backup': loadTree(h, tree), ...status(h)};
 }
 
 // -- analysis
 
-({int? top, bool includePv, int? pvLimit, bool ownership, bool policy}) _analysisArgs(ApiArgs a) => (
-  top: apiInt(a, 'top', defaultValue: 10),
-  includePv: apiBool(a['pv'], true),
-  pvLimit: apiInt(a, 'pv_limit'),
-  ownership: apiBool(a['ownership']),
-  policy: apiBool(a['policy']),
+Map<String, Object?> _analysisView(GameNode node, ApiArgs a, {List<String>? moves}) => analysisJson(
+  node,
+  top: moves != null ? null : a.integer('top', orElse: 10),
+  includePv: a.flag('pv', orElse: true),
+  pvLimit: a.integer('pv_limit'),
+  ownership: a.flag('ownership'),
+  policy: a.flag('policy'),
+  moves: moves,
 );
 
-Map<String, Object?> _analysisView(GameNode node, ApiArgs a, {List<String>? moves, bool allMoves = false}) {
-  final v = _analysisArgs(a);
-  return analysisJson(
-    node,
-    top: allMoves ? null : v.top,
-    includePv: v.includePv,
-    pvLimit: v.pvLimit,
-    ownership: v.ownership,
-    policy: v.policy,
-    moves: moves,
-  );
+Object? _analysisGet(CommandHandler h, ApiArgs a) {
+  final node = h.node(a);
+  return a.has('moves') ? _analysisView(node, a, moves: a.words('moves')) : _analysisView(node, a);
 }
 
-Object? _cmdAnalysisGet(CommandHandler h, ApiArgs a) {
-  final moves = a['moves'];
-  return _analysisView(h.node(a), a, moves: truthy(moves) ? (moves as List).cast<String>() : null);
-}
+/// Whether [node] already has a complete analysis of about [visits] (a search may stop early at max_time).
+bool _deepEnough(GameNode node, int visits) => node.analysisComplete && node.rootVisits >= 0.95 * visits;
 
-Future<Object?> _cmdAnalysisRun(CommandHandler h, ApiArgs a) async {
-  final timeout = apiInt(a, 'timeout', defaultValue: 300, minimum: 1)!;
+Future<Object?> _analysisRun(CommandHandler h, ApiArgs a) async {
+  final timeout = a.integer('timeout', orElse: 300, min: 1)!;
   final node = h.node(a);
   final engine = h.engineFor(node);
-  final visits = apiInt(a, 'visits', defaultValue: engine.config['max_visits'] as int, minimum: 1)!;
-  List<int>? region;
-  final regionArg = a['region'];
-  if (regionArg == 'gui') {
-    region = h.game.regionOfInterest;
-  } else if (truthy(regionArg)) {
-    region = parseRegion(regionArg, node.boardSize);
-  }
-  final cached =
-      !apiBool(a['force']) &&
-      (region == null || region.isEmpty) &&
-      node.analysisComplete &&
-      node.rootVisits >= 0.95 * visits; // requested visits may have been cut short by max_time
+  final visits = a.integer('visits', orElse: h.defaultVisits(engine), min: 1)!;
+  final regionArg = a.text('region');
+  final region = regionArg == 'gui'
+      ? h.game.regionOfInterest
+      : (regionArg == null ? null : parseRegion(regionArg, node.boardSize));
+  final cached = !a.flag('force') && region == null && _deepEnough(node, visits);
   if (!cached) {
-    if (!apiBool(a['wait'], true)) {
+    if (!a.flag('wait', orElse: true)) {
       node.analyze(engine, visits: visits, priority: priorityExtraAnalysis, timeLimit: false, regionOfInterest: region);
       return {'queued': true, 'node': nodeRef(node), 'visits': visits};
     }
-    if (region != null && region.isNotEmpty && !node.analysisExists) {
-      // region results don't carry a root evaluation
+    if (region != null && !node.analysisExists) {
+      // region results don't carry a root evaluation: get one first
       final fast = engine.config['fast_visits'] as int?;
-      await h.search(node, engine, fast != null && fast != 0 ? fast : 25, timeout: timeout);
+      await h.search(node, engine, fast != null && fast > 0 ? fast : 25, timeout: timeout);
     }
-    final maxTime = truthy(a['max_time']) ? _pyFloatOrNull(a['max_time']) : null;
-    await h.search(node, engine, visits, region: region, timeout: timeout, maxTime: maxTime);
+    await h.search(node, engine, visits, region: region, timeout: timeout, maxTime: a.number('max_time'));
   }
-  final result = _analysisView(node, a);
-  result.addAll({'reused_existing': cached, 'requested_visits': visits, 'region': regionJson(region)});
-  return result;
+  return {
+    ..._analysisView(node, a),
+    'reused_existing': cached,
+    'requested_visits': visits,
+    'region': regionJson(region),
+  };
 }
 
-Future<Object?> _cmdAnalysisMoves(CommandHandler h, ApiArgs a) async {
-  final timeout = apiInt(a, 'timeout', defaultValue: 300, minimum: 1)!;
+Future<Object?> _analysisMoves(CommandHandler h, ApiArgs a) async {
+  final timeout = a.integer('timeout', orElse: 300, min: 1)!;
   final node = h.node(a);
   final engine = h.engineFor(node);
-  final visits = apiInt(a, 'visits', defaultValue: engine.config['max_visits'] as int, minimum: 1)!;
-  final raw = a['moves'] ?? const [];
-  final names = raw is String ? splitWords(raw) : [for (final m in raw as List) m];
+  final visits = a.integer('visits', orElse: h.defaultVisits(engine), min: 1)!;
+  final names = a.words('moves');
   if (names.isEmpty) throw ApiError('bad_argument', 'give at least one move to compare');
-  final moves = [for (final m in names) Move(coords: parseCoords(m, node.boardSize), player: node.nextPlayer)];
-  for (final m in moves) {
-    checkMovesLegal(node, [m]);
-  }
+  final moves = h.candidates(node, names);
   if (!node.analysisExists) await h.search(node, engine, visits, timeout: timeout);
   final errors = <String, Object?>{};
   await Future.wait([
     for (final move in moves)
       h
           .search(node, engine, visits, refineMove: move, timeout: timeout)
-          .then<void>(
-            (_) {},
-            onError: (Object e) {
-              if (e is! ApiError) throw e;
-              errors[move.gtp()] = e.toJson();
-            },
-          ),
+          .then<void>((_) {})
+          .catchError((Object e) => errors[move.gtp()] = (e as ApiError).toJson(), test: (e) => e is ApiError),
   ]);
-  final result = _analysisView(node, a, moves: [for (final m in moves) m.gtp()], allMoves: true);
-  mergeSortBy(result['candidates'] as List<Map<String, Object?>>, (c) => (c['points_lost'] as num?) ?? 1e9);
-  result['compared_visits'] = visits;
-  if (errors.isNotEmpty) result['errors'] = errors;
-  return result;
+  final result = _analysisView(node, a, moves: [for (final m in moves) m.gtp()]);
+  sortByPointsLost(result['candidates'] as List<Map<String, Object?>>);
+  return {...result, 'compared_visits': visits, if (errors.isNotEmpty) 'errors': errors};
 }
 
-Object? _cmdAnalysisGame(CommandHandler h, ApiArgs a) {
-  final kwargs = <String, Object?>{'mistakes_only': apiBool(a['mistakes_only'])};
-  if (truthy(a['visits'])) kwargs['visits'] = apiInt(a, 'visits', minimum: 1);
-  if (truthy(a['move_range'])) {
-    final parts = pyStr(a['move_range']).replaceAll(':', '-').split('-');
-    if (parts.length != 2) throw ApiError('bad_argument', 'move_range must look like 20-60');
-    kwargs['move_range'] = [for (final p in parts) int.parse(p.trim())];
+Object? _analysisGame(CommandHandler h, ApiArgs a) {
+  final visits = a.has('visits') ? a.integer('visits', min: 1) : null;
+  List<int>? moveRange;
+  final range = a.text('move_range');
+  if (range != null) {
+    final m = RegExp(r'^\s*(\d+)\s*[-:]\s*(\d+)\s*$').firstMatch(range);
+    if (m == null) throw ApiError('bad_argument', 'move_range must look like 20-60, got $range');
+    moveRange = [int.parse(m[1]!), int.parse(m[2]!)];
   }
+  final mistakesOnly = a.flag('mistakes_only');
   h.engineFor(h.game.currentNode);
-  h.game.analyzeExtra(
-    'game',
-    mistakesOnly: kwargs['mistakes_only'] as bool,
-    visits: kwargs['visits'] as int?,
-    moveRange: kwargs['move_range'] as List<int>?,
-  );
-  return {'queued': true, ...kwargs, 'queries_remaining': h.host.engineQueriesRemaining(h.host.engine!)};
+  h.game.analyzeExtra('game', mistakesOnly: mistakesOnly, visits: visits, moveRange: moveRange);
+  return {
+    'queued': true,
+    'mistakes_only': mistakesOnly,
+    'visits': ?visits,
+    'move_range': ?moveRange,
+    'queries_remaining': h.host.engineQueriesRemaining(h.host.engine!),
+  };
 }
 
-Future<Object?> _cmdAnalysisWait(CommandHandler h, ApiArgs a) async {
-  final timeout = apiInt(a, 'timeout', defaultValue: 300, minimum: 1)!;
+Future<Object?> _analysisWait(CommandHandler h, ApiArgs a) async {
+  final timeout = a.integer('timeout', orElse: 300, min: 1)!;
   final engine = h.engineFor(h.game.currentNode);
   if (h.host.pondering) {
     throw ApiError('pondering', 'continuous analysis is on, the engine never becomes idle', {
@@ -744,91 +602,70 @@ Future<Object?> _cmdAnalysisWait(CommandHandler h, ApiArgs a) async {
   return {'idle': true};
 }
 
-Object? _cmdAnalysisPonder(CommandHandler h, ApiArgs a) {
-  final on = apiBool(a['on'], true);
-  if (on != h.host.pondering) h.host.toggleContinuousAnalysis(quiet: true);
+Object? _analysisPonder(CommandHandler h, ApiArgs a) {
+  if (a.flag('on', orElse: true) != h.host.pondering) h.host.toggleContinuousAnalysis(quiet: true);
   return {'pondering': h.host.pondering};
 }
 
-Object? _cmdAnalysisStop(CommandHandler h, ApiArgs a) {
+Object? _analysisStop(CommandHandler h, ApiArgs a) {
   h.game.analyzeExtra('stop');
   h.refresh(false);
   return {'stopped': true};
 }
 
-Map<String, Object?> _cmdEngineGet(CommandHandler h, ApiArgs a) {
+Map<String, Object?> _engineGet(CommandHandler h, ApiArgs a) {
   final engineConfig = h.host.config('engine') as Map;
   return {for (final key in engineSettings.keys) key: engineConfig[key]};
 }
 
-Object? _cmdEngineSet(CommandHandler h, ApiArgs a) {
+Object? _engineSet(CommandHandler h, ApiArgs a) {
   final engineConfig = h.host.config('engine') as Map;
-  final changed = <String, Object?>{};
-  for (final MapEntry(key: key, value: type) in engineSettings.entries) {
-    if (a[key] == null) continue;
-    final num? value = type == int ? _pyIntOrNull(a[key]) : _pyFloatOrNull(a[key]);
-    if (value == null) throw ApiError('bad_argument', '$key must be ${type == int ? 'int' : 'float'}');
-    if (value < 0) throw ApiError('bad_argument', '$key must be >= 0');
-    engineConfig[key] = value;
-    final engine = h.host.engine;
-    if (engine != null && !identical(engine.config, engineConfig)) engine.config[key] = value;
-    changed[key] = value;
-  }
+  final engine = h.host.engine;
+  final changed = <String, Object?>{
+    for (final MapEntry(key: key, value: whole) in engineSettings.entries)
+      if (a[key] != null) key: whole ? a.integer(key, min: 0) : a.number(key, min: 0),
+  };
   if (changed.isEmpty) {
-    throw ApiError('bad_argument', 'nothing to change, use one of ${pyRepr(engineSettings.keys.toList()..sort())}');
+    throw ApiError('bad_argument', 'nothing to change, use one of ${engineSettings.keys.join(', ')}');
   }
-  if (apiBool(a['save'])) h.host.saveConfig('engine');
-  return {'changed': changed, 'saved': apiBool(a['save']), ..._cmdEngineGet(h, {})};
+  engineConfig.addAll(changed);
+  if (engine != null && !identical(engine.config, engineConfig)) engine.config.addAll(changed);
+  if (a.flag('save')) h.host.saveConfig('engine');
+  return {'changed': changed, 'saved': a.flag('save'), ..._engineGet(h, a)};
 }
 
 // -- navigation and editing
 
-Object? _cmdGoto(CommandHandler h, ApiArgs a) {
+Object? _goto(CommandHandler h, ApiArgs a) {
   h.goto(h.node(a));
   return h.currentJson(a);
 }
 
-void _checkNotInserting(CommandHandler h) {
-  if (h.game.insertMode) throw ApiError('insert_mode', "finish KaTrain's insert mode before navigating");
-}
-
-Object? _cmdNext(CommandHandler h, ApiArgs a) {
-  _checkNotInserting(h);
+Object? _step(CommandHandler h, ApiArgs a, {required bool forward}) {
+  h.ensureNotInserting();
   h.host.pv = null;
-  h.game.redo(apiInt(a, 'n', defaultValue: 1, minimum: 1)!);
+  final n = a.integer('n', orElse: 1, min: 1)!;
+  forward ? h.game.redo(n) : h.game.undo(n);
   h.refresh();
   return h.currentJson(a);
 }
 
-Object? _cmdPrev(CommandHandler h, ApiArgs a) {
-  _checkNotInserting(h);
-  h.host.pv = null;
-  h.game.undo(apiInt(a, 'n', defaultValue: 1, minimum: 1)!);
-  h.refresh();
-  return h.currentJson(a);
-}
-
-Object? _cmdBranch(CommandHandler h, ApiArgs a) {
+Object? _branch(CommandHandler h, ApiArgs a) {
   final cn = h.game.currentNode;
-  if (cn.parent == null) throw ApiError('no_variation', 'the root has no siblings');
-  final siblings = cn.parent!.orderedChildren;
-  final idx = a['index'] != null
-      ? apiInt(a, 'index')!
-      : siblings.indexWhere((s) => identical(s, cn)) + apiInt(a, 'direction', defaultValue: 1)!;
-  if (!(0 <= idx && idx < siblings.length)) {
+  final siblings = cn.parent?.orderedChildren ?? (throw ApiError('no_variation', 'the root has no siblings'));
+  final idx = a.integer('index') ?? siblings.indexWhere((s) => identical(s, cn)) + a.integer('direction', orElse: 1)!;
+  if (idx < 0 || idx >= siblings.length) {
     throw ApiError('no_variation', 'no sibling at index $idx', {'siblings': siblings.length});
   }
   h.goto(siblings[idx]);
   return {...h.currentJson(a), 'sibling_index': idx, 'siblings': siblings.length};
 }
 
-Object? _cmdPlay(CommandHandler h, ApiArgs a) {
+Object? _play(CommandHandler h, ApiArgs a) {
   final game = h.game, cn = game.currentNode;
   if (game.insertMode) throw ApiError('insert_mode', "finish KaTrain's insert mode first");
-  final startPlayer = parseColor(a['color']) ?? cn.nextPlayer;
-  final moves = parseMoves(a['moves'] ?? const [], cn.boardSize, startPlayer);
-  if (moves.isEmpty) throw ApiError('bad_argument', 'no moves given');
-  final (nodes, created) = h.addNodes(cn, moves, analyze: apiBool(a['analyze'], true) ? 'full' : 'none');
+  final moves = h.moves(a, cn);
+  final (nodes, created) = h.addNodes(cn, moves, analyze: a.flag('analyze', orElse: true) ? 'full' : 'none');
   h.host.pv = null;
   game.setCurrentNode(nodes.last);
   h.refresh();
@@ -840,17 +677,10 @@ Object? _cmdPlay(CommandHandler h, ApiArgs a) {
   };
 }
 
-Object? _cmdVariationAdd(CommandHandler h, ApiArgs a) {
+Object? _variationAdd(CommandHandler h, ApiArgs a) {
   final start = h.node(a, 'from');
-  final startPlayer = parseColor(a['color']) ?? start.nextPlayer;
-  final moves = parseMoves(a['moves'] ?? const [], start.boardSize, startPlayer);
-  if (moves.isEmpty) throw ApiError('bad_argument', 'no moves given');
-  final (nodes, created) = h.addNodes(start, moves, analyze: pyStr(a['analyze'] ?? 'fast'));
-  if (apiBool(a['goto'])) {
-    h.goto(nodes.last);
-  } else {
-    h.refresh();
-  }
+  final (nodes, created) = h.addNodes(start, h.moves(a, start), analyze: a.text('analyze', orElse: 'fast')!);
+  a.flag('goto') ? h.goto(nodes.last) : h.refresh();
   return {
     'from': nodeRef(start),
     'nodes': [for (final n in nodes) nodeRef(n)],
@@ -859,40 +689,28 @@ Object? _cmdVariationAdd(CommandHandler h, ApiArgs a) {
   };
 }
 
-Object? _cmdVariationDelete(CommandHandler h, ApiArgs a) {
-  final game = h.game;
+Object? _variationDelete(CommandHandler h, ApiArgs a) {
   final node = h.node(a);
-  if (node.parent == null) throw ApiError('bad_argument', 'cannot delete the root');
+  final parent = node.parent ?? (throw ApiError('bad_argument', 'cannot delete the root'));
   final subtree = node.nodesInTree;
-  final foreign = [
-    for (final n in subtree)
-      if (!h.state.created.contains(n)) n,
-  ];
-  if (foreign.isNotEmpty && !apiBool(a['force'])) {
-    throw ApiError('protected', '${foreign.length} of ${subtree.length} nodes were not created through the API', {
+  final foreign = subtree.where((n) => !h.state.created.contains(n)).length;
+  if (foreign > 0 && !a.flag('force')) {
+    throw ApiError('protected', '$foreign of ${subtree.length} nodes were not created through the API', {
       'hint': 'pass force=true to delete original game nodes',
     });
   }
-  for (final n in subtree) {
-    n.removeShortcut();
-  }
-  node.parent!.children.removeWhere((c) => identical(c, node));
-  if (subtree.any((n) => identical(n, game.currentNode))) {
-    h.goto(node.parent!);
-  } else {
-    h.refresh();
-  }
-  return {'deleted_nodes': subtree.length, ...h.currentJson()};
+  final wasCurrent = subtree.any((n) => identical(n, h.game.currentNode));
+  final deleted = h.removeSubtree(node);
+  wasCurrent ? h.goto(parent) : h.refresh();
+  return {'deleted_nodes': deleted, ...h.currentJson()};
 }
 
-Object? _cmdVariationPromote(CommandHandler h, ApiArgs a) {
+Object? _variationPromote(CommandHandler h, ApiArgs a) {
   final node = h.node(a);
-  var n = node;
-  while (n.parent != null) {
+  for (var n = node; n.parent != null; n = n.parent!) {
     final siblings = n.parent!.children;
     siblings.removeWhere((c) => identical(c, n));
     siblings.insert(0, n);
-    n = n.parent!;
   }
   h.refresh();
   return {'promoted': nodeRef(node), 'on_main_line': onMainLine(node)};
@@ -900,54 +718,48 @@ Object? _cmdVariationPromote(CommandHandler h, ApiArgs a) {
 
 List<String> _colored(List<Move> moves) => [for (final m in moves) '${m.player}:${m.gtp()}'];
 
-Object? _cmdVariationRegister(CommandHandler h, ApiArgs a) {
+Object? _variationRegister(CommandHandler h, ApiArgs a) {
   final start = h.node(a, 'from');
-  final startPlayer = parseColor(a['color']) ?? start.nextPlayer;
-  final moves = parseMoves(a['moves'] ?? const [], start.boardSize, startPlayer);
-  if (moves.isEmpty) throw ApiError('bad_argument', 'no moves given');
+  final moves = h.moves(a, start);
   checkMovesLegal(start, moves);
-  final vid = 'v${h.state.nextVariationId()}';
-  h.state.variations[vid] = {'from': start, 'moves': moves, 'label': a['label'], 'root': h.game.root};
-  return {'id': vid, 'from': nodeRef(start), 'moves': _colored(moves), 'label': a['label']};
+  final id = h.state.nextVariationId();
+  h.state.variations[id] = RegisteredVariation(start, moves, a.text('label'));
+  return {'id': id, 'from': nodeRef(start), 'moves': _colored(moves), 'label': a.text('label')};
 }
 
-Object? _cmdVariationList(CommandHandler h, ApiArgs a) {
-  final root = h.game.root;
-  return [
-    for (final MapEntry(key: vid, value: v) in h.state.variations.entries)
-      {
-        'id': vid,
-        'from': nodeRef(v['from'] as GameNode),
-        'moves': _colored(v['moves'] as List<Move>),
-        'label': v['label'],
-        'current_game': identical(v['root'], root),
-      },
-  ];
-}
+Object? _variationList(CommandHandler h, ApiArgs a) => [
+  for (final MapEntry(key: id, value: v) in h.state.variations.entries)
+    {
+      'id': id,
+      'from': nodeRef(v.from),
+      'moves': _colored(v.moves),
+      'label': v.label,
+      'current_game': identical(v.root, h.game.root),
+    },
+];
 
-Object? _cmdVariationShow(CommandHandler h, ApiArgs a) {
-  final v = h.state.variations[pyStr(a['id'])];
-  if (v == null) throw ApiError('not_found', "no registered variation '${pyStr(a['id'])}'");
-  if (!identical(v['root'], h.game.root)) throw ApiError('game_changed', 'this variation belongs to a different game');
-  final step = apiInt(a, 'step');
-  if ((a['as'] ?? 'pv') == 'branch') {
-    final (nodes, created) = h.addNodes(v['from'] as GameNode, v['moves'] as List<Move>);
-    final target = step != null && step != 0 ? nodes[(step < nodes.length ? step : nodes.length) - 1] : nodes.last;
-    h.goto(target);
+Object? _variationShow(CommandHandler h, ApiArgs a) {
+  final id = a.text('id');
+  final v = h.state.variations[id] ?? (throw ApiError('not_found', "no registered variation '$id'"));
+  if (!identical(v.root, h.game.root)) throw ApiError('game_changed', 'this variation belongs to a different game');
+  final step = a.integer('step', min: 1);
+  if (a.text('as') == 'branch') {
+    final (nodes, created) = h.addNodes(v.from, v.moves);
+    h.goto(step == null ? nodes.last : nodes[(step < nodes.length ? step : nodes.length) - 1]);
     return {
       ...h.currentJson(a),
       'nodes': [for (final n in nodes) nodeRef(n)],
       ...h.editNotice(created),
     };
   }
-  return showPv(h, v['from'] as GameNode, v['moves'] as List<Move>, step);
+  return showPv(h, v.from, v.moves, step);
 }
 
-// -- board display: PV overlays, marks, region, view toggles
+// -- board display: variations, marks, region, view toggles
 
-/// Overlays a sequence with numbered stones, without changing the game tree.
+/// Overlays [moves] from [node] as numbered stones, without changing the game tree: the first [step] of them, or
+/// all of them animated.
 Map<String, Object?> showPv(CommandHandler h, GameNode node, List<Move> moves, [int? step]) {
-  final cn = h.game.currentNode;
   var expected = node.nextPlayer;
   for (final m in moves) {
     if (m.player != expected) {
@@ -958,468 +770,397 @@ Map<String, Object?> showPv(CommandHandler h, GameNode node, List<Move> moves, [
     expected = Move.opponentPlayer(expected);
   }
   checkMovesLegal(node, moves);
+  final cn = h.game.currentNode;
   if (!identical(node, cn) && !identical(node.parent, cn) && !cn.nodesFromRoot.any((n) => identical(n, node))) {
-    h.goto(node); // the board can only hide stones of descendants of the PV start
+    h.goto(node); // the board can only hide stones of descendants of the variation's start
   }
   final pv = [for (final m in moves) m.gtp()];
-  final index = step == null ? null : (step < pv.length ? step : pv.length) - 1;
-  h.host.pv = ApiPv(pv, node, index: index == null ? null : (index < 0 ? 0 : index), pinned: true);
+  final shown = step == null ? pv.length : (step < pv.length ? step : pv.length);
+  h.host.pv = PvOverlay(pv, node, index: step == null ? null : shown - 1, pinned: true);
   h.host.redrawOverlay();
-  return {
-    'from': nodeRef(node),
-    'pv': pv,
-    'shown_moves': step == null ? pv.length : h.host.pv!.index! + 1,
-    'animated': step == null,
-  };
+  return {'from': nodeRef(node), 'pv': pv, 'shown_moves': shown, 'animated': step == null};
 }
 
-Object? _cmdPvShow(CommandHandler h, ApiArgs a) {
+Object? _pvShow(CommandHandler h, ApiArgs a) {
   final node = h.node(a, 'from');
-  Object? raw;
-  if (truthy(a['candidate'])) {
-    final want = pyStr(a['candidate']).toUpperCase();
-    Map<String, dynamic>? cand;
-    for (final c in node.candidateMoves) {
-      if ((c['move'] as String).toUpperCase() == want) {
-        cand = c;
-        break;
-      }
-    }
-    final pv = cand?['pv'] as List?;
-    if (cand == null || pv == null || pv.isEmpty) {
-      throw ApiError('not_found', 'no analysed candidate $want with a PV at ${nodeRef(node)}', {
+  final List<String> raw;
+  final candidate = a.text('candidate')?.toUpperCase();
+  if (candidate != null) {
+    final pv = node.candidateMoves.where((c) => (c['move'] as String).toUpperCase() == candidate).firstOrNull?['pv'];
+    if (pv is! List || pv.isEmpty) {
+      throw ApiError('not_found', 'no analysed candidate $candidate with a PV at ${nodeRef(node)}', {
         'hint': 'run analysis.moves first',
       });
     }
-    raw = pv;
+    raw = pv.cast<String>();
   } else {
-    raw = a['moves'] ?? const [];
+    raw = a.words('moves');
   }
   final moves = parseMoves(raw, node.boardSize, node.nextPlayer);
   if (moves.isEmpty) throw ApiError('bad_argument', 'give moves or candidate');
-  return showPv(h, node, moves, apiInt(a, 'step', minimum: 1));
+  return showPv(h, node, moves, a.integer('step', min: 1));
 }
 
-Object? _cmdPvStep(CommandHandler h, ApiArgs a) {
-  final pvState = h.host.pv;
-  if (pvState == null) throw ApiError('no_pv', 'no PV is being shown');
-  final pv = pvState.moves;
-  int shown;
-  if (a['index'] != null) {
-    shown = apiInt(a, 'index')!;
-  } else {
-    final current = pvState.index ?? pv.length - 1;
-    shown = current + 1 + apiInt(a, 'delta', defaultValue: 1)!;
-  }
-  shown = shown < 1 ? 1 : (shown > pv.length ? pv.length : shown);
-  pvState
+Object? _pvStep(CommandHandler h, ApiArgs a) {
+  final pv = h.host.pv ?? (throw ApiError('no_pv', 'no PV is being shown'));
+  final length = pv.moves.length;
+  final shown = (a.integer('index') ?? (pv.index ?? length - 1) + 1 + a.integer('delta', orElse: 1)!).clamp(1, length);
+  pv
     ..index = shown - 1
     ..pinned = true;
   h.host.redrawOverlay();
-  return {'pv': pv, 'shown_moves': shown, 'last_shown': pv[shown - 1]};
+  return {'pv': pv.moves, 'shown_moves': shown, 'last_shown': pv.moves[shown - 1]};
 }
 
-Object? _cmdPvHide(CommandHandler h, ApiArgs a) {
+Object? _pvHide(CommandHandler h, ApiArgs a) {
   h.host.pv = null;
   h.host.redrawOverlay();
   return {'hidden': true};
 }
 
-Map<String, Object?> _markJson(Map<String, Object?> m) {
-  final out = <String, Object?>{
-    for (final MapEntry(:key, :value) in m.entries)
-      if (!const ['rgb', 'coords', 'region', 'node'].contains(key)) key: value,
-  };
-  if (m.containsKey('coords')) out['point'] = gtp(m['coords'] as (int, int)?);
-  if (m.containsKey('region')) out['region'] = regionJson(m['region'] as List<int>?);
-  out['node'] = m['node'] == null ? null : 'n${m['node']}';
-  return out;
+/// The colour asked for (red when none), and its name.
+(List<double>, String) _markColor(ApiArgs a, String fallback) {
+  final name = a.text('color', orElse: fallback)!;
+  final rgb =
+      parseMarkColor(name) ?? (throw ApiError('bad_argument', "unknown color '$name' (named color or #rrggbb)"));
+  return (rgb, name);
 }
 
-Object? _cmdMarkAdd(CommandHandler h, ApiArgs a) {
+Object? _markAdd(CommandHandler h, ApiArgs a) {
   final game = h.game;
-  final kind = pyStr(a['type'] ?? 'circle');
-  if (!markTypes.contains(kind) || kind == 'area') {
-    throw ApiError(
-      'bad_argument',
-      'type must be one of ${pyRepr([for (final t in markTypes)
-        if (t != 'area') t])}',
+  final kind = a.text('type', orElse: 'circle')!;
+  final pointTypes = [
+    for (final t in markTypes)
+      if (t != 'area') t,
+  ];
+  if (!pointTypes.contains(kind)) throw ApiError('bad_argument', 'type must be one of ${pointTypes.join(', ')}');
+  final (rgb, color) = _markColor(a, 'red');
+  final points = a.words('points');
+  if (points.isEmpty) throw ApiError('bad_argument', 'no points given');
+  // one point takes the whole text as its label; several split it at spaces
+  final texts = a['text'] is List || points.length > 1 ? a.words('text') : [?a.text('text')];
+  final scope = a.text('scope') == 'global' ? null : nodeId(game.currentNode);
+  final added = <Mark>[];
+  for (var i = 0; i < points.length; i++) {
+    final point = parseCoords(points[i], game.boardSize) ?? (throw ApiError('bad_coordinate', 'cannot mark pass'));
+    final mark = Mark(
+      id: h.state.nextMarkId(),
+      type: kind,
+      point: point,
+      rgb: rgb,
+      color: color,
+      text: kind != 'label' ? null : (i < texts.length ? texts[i] : String.fromCharCode(0x41 + i % 26)),
+      nodeId: scope,
     );
-  }
-  final rgb = parseMarkColor(a['color']);
-  if (rgb == null) throw ApiError('bad_argument', 'unknown color ${pyRepr(a['color'])} (named color or #rrggbb)');
-  var points = a['points'] ?? const [];
-  if (points is String) points = splitWords(points);
-  final pointList = points as List;
-  if (pointList.isEmpty) throw ApiError('bad_argument', 'no points given');
-  var texts = a['text'];
-  if (texts is String) {
-    texts = pointList.length == 1 ? [texts] : texts.trim().split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
-  }
-  final textList = texts as List?;
-  final scopeNode = a['scope'] == 'global' ? null : nodeId(game.currentNode);
-  final added = <Map<String, Object?>>[];
-  for (var i = 0; i < pointList.length; i++) {
-    final coords = parseCoords(pointList[i], game.boardSize);
-    if (coords == null) throw ApiError('bad_coordinate', 'cannot mark pass');
-    String? text;
-    if (kind == 'label') {
-      text = textList != null && textList.isNotEmpty && i < textList.length
-          ? pyStr(textList[i])
-          : String.fromCharCode('A'.codeUnitAt(0) + i % 26);
-    }
-    // replace an existing mark at the same point and scope
+    // a mark replaces the one at the same point and scope
     h.state.marks = [
       for (final m in h.state.marks)
-        if (!(m['coords'] == coords && m['node'] == scopeNode)) m,
+        if (m.point != point || m.nodeId != scope) m,
+      mark,
     ];
-    final mark = <String, Object?>{
-      'id': h.state.nextMarkId(),
-      'type': kind,
-      'coords': coords,
-      'rgb': rgb,
-      'color': a['color'] ?? 'red',
-      'text': text,
-      'node': scopeNode,
-    };
-    h.state.marks.add(mark);
-    added.add(_markJson(mark));
+    added.add(mark);
   }
-  h.host.redrawOverlay();
-  return {'added': added};
-}
-
-Object? _cmdMarkArea(CommandHandler h, ApiArgs a) {
-  final game = h.game;
-  final color = truthy(a['color']) ? a['color'] : 'yellow';
-  final rgb = parseMarkColor(color);
-  if (rgb == null) throw ApiError('bad_argument', 'unknown color ${pyRepr(a['color'])}');
-  final region = parseRegion(truthy(a['region']) ? a['region'] : '', game.boardSize);
-  final mark = <String, Object?>{
-    'id': h.state.nextMarkId(),
-    'type': 'area',
-    'region': region,
-    'rgb': rgb,
-    'color': color,
-    'text': a['text'],
-    'node': a['scope'] == 'global' ? null : nodeId(game.currentNode),
-  };
-  h.state.marks.add(mark);
   h.host.redrawOverlay();
   return {
-    'added': [_markJson(mark)],
+    'added': [for (final m in added) m.toJson()],
   };
 }
 
-Object? _cmdMarkList(CommandHandler h, ApiArgs a) => [for (final m in h.state.marks) _markJson(m)];
+Object? _markArea(CommandHandler h, ApiArgs a) {
+  final game = h.game;
+  final (rgb, color) = _markColor(a, 'yellow');
+  final mark = Mark(
+    id: h.state.nextMarkId(),
+    type: 'area',
+    region: parseRegion(a.text('region', orElse: ''), game.boardSize),
+    rgb: rgb,
+    color: color,
+    text: a.text('text'),
+    nodeId: a.text('scope') == 'global' ? null : nodeId(game.currentNode),
+  );
+  h.state.marks = [...h.state.marks, mark];
+  h.host.redrawOverlay();
+  return {
+    'added': [mark.toJson()],
+  };
+}
 
-Object? _cmdMarkClear(CommandHandler h, ApiArgs a) {
+Object? _markList(CommandHandler h, ApiArgs a) => [for (final m in h.state.marks) m.toJson()];
+
+Object? _markClear(CommandHandler h, ApiArgs a) {
   final before = h.state.marks.length;
-  final ids = a['ids'], points = a['points'];
-  if (truthy(ids)) {
-    final idList = ids is List ? ids : splitWords(pyStr(ids));
-    final wanted = {for (final i in idList) int.parse(pyStr(i).replaceFirst(RegExp(r'^#+'), ''))};
-    h.state.marks = [
-      for (final m in h.state.marks)
-        if (!wanted.contains(m['id'])) m,
-    ];
-  } else if (truthy(points)) {
-    final pointList = points is String ? splitWords(points) : points as List;
-    final coords = {for (final p in pointList) parseCoords(p, h.game.boardSize)};
-    h.state.marks = [
-      for (final m in h.state.marks)
-        if (!coords.contains(m['coords'])) m,
-    ];
+  bool Function(Mark) keep;
+  if (a.has('ids')) {
+    final ids = {
+      for (final i in a.words('ids'))
+        int.tryParse(i.replaceFirst(RegExp(r'^#+'), '')) ?? (throw ApiError('bad_argument', 'bad mark id $i')),
+    };
+    keep = (m) => !ids.contains(m.id);
+  } else if (a.has('points')) {
+    final points = {for (final p in a.words('points')) parseCoords(p, h.game.boardSize)};
+    keep = (m) => !points.contains(m.point);
   } else {
-    h.state.marks = [];
+    keep = (_) => false;
   }
+  h.state.marks = h.state.marks.where(keep).toList();
   h.host.redrawOverlay();
   return {'removed': before - h.state.marks.length, 'remaining': h.state.marks.length};
 }
 
-Object? _cmdRegionSet(CommandHandler h, ApiArgs a) {
+Object? _regionSet(CommandHandler h, ApiArgs a) {
   final game = h.game;
-  final region = parseRegion(truthy(a['region']) ? a['region'] : '', game.boardSize);
-  game.setRegionOfInterest([region[0], region[1], region[2], region[3]]);
+  game.setRegionOfInterest(parseRegion(a.text('region', orElse: ''), game.boardSize));
   h.refresh(false);
   return {'region_of_interest': regionJson(game.regionOfInterest)};
 }
 
-Object? _cmdRegionClear(CommandHandler h, ApiArgs a) {
+Object? _regionClear(CommandHandler h, ApiArgs a) {
   h.game.regionOfInterest = null;
   h.refresh(false);
   return {'region_of_interest': null};
 }
 
-Object? _cmdViewSet(CommandHandler h, ApiArgs a) {
+Object? _viewSet(CommandHandler h, ApiArgs a) {
   final host = h.host;
   final changed = <String, Object?>{};
   for (final MapEntry(key: key, value: control) in viewToggles.entries) {
-    if (a[key] != null) {
-      host.setAnalysisControl(control, apiBool(a[key]));
-      changed[key] = apiBool(a[key]);
-    }
+    if (a.hasFlag(key)) host.setAnalysisControl(control, changed[key] = a.flag(key));
   }
-  if (a['move_numbers'] != null) {
-    host.showMoveNumbers = apiBool(a['move_numbers']);
-    changed['move_numbers'] = host.showMoveNumbers;
-  }
-  if (a['zoom'] != null || a['hide_frame'] != null) {
+  if (a.hasFlag('move_numbers')) host.showMoveNumbers = changed['move_numbers'] = a.flag('move_numbers');
+  if (a.hasFlag('zoom') || a.hasFlag('hide_frame')) {
     var zoom = host.zoomRegion;
     var hidden = host.hiddenCoords;
     final ts = h.state.tsumego;
-    if (a['zoom'] != null) {
-      final spec = pyStr(a['zoom']).trim().toLowerCase();
-      if (const ['off', 'false', 'none', ''].contains(spec)) {
-        zoom = null;
-      } else if (spec == 'auto') {
-        if (ts == null) {
-          throw ApiError('no_tsumego', 'zoom=auto needs a loaded tsumego problem; give a region like C3:G7');
-        }
-        zoom = ts.viewRegion;
-      } else {
-        zoom = parseRegion(a['zoom'], h.game.boardSize);
-      }
+    if (a.hasFlag('zoom')) {
+      final spec = (a.text('zoom') ?? '').trim().toLowerCase();
+      zoom = switch (spec) {
+        '' || 'off' || 'false' || 'none' => null,
+        'auto' =>
+          ts?.viewRegion ??
+              (throw ApiError('no_tsumego', 'zoom=auto needs a loaded tsumego problem; give a region like C3:G7')),
+        _ => parseRegion(spec.toUpperCase(), h.game.boardSize),
+      };
     }
-    if (a['hide_frame'] != null) {
-      hidden = apiBool(a['hide_frame']) ? (ts?.frameCoords ?? <(int, int)>{}) : <(int, int)>{};
-    }
+    if (a.hasFlag('hide_frame')) hidden = a.flag('hide_frame') ? (ts?.frameCoords ?? {}) : {};
     host.setZoom(zoom, hidden);
     changed['zoom'] = regionJson(zoom);
     changed['hidden_stones'] = hidden.length;
   }
   h.refresh();
-  final view = <String, Object?>{
-    for (final MapEntry(key: key, value: control) in viewToggles.entries) key: host.analysisControl(control),
-    'move_numbers': host.showMoveNumbers,
-    'zoom': regionJson(host.zoomRegion),
-    'hidden_stones': host.hiddenCoords.length,
+  return {
+    'changed': changed,
+    'view': {
+      for (final MapEntry(key: key, value: control) in viewToggles.entries) key: host.analysisControl(control),
+      'move_numbers': host.showMoveNumbers,
+      'zoom': regionJson(host.zoomRegion),
+      'hidden_stones': host.hiddenCoords.length,
+    },
   };
-  return {'changed': changed, 'view': view};
 }
 
-Object? _cmdModeSet(CommandHandler h, ApiArgs a) {
-  final mode = a['mode'];
+Object? _modeSet(CommandHandler h, ApiArgs a) {
+  final mode = a.text('mode');
   if (mode != modePlay && mode != modeAnalyze) {
     throw ApiError('bad_argument', "mode must be '$modePlay' or '$modeAnalyze'");
   }
-  h.setMode(mode as String);
+  h.setMode(mode!);
   return {'mode': h.host.mode};
 }
 
-Object? _cmdMessage(CommandHandler h, ApiArgs a) {
-  var text = pyStr(truthy(a['text']) ? a['text'] : '');
-  if (text.length > 300) text = text.substring(0, 300);
-  h.host.showStatus(text);
-  return {'shown': text};
+Object? _message(CommandHandler h, ApiArgs a) {
+  final text = a.text('text', orElse: '')!;
+  final shown = text.length > 300 ? text.substring(0, 300) : text;
+  h.host.showStatus(shown);
+  return {'shown': shown};
 }
 
-// -- snapshots and demo mode
+// -- saved states and demos
 
-Object? _cmdStateSave(CommandHandler h, ApiArgs a) {
-  final name = pyStr(truthy(a['name']) ? a['name'] : 'default');
-  h.state.snapshots[name] = h.capture();
-  return CommandHandler.snapshotJson(name, h.state.snapshots[name]!);
+Object? _stateSave(CommandHandler h, ApiArgs a) {
+  final name = a.text('name', orElse: 'default')!;
+  return (h.state.snapshots[name] = h.capture()).toJson(name);
 }
 
-Object? _cmdStateRestore(CommandHandler h, ApiArgs a) {
-  final name = pyStr(truthy(a['name']) ? a['name'] : 'default');
-  final snap = h.state.snapshots[name];
-  if (snap == null) {
-    throw ApiError('not_found', "no saved state '$name'", {'available': h.state.snapshots.keys.toList()..sort()});
-  }
+Object? _stateRestore(CommandHandler h, ApiArgs a) {
+  final name = a.text('name', orElse: 'default')!;
+  final snap =
+      h.state.snapshots[name] ??
+      (throw ApiError('not_found', "no saved state '$name'", {'available': h.state.snapshots.keys.toList()..sort()}));
   h.restore(snap);
   return {'restored': name, ...h.currentJson(a)};
 }
 
-Object? _cmdStateList(CommandHandler h, ApiArgs a) => [
-  for (final MapEntry(key: name, value: snap) in h.state.snapshots.entries) CommandHandler.snapshotJson(name, snap),
+Object? _stateList(CommandHandler h, ApiArgs a) => [
+  for (final MapEntry(key: name, value: snap) in h.state.snapshots.entries) snap.toJson(name),
 ];
 
-Object? _cmdDemoStart(CommandHandler h, ApiArgs a) {
+Object? _demoStart(CommandHandler h, ApiArgs a) {
   if (h.state.demo != null) throw ApiError('demo_active', 'a demo is already running', {'hint': 'demo end first'});
-  final game = h.game;
-  h.state.demo = {
-    'snapshot': h.capture(),
-    'existing': Set<GameNode>.identity()..addAll(game.root.nodesInTree),
-    'label': a['label'],
-  };
+  h.state.demo = Demo(h.capture(), h.game.root.nodesInTree, a.text('label'));
   h.setMode(modeAnalyze); // no AI replies or teaching undos while demonstrating
-  return {'demo': 'started', 'label': a['label'], ...h.currentJson(a)};
+  return {'demo': 'started', 'label': a.text('label'), ...h.currentJson(a)};
 }
 
-Object? _cmdDemoEnd(CommandHandler h, ApiArgs a) {
-  final demo = h.state.demo;
-  if (demo == null) throw ApiError('no_demo', 'no demo is running');
+Object? _demoEnd(CommandHandler h, ApiArgs a) {
+  final demo = h.state.demo ?? (throw ApiError('no_demo', 'no demo is running'));
   h.state.demo = null;
-  final game = h.game;
-  final snap = demo['snapshot'] as Map<String, Object?>;
   h.host.pv = null;
-  if (!identical(game.root, snap['root'])) {
+  final game = h.game;
+  if (!identical(game.root, demo.snapshot.root)) {
     return {'demo': 'ended', 'warning': 'a different game was loaded during the demo; nothing restored'};
   }
   var removed = 0;
-  if (!apiBool(a['keep'])) {
-    final existing = demo['existing'] as Set<GameNode>;
-    final added = [
-      for (final n in game.root.nodesInTree)
-        if (!existing.contains(n) && n.parent != null && existing.contains(n.parent)) n,
-    ];
-    for (final node in added) {
-      for (final n in node.nodesInTree) {
-        n.removeShortcut();
-        removed += 1;
-      }
-      node.parent!.children.removeWhere((c) => identical(c, node));
+  final keep = a.flag('keep');
+  if (!keep) {
+    for (final n in game.root.nodesInTree) {
+      if (!demo.existing.contains(n) && demo.existing.contains(n.parent)) removed += h.removeSubtree(n);
     }
   }
-  h.restore(snap);
-  return {'demo': 'ended', 'removed_nodes': removed, 'kept': apiBool(a['keep']), ...h.currentJson(a)};
+  h.restore(demo.snapshot);
+  return {'demo': 'ended', 'removed_nodes': removed, 'kept': keep, ...h.currentJson(a)};
 }
 
-Object? _cmdDemoStatus(CommandHandler h, ApiArgs a) {
+Object? _demoStatus(CommandHandler h, ApiArgs a) {
   final demo = h.state.demo;
   if (demo == null) return {'active': false};
-  final existing = demo['existing'] as Set<GameNode>;
-  final added = [
-    for (final n in h.game.root.nodesInTree)
-      if (!existing.contains(n)) n,
-  ];
   return {
     'active': true,
-    'label': demo['label'],
-    'started_at': nodeRef((demo['snapshot'] as Map)['node'] as GameNode),
-    'added_nodes': added.length,
+    'label': demo.label,
+    'started_at': nodeRef(demo.snapshot.node),
+    'added_nodes': h.game.root.nodesInTree.where((n) => !demo.existing.contains(n)).length,
   };
 }
 
 final Map<String, ApiCommand> _coreCommands = {
-  'commands': const ApiCommand(_cmdCommands, 'List available API commands.'),
-  'status': const ApiCommand(cmdStatus, 'Game info, current node, mode, engine state, demo state.'),
-  'board': const ApiCommand(_cmdBoard, 'Stones on the board at a node (default: current).'),
-  'node': const ApiCommand(_cmdNode, 'Details of one node: move, children, comments, properties, evaluation.'),
+  'commands': const ApiCommand(_commands, 'List available API commands.'),
+  'status': ApiCommand((h, a) => status(h), 'Game info, current node, mode, engine state, demo state.'),
+  'board': ApiCommand(
+    (h, a) => boardJson(h.node(a), asciiBoard: a.flag('ascii', orElse: true)),
+    'Stones on the board at a node (default: current).',
+  ),
+  'node': ApiCommand(
+    (h, a) => nodeJson(h.node(a), detail: true),
+    'Details of one node: move, children, comments, properties, evaluation.',
+  ),
   'history': const ApiCommand(
-    _cmdHistory,
+    _history,
     'Moves from the root to a node; with future=true continue to the end of the line.',
   ),
-  'tree': const ApiCommand(_cmdTree, 'Game tree with variations (linear stretches collapsed).'),
+  'tree': const ApiCommand(_tree, 'Game tree with variations (linear stretches collapsed).'),
   'variations': const ApiCommand(
-    _cmdVariations,
+    _variations,
     'Alternatives at a node (its children) and the branch points on its line.',
   ),
   'sgf.export': const ApiCommand(
-    _cmdSgfExport,
+    _sgfExport,
     "Export the game as SGF text, or write it to 'path' (refuses to overwrite unless overwrite=true).",
   ),
   'sgf.import': const ApiCommand(
-    _cmdSgfImport,
+    _sgfImport,
     'Load an SGF (path or content) into the GUI. The previous game is backed up first.',
   ),
   'game.new': const ApiCommand(
-    _cmdGameNew,
+    _gameNew,
     'Start a new empty game (size, komi, rules, handicap). The previous game is backed up first.',
   ),
-  'analysis.get': const ApiCommand(_cmdAnalysisGet, 'Analysis KaTrain already has for a node (no new search).'),
+  'analysis.get': const ApiCommand(_analysisGet, 'Analysis KaTrain already has for a node (no new search).'),
   'analysis.run': const ApiCommand(
-    _cmdAnalysisRun,
+    _analysisRun,
     'Search a node to `visits` (reuses existing results if already deep enough) and return the analysis.',
     waitsForEngine: true,
   ),
   'analysis.moves': const ApiCommand(
-    _cmdAnalysisMoves,
+    _analysisMoves,
     'Search specific candidate moves at a node and compare them (points lost, PV).',
     waitsForEngine: true,
   ),
   'analysis.game': const ApiCommand(
-    _cmdAnalysisGame,
+    _analysisGame,
     'Queue whole-game (re)analysis in the background; poll with analysis.wait or status.',
   ),
   'analysis.wait': const ApiCommand(
-    _cmdAnalysisWait,
+    _analysisWait,
     'Wait until the engine has no pending queries (not while pondering).',
     waitsForEngine: true,
   ),
-  'analysis.ponder': const ApiCommand(
-    _cmdAnalysisPonder,
-    'Turn continuous analysis of the current position on or off.',
-  ),
-  'analysis.stop': const ApiCommand(_cmdAnalysisStop, 'Stop pondering and cancel all pending KataGo queries.'),
-  'engine.get': const ApiCommand(_cmdEngineGet, 'Current search settings.'),
+  'analysis.ponder': const ApiCommand(_analysisPonder, 'Turn continuous analysis of the current position on or off.'),
+  'analysis.stop': const ApiCommand(_analysisStop, 'Stop pondering and cancel all pending KataGo queries.'),
+  'engine.get': const ApiCommand(_engineGet, 'Current search settings.'),
   'engine.set': const ApiCommand(
-    _cmdEngineSet,
+    _engineSet,
     'Change search settings (max_visits, fast_visits, max_time, wide_root_noise); save=true persists them.',
   ),
-  'nav.goto': const ApiCommand(_cmdGoto, 'Jump to a node (move number, n<ID>, main:<N>, root, end).'),
-  'nav.next': const ApiCommand(_cmdNext, 'Step forward n moves along the current line.'),
-  'nav.prev': const ApiCommand(_cmdPrev, 'Step back n moves.'),
+  'nav.goto': const ApiCommand(_goto, 'Jump to a node (move number, n<ID>, main:<N>, root, end).'),
+  'nav.next': ApiCommand((h, a) => _step(h, a, forward: true), 'Step forward n moves along the current line.'),
+  'nav.prev': ApiCommand((h, a) => _step(h, a, forward: false), 'Step back n moves.'),
   'nav.branch': const ApiCommand(
-    _cmdBranch,
+    _branch,
     'Switch to the next (direction=1) or previous (-1) sibling variation, or a given index.',
   ),
   'play': const ApiCommand(
-    _cmdPlay,
+    _play,
     'Play moves from the current node (adds them to the game tree, analyzed like GUI moves).',
   ),
   'variation.add': const ApiCommand(
-    _cmdVariationAdd,
+    _variationAdd,
     'Add a variation below a node without validating against the GUI state; goto=true jumps to its end.',
   ),
   'variation.delete': const ApiCommand(
-    _cmdVariationDelete,
+    _variationDelete,
     'Delete a node and everything below it. Nodes not created via the API need force=true.',
   ),
-  'variation.promote': const ApiCommand(_cmdVariationPromote, 'Make the line through a node the main line.'),
+  'variation.promote': const ApiCommand(_variationPromote, 'Make the line through a node the main line.'),
   'variation.register': const ApiCommand(
-    _cmdVariationRegister,
+    _variationRegister,
     'Register a variation (moves from a node) under a short id like v1, without touching the board.',
   ),
-  'variation.list': const ApiCommand(_cmdVariationList, 'Registered variations.'),
+  'variation.list': const ApiCommand(_variationList, 'Registered variations.'),
   'variation.show': const ApiCommand(
-    _cmdVariationShow,
+    _variationShow,
     'Show a registered variation: as=pv (overlay, default) or as=branch (creates nodes, goes to step).',
   ),
   'pv.show': const ApiCommand(
-    _cmdPvShow,
+    _pvShow,
     "Overlay a variation as numbered stones (moves=..., or candidate=<move> to use KataGo's PV). step=N shows N "
     'moves.',
   ),
-  'pv.step': const ApiCommand(_cmdPvStep, 'Step the shown PV: delta=+1/-1, or index=N (number of moves shown).'),
-  'pv.hide': const ApiCommand(_cmdPvHide, 'Remove the PV overlay.'),
+  'pv.step': const ApiCommand(_pvStep, 'Step the shown PV: delta=+1/-1, or index=N (number of moves shown).'),
+  'pv.hide': const ApiCommand(_pvHide, 'Remove the PV overlay.'),
   'mark.add': const ApiCommand(
-    _cmdMarkAdd,
+    _markAdd,
     'Mark points: type=circle|square|triangle|cross|label|dot, text for labels, color, scope=node|global.',
   ),
   'mark.area': const ApiCommand(
-    _cmdMarkArea,
+    _markArea,
     'Highlight a rectangular area, e.g. region=C3:G7, with optional label text and color.',
   ),
-  'mark.list': const ApiCommand(_cmdMarkList, 'All API marks.'),
-  'mark.clear': const ApiCommand(_cmdMarkClear, 'Remove marks: all (default), ids=[...], or points=[...].'),
+  'mark.list': const ApiCommand(_markList, 'All API marks.'),
+  'mark.clear': const ApiCommand(_markClear, 'Remove marks: all (default), ids=[...], or points=[...].'),
   'region.set': const ApiCommand(
-    _cmdRegionSet,
+    _regionSet,
     "Restrict KataGo's candidate moves to a region (KaTrain's region of interest), e.g. C3:G7.",
   ),
-  'region.clear': const ApiCommand(_cmdRegionClear, 'Remove the region of interest.'),
+  'region.clear': const ApiCommand(_regionClear, 'Remove the region of interest.'),
   'view.set': const ApiCommand(
-    _cmdViewSet,
+    _viewSet,
     'Toggle display layers: hints, ownership, policy, eval, children, move_numbers (true/false); '
     'zoom=C3:G7|auto|off',
   ),
-  'mode.set': const ApiCommand(_cmdModeSet, 'Switch between play and analyze mode.'),
-  'message': const ApiCommand(_cmdMessage, "Show a short line in KaTrain's status bar."),
+  'mode.set': const ApiCommand(_modeSet, 'Switch between play and analyze mode.'),
+  'message': const ApiCommand(_message, "Show a short line in KaTrain's status bar."),
   'state.save': const ApiCommand(
-    _cmdStateSave,
+    _stateSave,
     'Remember the current position, mode, region, marks, shown PV and status text; returns a katrain:// link.',
   ),
-  'state.restore': const ApiCommand(_cmdStateRestore, 'Return to a saved state.'),
-  'state.list': const ApiCommand(_cmdStateList, 'Saved states.'),
+  'state.restore': const ApiCommand(_stateRestore, 'Return to a saved state.'),
+  'state.list': const ApiCommand(_stateList, 'Saved states.'),
   'demo.start': const ApiCommand(
-    _cmdDemoStart,
+    _demoStart,
     'Begin a temporary demonstration: everything added until demo.end is removed again (unless keep=true).',
   ),
   'demo.end': const ApiCommand(
-    _cmdDemoEnd,
+    _demoEnd,
     'End the demo: drop nodes added during it (keep=true keeps them) and restore the saved position.',
   ),
-  'demo.status': const ApiCommand(_cmdDemoStatus, 'Whether a demo is running and where it started.'),
+  'demo.status': const ApiCommand(_demoStatus, 'Whether a demo is running and where it started.'),
 };

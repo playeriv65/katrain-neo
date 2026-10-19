@@ -17,7 +17,7 @@ class TestHost extends RecordingHost implements ApiHost {
   @override
   String statusMessage = '';
   @override
-  ApiPv? pv;
+  PvOverlay? pv;
   final controls = <String, bool>{};
   @override
   bool showMoveNumbers = false;

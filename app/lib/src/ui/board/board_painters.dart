@@ -700,13 +700,13 @@ class BoardHoverPainter extends CustomPainter {
       if (ghost != null) {
         paintStone(canvas, images, geo, gui, ghost.$1, ghost.$2, nextPlayer, alpha: KTheme.ghostAlpha);
       }
-      final animating = board.animatingPv;
+      final animating = board.pv;
       if (animating != null) {
         final upTo = board.animatePvIndex(
           delay: ((gui.config('general/anim_pv_time', 0.5) as num?) ?? 0.5).toDouble(),
           maxMoves: ((gui.config('general/anim_pv_moves') as num?) ?? 100).toInt(),
         );
-        _drawPv(canvas, animating.pv, animating.node, upTo);
+        _drawPv(canvas, animating.moves, animating.node, upTo);
       }
       final roi = game.regionOfInterest;
       if (roi != null && geo.zoom == null) _drawRoiBox(canvas, roi, 1.25);
@@ -744,11 +744,11 @@ class BoardHoverPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = width;
     for (final mark in marks) {
-      final rgb = mark['rgb'] as List<double>;
+      final rgb = mark.rgb;
       Color color(double alpha) => Color.from(alpha: alpha, red: rgb[0], green: rgb[1], blue: rgb[2]);
-      final kind = mark['type'];
+      final kind = mark.type;
       if (kind == 'area') {
-        final [xmin, xmax, ymin, ymax] = mark['region'] as List<int>;
+        final [xmin, xmax, ymin, ymax] = mark.region!;
         final a = geo.pos(xmin, ymin), b = geo.pos(xmax, ymax);
         final rect = Rect.fromLTRB(
           math.min(a.dx, b.dx) - geo.gridSize / 2,
@@ -758,19 +758,19 @@ class BoardHoverPainter extends CustomPainter {
         );
         canvas.drawRect(rect, Paint()..color = color(0.18));
         canvas.drawRect(rect, stroke(color(0.9)));
-        final text = mark['text'];
-        if (text != null && '$text'.isNotEmpty) {
+        final text = mark.text;
+        if (text != null && text.isNotEmpty) {
           drawText(
             canvas,
             Offset(rect.left + geo.gridSize / 2, rect.top - geo.gridSize / 3),
-            '$text',
+            text,
             fontSize: geo.gridSize / 2.2,
             color: color(1),
           );
         }
         continue;
       }
-      final (x, y) = mark['coords'] as (int, int);
+      final (x, y) = mark.point!;
       final c = geo.pos(x, y);
       switch (kind) {
         case 'circle':
@@ -795,7 +795,7 @@ class BoardHoverPainter extends CustomPainter {
           canvas.drawCircle(c, r * 0.9, Paint()..color = color(0.55));
         case 'label':
           canvas.drawCircle(c, r * 0.7, Paint()..color = color(0.9));
-          final text = '${mark['text'] ?? '?'}';
+          final text = mark.text ?? '?';
           drawText(
             canvas,
             c,

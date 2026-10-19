@@ -69,7 +69,7 @@ class ApiServer {
       'port': server.port,
       'token': token,
       'pid': pid,
-      'started': server.started.millisecondsSinceEpoch / 1000, // seconds, like Python's time.time()
+      'started': server.started.millisecondsSinceEpoch / 1000, // seconds since the epoch
     }, discoveryPath);
     log('KaTrain Neo API listening on 127.0.0.1:${server.port}', outputInfo);
     return server;
@@ -87,7 +87,7 @@ class ApiServer {
     'uptime': (DateTime.now().difference(started).inMilliseconds / 100).round() / 10,
   };
 
-  Future<Map<String, Object?>> execute(String command, ApiArgs args) async {
+  Future<Map<String, Object?>> execute(String command, Map<String, dynamic> args) async {
     try {
       return {'ok': true, 'result': await handler.dispatch(command, args)};
     } on ApiError catch (e) {

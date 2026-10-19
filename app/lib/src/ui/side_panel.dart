@@ -467,7 +467,7 @@ class _InfoText extends StatelessWidget {
               child: GestureDetector(
                 onTap: () {
                   final node = gui.activeCommentNode?.parent;
-                  if (node != null) gui.board.setAnimatingPv(pv.substring(1).split(' '), node, enabled: true);
+                  if (node != null) gui.board.setHoverPv(pv.substring(1).split(' '), node, enabled: true);
                 },
                 child: Text(
                   m[3]!,

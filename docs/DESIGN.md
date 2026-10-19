@@ -93,8 +93,19 @@ The commands were checked once against the fork: the same script of 182 commands
 cases) through the fork's Python command handler and through the port, with the same synthetic engine answers, gave
 the same results, events and states. Two differences remain, both from CPython set order: which stone of a chain
 comes first (the tsumego target is reported as another stone of the same group) and the order of handicap stones in
-`AB`. The check is not kept as a test. Differences on purpose: starting any new game clears the zoomed view (the
-fork clears it only for games loaded through its API).
+`AB`. The check is not kept as a test; `api_commands_test.dart` pins what agents see instead.
+
+The code is not the fork's: commands read their arguments through `ApiArgs` (a flag, an integer, a number, a text,
+a word list, each with one meaning everywhere), the API's state is typed (`Mark`, `Snapshot`, `Demo`,
+`RegisteredVariation`, `TsumegoProblem`), and the board and the API share one variation type (`PvOverlay`).
+Differences on purpose:
+
+- Starting any new game clears the zoomed view (the fork clears it only for games loaded through its API).
+- Error messages are plain text (no Python lists or reprs); problems without a difficulty count as `unknown`.
+- Integer arguments must be whole numbers (the fork truncated 5.7 to 5); `engine.set` checks every value before
+  changing any.
+- `sandbox.analyze` with moves to compare does not search the position again when it already has an analysis
+  (as `analysis.moves`); `tsumego.solution --show` shows a reference line with its own colours.
 
 ### UI
 
