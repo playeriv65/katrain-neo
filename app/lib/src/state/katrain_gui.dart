@@ -913,7 +913,7 @@ class _EngineHost implements EngineHost {
 
   @override
   void onEngineError(String message, Object? code, {required bool allowPopup, required String engineType}) {
-    gui.log(message, outputError);
+    // the engine has logged the error already (on_error)
     if (allowPopup) gui.act('engine-recovery-popup', [message, code, engineType]);
   }
 
