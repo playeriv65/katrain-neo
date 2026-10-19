@@ -208,8 +208,8 @@ List<Command<int>> _readingCommands() => [
           help: 'file to write (refuses to overwrite without --overwrite)',
         )
         ..addFlag('overwrite', negatable: false, help: 'replace an existing file')
-        ..addFlag('analysis', negatable: false, help: 'embed KaTrain analysis')
-        ..addFlag('comments', negatable: false, help: 'add KaTrain move comments')
+        ..addFlag('analysis', negatable: false, help: 'embed the analysis')
+        ..addFlag('comments', negatable: false, help: 'add generated move comments')
         ..addFlag('marks', negatable: false, help: 'add best-move marks'),
     ),
     apiCommand(
@@ -252,7 +252,7 @@ List<Command<int>> _analysisCommands() => [
   CommandGroup('analysis', 'KataGo analysis', [
     apiCommand(
       'get',
-      'analysis KaTrain already has (no new search)',
+      'analysis the app already has (no new search)',
       (a) => ApiCall('analysis.get', {'node': a.string('node'), 'moves': a.list('moves'), ..._analysisViewArgs(a)}),
       options: (p) {
         _node(p);
@@ -284,7 +284,7 @@ List<Command<int>> _analysisCommands() => [
           ..addOption(
             'region',
             valueHelp: 'C3:G7',
-            help: "restrict candidates to a region like C3:G7, or 'gui' for KaTrain's region",
+            help: "restrict candidates to a region like C3:G7, or 'gui' for the app's region",
           )
           ..addOption('max-time', valueHelp: 'SECONDS', help: 'time cap')
           ..addFlag('force', negatable: false, help: 'search even if existing analysis is deep enough')
@@ -651,7 +651,7 @@ Command<int> _tsumegoCommands() {
           ..addFlag('no-zoom', negatable: false, help: 'keep the full-board view')
           ..addOption('index', abbr: 'i', valueHelp: 'N', defaultsTo: '0', help: 'problem index from "tsumego list"');
         filters(p);
-        _onOff(p, 'frame', "KaTrain's tsumego frame (default: on, off for center problems)");
+        _onOff(p, 'frame', 'a tsumego frame (default: on, off for center problems)');
         p
           ..addOption('margin', valueHelp: 'N', defaultsTo: '4')
           ..addFlag('ko', negatable: false, help: 'frame with ko threats');

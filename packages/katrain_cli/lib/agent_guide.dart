@@ -50,7 +50,7 @@ katrain-neo sgf import game.sgf [--end] # load a game; the previous game is back
 ## Analysis (KataGo)
 
 ```
-katrain-neo analysis get [--node 45] [--top 5]       # what KaTrain already computed — free, no search
+katrain-neo analysis get [--node 45] [--top 5]       # what the app already computed — free, no search
 katrain-neo analysis run [--node 45] -v 2000          # search to 2000 visits; reuses deeper existing results
 katrain-neo analysis moves D4 C3 E5 [--node 45] -v 800  # search these moves and compare (points lost, PV)
 katrain-neo analysis run --region C3:G7               # only consider moves inside a region
@@ -107,7 +107,7 @@ Nothing is ever written to the user's SGF files unless you call `sgf export -o`.
 
 ## Two modes: explaining on the user's board vs. thinking in the background
 
-The user is looking at, and may be playing on, the same KaTrain board you control.
+The user is looking at, and may be playing on, the same board you control.
 
 * Foreground (the user sees it): `goto`, `play`, `pv show`, `mark`, `demo start/end`, `message`.
   Only use these when you are explaining something; the user's own navigation moves the same board.
@@ -145,7 +145,7 @@ katrain-neo open "katrain://pv?from=45&moves=D4,C3&step=1"
 
 ```
 katrain-neo tsumego list ~/problems [--set cho --difficulty elementary]
-katrain-neo tsumego load ~/problems --index 3          # hides the SGF answer, adds KaTrain's tsumego frame + region
+katrain-neo tsumego load ~/problems --index 3          # hides the SGF answer, adds a tsumego frame + region
 katrain-neo tsumego target --goal kill --group C2      # goal for the player to move; group = any stone of the target
 katrain-neo tsumego try B2                             # any legal move; KataGo evaluates and answers locally
 katrain-neo tsumego eval                               # target status (alive/dead/unsettled) + best local moves

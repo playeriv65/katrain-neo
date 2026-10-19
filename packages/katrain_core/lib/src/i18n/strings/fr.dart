@@ -190,7 +190,6 @@ const Map<String, String> stringsFr = {
   'general:debug_level:hint': 'Afficher 1 pour \nsignaler des erreurs',
   'go to engine help page':
       'Si le problème persiste, vous pouvez consulter une page d\'aide tenue à jour en cliquant sur {link}.',
-  'gui-locked': 'L\'action {action} est interdite lors de l\'entraînement distribué de KataGo. Vous pouvez quitter ce mode en redémarrant KaTrain.',
   'handicap': 'Handicap',
   'header:keystats': 'Statistiques des coups',
   'header:num moves': 'Nombre de coups',

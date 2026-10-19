@@ -67,7 +67,7 @@ const Map<String, String> stringsEn = {
   'ai:simple': 'Simple Style',
   'aihelp:antimirror': 'Anti Mirror-go Mode of KataGo.',
   'aihelp:default': 'Full strength KataGo AI. Strength is affected by \'max visits\' and \'model\' in the general settings \'engine\' section and engine configuration file. No options are available here.',
-  'aihelp:handicap': 'KataGo optimized for playing higher handicap games.The \'pda\' setting corresponds to \'playoutDoublingAdvantage\' in KataGo, from black\'s perspective. When \'automatic\' is set, KaTrain will find a suitable value automatically.',
+  'aihelp:handicap': 'KataGo optimized for playing higher handicap games.The \'pda\' setting corresponds to \'playoutDoublingAdvantage\' in KataGo, from black\'s perspective. When \'automatic\' is set, KaTrain Neo will find a suitable value automatically.',
   'aihelp:human': 'Picks moves according to a human-like KataGo model. If \'modern_style\' is ticked, the model will play according to a post-2016 AlphaZero opening style.',
   'aihelp:jigo': 'Will try to win by a set amount of points (default 0.5), without further restrictions.',
   'aihelp:p:influence': 'Picks moves biased above the \'threshold\' line and plays the best one. Increase \'line_weight\' to penalize moves near the edge more. Stops strategy after the \'endgame\' fraction of the board is filled.',
@@ -183,8 +183,6 @@ const Map<String, String> stringsEn = {
   'general:debug_level': 'Debug level in the console',
   'general:debug_level:hint': 'Set to 1 when reporting errors',
   'go to engine help page': 'If you are still having difficulties, {link} for an up-to-date troubleshooting page.',
-  'gui-locked':
-      'Action {action} not allowed in distributed self-play training mode. Restart KaTrain to exit this mode.',
   'handicap': 'Handicap',
   'header:keystats': 'Key Statistics',
   'header:num moves': '# Moves',
