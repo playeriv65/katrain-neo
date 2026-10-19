@@ -428,6 +428,7 @@ class _InfoAndNotesState extends State<_InfoAndNotes> {
                 textAlignVertical: TextAlignVertical.top,
                 decoration: InputDecoration(hintText: i18n.tr('SGF Notes Hint'), border: const OutlineInputBorder()),
                 onChanged: gui.setNote,
+                onTapOutside: (_) => _noteFocus.unfocus(), // shortcuts work again once you click elsewhere
               ),
             ),
           ),

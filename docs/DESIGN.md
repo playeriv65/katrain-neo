@@ -82,6 +82,16 @@ behind one interface:
   on the right; display toggles and the analysis menu on top; navigation below; a drawer for players, game and
   settings), built from Material 3 parts: segmented buttons, filter chips, cards, menus, dialogs, tooltips with the
   keyboard shortcuts. The board keeps KaTrain's textures, hint colours and labels.
+- Popups are Material dialogs that read and write settings by KaTrain's paths (`ConfigEditor`, the port of
+  `QuickConfigGui`); Enter applies a settings dialog, Escape closes it, and the popup keys (F2–F10) close an open
+  popup as in KaTrain. Loading and saving use the system's file dialogs instead of KaTrain's file browser. Unlike
+  KaTrain, which keeps each popup once built, a dialog is built afresh each time from the settings, so text typed
+  but not applied (e.g. player names) is not kept.
+- Keyboard shortcuts (`ui/keyboard.dart`) sit above the navigator so they see every key; a focused text field keeps
+  its keys. Alt alone opens the menu, Tab alone switches between play and analysis.
+- The window's size and position are restored and saved on closing (`window_manager`), files dropped on the window
+  are loaded (`desktop_drop`), sounds play through `audioplayers`. Model and KataGo download locations (KaTrain's)
+  are in `app/assets/katago/downloads.json`.
 - Fonts: the system's for the interface; Roboto (Apache-2.0, as Kivy ships it) for the board's coordinates and
   numbers.
 - Assets: only what KaTrain licenses under MIT is reused, with credit: board and stone textures, sounds. Its menu

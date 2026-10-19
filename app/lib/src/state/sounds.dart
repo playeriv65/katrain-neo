@@ -21,6 +21,7 @@ abstract final class KThemeSounds {
 
 /// Plays and stops sounds; the app gives a real player, tests and headless runs the silent one.
 class Sounds {
+  const Sounds();
   const Sounds.silent();
 
   /// KaTrain has no mistake sounds by default (theme.py MISTAKE_SOUNDS).

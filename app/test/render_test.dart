@@ -7,25 +7,13 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:katrain_core/katrain_core.dart';
 import 'package:katrain_neo/main.dart';
 import 'package:katrain_neo/src/state/katrain_gui.dart';
 import 'package:katrain_neo/src/ui/board/board_images.dart';
 
-Future<void> loadFonts() async {
-  for (final (family, files) in [
-    ('Roboto', ['assets/fonts/Roboto-Regular.ttf', 'assets/fonts/Roboto-Bold.ttf']),
-    ('MaterialIcons', ['fonts/MaterialIcons-Regular.otf']),
-  ]) {
-    final loader = FontLoader(family);
-    for (final f in files) {
-      loader.addFont(rootBundle.load(f));
-    }
-    await loader.load();
-  }
-}
+import 'fonts.dart';
 
 void main() {
   final env = Platform.environment;

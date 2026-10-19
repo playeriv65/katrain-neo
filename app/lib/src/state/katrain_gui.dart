@@ -115,6 +115,9 @@ class KaTrainGui extends KaTrainBase with ChangeNotifier {
   /// Opens a popup by its KaTrain message name (e.g. `new-game-popup`); set by the app.
   void Function(String name, List<Object?> args)? presentPopup;
 
+  /// Opens or closes the menu; set by the app.
+  VoidCallback? toggleNavDrawer;
+
   final Map<String, bool> analysisControls = {
     'show_children': true,
     'eval': false,

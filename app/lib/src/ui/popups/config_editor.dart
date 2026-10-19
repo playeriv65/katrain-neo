@@ -3,6 +3,7 @@
 // changed ones.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:katrain_core/katrain_core.dart';
 
 import '../../state/katrain_gui.dart';
@@ -254,19 +255,33 @@ class SettingsDialog extends StatelessWidget {
     this.width = 560,
   });
 
+  /// Enter applies the dialog, as in KaTrain's popups.
+  KeyEventResult _onKey(FocusNode _, KeyEvent event) {
+    if (event is KeyDownEvent &&
+        (event.logicalKey == LogicalKeyboardKey.enter || event.logicalKey == LogicalKeyboardKey.numpadEnter)) {
+      onAction();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(title),
-    content: SizedBox(
-      width: width,
-      child: SingleChildScrollView(child: child),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.of(context).pop(),
-        child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
+  Widget build(BuildContext context) => Focus(
+    autofocus: true,
+    onKeyEvent: _onKey,
+    child: AlertDialog(
+      title: Text(title),
+      content: SizedBox(
+        width: width,
+        child: SingleChildScrollView(child: child),
       ),
-      FilledButton(onPressed: onAction, child: Text(actionLabel)),
-    ],
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
+        ),
+        FilledButton(onPressed: onAction, child: Text(actionLabel)),
+      ],
+    ),
   );
 }
