@@ -579,7 +579,7 @@ void main() {
 
     test('a mistake, written to SGF', () {
       expect(
-        b1.comment(sgf: true, interactive: false),
+        b1.comment(sgf: true),
         'Move 1: B E5\n'
         'Score: W+1.0\n'
         'Win rate: W 60.0%\n'
@@ -591,15 +591,33 @@ void main() {
       );
     });
 
-    test('a mistake, with details on screen: the PV is clickable', () {
+    test('a mistake, with details on screen: the PV is a part of its own, to show on the board', () {
       expect(
         b1.comment(details: true),
         'Move 1: B E5\n'
         'Predicted top move was D4 (B+2.0).\n'
-        'PV: [u][ref=BD4 F6][color=$infoPvColor]BD4 F6[/color][/ref][/u]\n'
+        'PV: BD4 F6\n'
         'Move was #2 according to policy  (25.00%).\n'
         'Top policy move was D4 (50.0%).\n',
       );
+      final parts = b1.commentParts(details: true);
+      final pv = parts.whereType<CommentVariation>().single;
+      expect(pv.player, 'B');
+      expect(pv.moves, ['D4', 'F6']);
+      expect(parts.first.text, endsWith('PV: '));
+    });
+
+    test('comments from the file come under a heading', () {
+      b1.setProperty('C', 'nice shape');
+      final parts = b1.commentParts();
+      expect(
+        [
+          for (final p in parts)
+            if (p is CommentText && p.heading) p.text,
+        ],
+        ['SGF Comments:'],
+      );
+      expect(b1.comment(), 'Move 1: B E5\n\nSGF Comments:\nnice shape');
     });
 
     test('a mistake, in teaching mode and by default', () {
@@ -609,7 +627,7 @@ void main() {
 
     test('the best move', () {
       expect(
-        w2.comment(sgf: true, interactive: false),
+        w2.comment(sgf: true),
         'Move 2: W C7\n'
         'Score: W+0.5\n'
         'Win rate: W 55.0%\n'
@@ -623,7 +641,7 @@ void main() {
       final [r, b] = mainLine('(;SZ[9];B[ee])');
       setFinal(r, katagoResult(score: 1, moves: [mi('D4', 1, visits: 300)]));
       setFinal(b, katagoResult(score: 0.6));
-      final text = b.comment(sgf: true, interactive: false);
+      final text = b.comment(sgf: true);
       expect(text, contains('Predicted top move was D4'));
       expect(text, isNot(contains('point loss')));
     });
@@ -636,7 +654,7 @@ void main() {
     test('a move undone in teaching mode shows the predicted follow-up', () {
       b1.autoUndo = true;
       expect(
-        b1.comment(sgf: true, interactive: false),
+        b1.comment(sgf: true),
         endsWith('Move was automatically undone in teaching mode.\nPredicted follow-up: WC7 G3\n'),
       );
       expect(b1.comment(details: true), isNot(contains('undone')));
@@ -651,8 +669,8 @@ void main() {
 
     test('comments follow the language', () {
       i18n.switchLang('cn');
-      expect(w2.comment(sgf: true, interactive: false), contains('该手为最佳选点'));
-      expect(b1.comment(sgf: true, interactive: false), contains('目数损失: 3.0'));
+      expect(w2.comment(sgf: true), contains('该手为最佳选点'));
+      expect(b1.comment(sgf: true), contains('目数损失: 3.0'));
     });
   });
 

@@ -141,7 +141,7 @@ class _MoveTreeState extends State<MoveTree> {
                   },
                   child: CustomPaint(
                     size: Size(width, height),
-                    painter: _MoveTreePainter(app, positions, xy, moveSize),
+                    painter: _MoveTreePainter(app, positions, xy, moveSize, Theme.of(context).colorScheme),
                   ),
                 ),
               ),
@@ -158,7 +158,10 @@ class _MoveTreePainter extends CustomPainter {
   final Map<GameNode, (int, int)> positions;
   final Map<GameNode, Offset> xy;
   final double moveSize;
-  _MoveTreePainter(this.app, this.positions, this.xy, this.moveSize);
+
+  /// The current and the selected node are marked in the scheme's primary and tertiary colours.
+  final ColorScheme scheme;
+  _MoveTreePainter(this.app, this.positions, this.xy, this.moveSize, this.scheme);
 
   List<GameNode> _children(GameNode move) {
     final via = {for (final (m, v) in move.shortcutsTo) v: m}; // children that are shortcut
@@ -169,9 +172,9 @@ class _MoveTreePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final game = app.game!;
     final currentNode = game.currentNode;
-    final special = <GameNode, Color>{currentNode: KTheme.moveTreeCurrent};
+    final special = <GameNode, Color>{currentNode: scheme.primary};
     final selected = app.moveTreeSelectedNode;
-    if (selected != null) special[selected] = KTheme.moveTreeSelected;
+    if (selected != null) special[selected] = scheme.tertiary;
     final insertNode = app.insertNodeValue;
     if (insertNode != null && insertNode.parent != null) {
       special[insertNode.parent!] = KTheme.moveTreeInsertNodeParent;
@@ -184,7 +187,7 @@ class _MoveTreePainter extends CustomPainter {
       }
     }
     final line = Paint()
-      ..color = KTheme.moveTreeLine
+      ..color = scheme.outline
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     for (final e in xy.entries) {
@@ -206,10 +209,8 @@ class _MoveTreePainter extends CustomPainter {
       final pos = e.value;
       final mark = special[node];
       if (mark != null) {
-        canvas.drawRect(
-          Rect.fromCenter(center: pos, width: moveSize + _spacing, height: moveSize + _spacing),
-          Paint()..color = mark,
-        );
+        final box = Rect.fromCenter(center: pos, width: moveSize + _spacing, height: moveSize + _spacing);
+        canvas.drawRRect(RRect.fromRectAndRadius(box, Radius.circular(box.width / 4)), Paint()..color = mark);
       }
       final placements = [...node.placements, ...node.clearPlacements];
       final collapsed = node.shortcutFrom != null || placements.isNotEmpty ? KTheme.moveTreeCollapsed : null;

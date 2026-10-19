@@ -56,7 +56,6 @@ class MenuDrawer extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     return Drawer(
       width: 420,
-      backgroundColor: KTheme.boxBackgroundColor,
       child: ListenableBuilder(
         listenable: app,
         builder: (context, _) => ListView(

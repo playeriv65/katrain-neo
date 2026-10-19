@@ -9,18 +9,15 @@ import 'package:katrain_core/katrain_core.dart';
 import '../state/app_controller.dart';
 import '../state/graph_model.dart';
 import '../theme.dart';
-import 'board/board_images.dart';
 
 class ScoreGraph extends StatefulWidget {
   final AppController app;
-  final BoardImages images;
   final bool showScore;
   final bool showWinrate;
   final bool showPointloss;
   const ScoreGraph({
     super.key,
     required this.app,
-    required this.images,
     required this.showScore,
     required this.showWinrate,
     required this.showPointloss,
@@ -146,7 +143,7 @@ class _ScoreGraphState extends State<ScoreGraph> {
           alignment: alignment,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: KTheme.boxBackgroundColor.withValues(alpha: 0.75),
+              color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.75),
               borderRadius: BorderRadius.circular(3),
             ),
             child: Padding(
@@ -173,12 +170,12 @@ class _ScoreGraphState extends State<ScoreGraph> {
               Positioned.fill(
                 child: CustomPaint(
                   painter: _GraphPainter(
-                    widget.images,
                     data,
                     widget.showScore,
                     widget.showWinrate,
                     widget.showPointloss,
                     _navigateIndex,
+                    Theme.of(context).colorScheme.outlineVariant,
                   ),
                 ),
               ),
@@ -208,13 +205,24 @@ class _ScoreGraphState extends State<ScoreGraph> {
 }
 
 class _GraphPainter extends CustomPainter {
-  final BoardImages images;
   final _GraphData data;
   final bool showScore;
   final bool showWinrate;
   final bool showPointloss;
   final int? navigateIndex;
-  _GraphPainter(this.images, this.data, this.showScore, this.showWinrate, this.showPointloss, this.navigateIndex);
+
+  /// The colour of the reference lines: even at half height, half the scale at a quarter and three quarters.
+  final Color grid;
+  _GraphPainter(this.data, this.showScore, this.showWinrate, this.showPointloss, this.navigateIndex, this.grid);
+
+  void _dashed(Canvas canvas, double y, double width, {required double dash, required double gap}) {
+    final paint = Paint()
+      ..color = grid
+      ..strokeWidth = 1;
+    for (var x = 0.0; x < width; x += dash + gap) {
+      canvas.drawLine(Offset(x, y), Offset(math.min(x + dash, width), y), paint);
+    }
+  }
 
   void _line(Canvas canvas, List<Offset> points, Color color) {
     final paint = Paint()
@@ -240,9 +248,10 @@ class _GraphPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    canvas.drawRect(rect, Paint()..color = KTheme.boxBackgroundColor);
-    drawTexture(canvas, images[KTheme.graphTexture], rect);
+    // the card behind is the background
+    _dashed(canvas, size.height / 2, size.width, dash: 6, gap: 4);
+    _dashed(canvas, size.height / 4, size.width, dash: 2, gap: 3);
+    _dashed(canvas, size.height * 3 / 4, size.width, dash: 2, gap: 3);
     if (showScore) _line(canvas, data.score, KTheme.scoreColor);
     if (showWinrate) _line(canvas, data.winrate, KTheme.winrateColor);
     if (showPointloss) _line(canvas, data.pointloss, KTheme.pointlossColor);

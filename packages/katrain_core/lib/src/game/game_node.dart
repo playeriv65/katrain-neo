@@ -18,9 +18,6 @@ import '../utils/random.dart';
 import '../utils/template.dart';
 import '../utils/utils.dart';
 
-/// The colour of clickable variations in comments.
-const infoPvColor = '#cccc1a';
-
 /// The KT property values for a node's analysis (gzipped, base64).
 List<String> analysisDumps(Map<String, dynamic> analysis) {
   final copy = jsonDecode(jsonEncode(analysis)) as Map<String, dynamic>;
@@ -178,7 +175,7 @@ class GameNode extends BaseGoNode<GameNode> {
         if (bestSq.isNotEmpty && !properties.containsKey('SQ')) properties['SQ'] = bestSq;
         if (topX.isNotEmpty && !properties.containsKey('MA')) properties['MA'] = [topX];
       }
-      comments.add('\n${comment(sgf: true, interactive: false)}$sgfInternalCommentsMarker');
+      comments.add('\n${comment(sgf: true)}$sgfInternalCommentsMarker');
     }
     if (isRoot) {
       if (o.saveMarks) {
@@ -368,22 +365,21 @@ class GameNode extends BaseGoNode<GameNode> {
     return (null, 0.0, []);
   }
 
-  String makePv(String player, List<String> pv, bool interactive) {
-    final text = '$player${pv.join(' ')}';
-    if (interactive) return '[u][ref=$text][color=$infoPvColor]$text[/color][/ref][/u]';
-    return text;
-  }
+  /// The info text shown for a node, and written into SGF comments: [commentParts] as plain text.
+  String comment({bool sgf = false, bool teach = false, bool details = false}) =>
+      commentParts(sgf: sgf, teach: teach, details: details).map((p) => p.text).join();
 
-  /// The info text shown for a node (and written into SGF comments).
-  String comment({bool sgf = false, bool teach = false, bool details = false, bool interactive = true}) {
+  /// The info text in parts: text, headings, and the variations in it, which the app lets the user show on the board.
+  List<CommentPart> commentParts({bool sgf = false, bool teach = false, bool details = false}) {
     final single = move;
     final p = parent;
     if (p == null || single == null) {
       // root
       // rules are looked up lowercased, also JSON ones; with no translation they show as they are, lowercased
       final rules = i18n.tr(getProperty('RU', 'Japanese')!.toLowerCase());
-      return '${i18n.tr('komi')}: ${formatFixed(komi, 1)}\n${i18n.tr('ruleset')}: $rules\n';
+      return [CommentText('${i18n.tr('komi')}: ${formatFixed(komi, 1)}\n${i18n.tr('ruleset')}: $rules\n')];
     }
+    final parts = <CommentPart>[];
     var text = '${fillTemplate(i18n.tr('move'), {'number': depth})}: ${single.player} ${single.gtp()}\n';
     if (analysisExists) {
       final s = score;
@@ -407,8 +403,13 @@ class GameNode extends BaseGoNode<GameNode> {
           }
           final pv = previousTopMove['pv'] as List?;
           if (pv != null && pv.isNotEmpty && (sgf || details)) {
-            final pvText = makePv(single.player, pv.cast<String>(), interactive);
-            text += '${fillTemplate(i18n.tr('Info:PV'), {'pv': pvText})}\n';
+            // the variation goes where the translation puts {pv}
+            final template = i18n.tr('Info:PV');
+            final at = template.indexOf('{pv}');
+            parts
+              ..add(CommentText(text + (at < 0 ? template : template.substring(0, at))))
+              ..add(CommentVariation(single.player, List.of(pv.cast<String>())));
+            text = '${at < 0 ? '' : template.substring(at + 4)}\n';
           }
         }
         if (sgf || details || teach) {
@@ -438,9 +439,12 @@ class GameNode extends BaseGoNode<GameNode> {
     }
     final c = properties['C'];
     if (c != null) {
-      text += '\n[u]SGF Comments:[/u]\n${c.join('\n')}';
+      parts
+        ..add(CommentText('$text\n'))
+        ..add(const CommentText('SGF Comments:', heading: true));
+      text = '\n${c.join('\n')}';
     }
-    return text;
+    return [...parts, if (text.isNotEmpty) CommentText(text)];
   }
 
   /// Points this move lost against the parent's evaluation (positive is a loss).
@@ -529,6 +533,32 @@ class GameNode extends BaseGoNode<GameNode> {
     stableSortBy(moves, (mp) => -mp.$1);
     return moves;
   }
+}
+
+/// A piece of a node's info text.
+sealed class CommentPart {
+  const CommentPart();
+
+  /// The part as plain text.
+  String get text;
+}
+
+/// Text, or a heading over what follows.
+final class CommentText extends CommentPart {
+  @override
+  final String text;
+  final bool heading;
+  const CommentText(this.text, {this.heading = false});
+}
+
+/// A variation: [moves] in GTP, the first one by [player].
+final class CommentVariation extends CommentPart {
+  final String player;
+  final List<String> moves;
+  const CommentVariation(this.player, this.moves);
+
+  @override
+  String get text => '$player${moves.join(' ')}';
 }
 
 /// What to include when writing a game to SGF.

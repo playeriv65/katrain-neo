@@ -4,6 +4,7 @@
 
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:katrain_core/katrain_core.dart';
 
@@ -36,7 +37,6 @@ class SidePanel extends StatelessWidget {
             id: 'notes_panel',
             title: i18n.tr('closedlabel:info&notes'),
             options: const ['info', 'info-details', 'notes'],
-            colors: [KTheme.infoTabFontColor, KTheme.infoTabFontColor, KTheme.notesTabFontColor],
             expand: true,
             child: _InfoAndNotes(app: app),
           );
@@ -96,7 +96,6 @@ class SidePanel extends StatelessWidget {
                   height: graphHeight,
                   child: ScoreGraph(
                     app: app,
-                    images: images,
                     showScore: graphPanel.options['score']!,
                     showWinrate: graphPanel.options['winrate']!,
                     showPointloss: graphPanel.options['points']!,
@@ -224,7 +223,8 @@ class _ClockCard extends StatelessWidget {
                   final secs = t.timeRemaining + 0.99;
                   final time =
                       '${(secs ~/ 60).toString().padLeft(2)}:${(secs % 60).toInt().toString().padLeft(2, '0')}';
-                  final color = t.timeout ? KTheme.timerTextTimeoutColor : KTheme.timerTextColor;
+                  final scheme = Theme.of(context).colorScheme;
+                  final color = t.timeout ? scheme.error : scheme.onSurface;
                   return Row(
                     children: [
                       Text(
@@ -241,9 +241,9 @@ class _ClockCard extends StatelessWidget {
                       ],
                       const Spacer(),
                       IconButton.filledTonal(
-                        tooltip: 'Pause',
+                        tooltip: '${i18n.tr('timer:pause')} (Pause)',
                         isSelected: t.paused,
-                        selectedIcon: Icon(Icons.play_arrow, color: KTheme.pauseActiveColor),
+                        selectedIcon: const Icon(Icons.play_arrow),
                         icon: const Icon(Icons.pause),
                         onPressed: () => t.paused = !t.paused,
                       ),
@@ -285,7 +285,9 @@ class _PanelCard extends StatelessWidget {
   final String id;
   final String title;
   final List<String> options;
-  final List<Color> colors;
+
+  /// The colours of the options that stand for an evaluation (score, win rate, point loss); others look plain.
+  final List<Color>? colors;
   final Widget child;
   final bool expand;
   const _PanelCard({
@@ -293,7 +295,7 @@ class _PanelCard extends StatelessWidget {
     required this.id,
     required this.title,
     required this.options,
-    required this.colors,
+    this.colors,
     required this.child,
     this.expand = false,
   });
@@ -319,9 +321,11 @@ class _PanelCard extends StatelessWidget {
                       label: Text(i18n.tr('tab:$option')),
                       selected: panel.options[option]!,
                       showCheckmark: false,
-                      selectedColor: colors[i].withValues(alpha: 0.25),
-                      side: BorderSide(color: panel.options[option]! ? colors[i] : Colors.transparent),
-                      labelStyle: TextStyle(color: panel.options[option]! ? colors[i] : null),
+                      selectedColor: colors?[i].withValues(alpha: 0.25),
+                      side: colors == null
+                          ? null
+                          : BorderSide(color: panel.options[option]! ? colors![i] : Colors.transparent),
+                      labelStyle: colors == null ? null : TextStyle(color: panel.options[option]! ? colors![i] : null),
                       onSelected: (v) => app.setPanelState(id, options: {option: v}),
                     ),
                 ],
@@ -464,58 +468,60 @@ class _InfoAndNotesState extends State<_InfoAndNotes> {
   }
 }
 
-/// The comments, with variation links `[u][ref=...][color=...]` clickable and `[color=...]` coloured.
-class _InfoText extends StatelessWidget {
+/// The comments of the move; a variation in them is a link that shows it on the board.
+class _InfoText extends StatefulWidget {
   final AppController app;
   const _InfoText({required this.app});
 
   @override
-  Widget build(BuildContext context) {
-    final spans = <InlineSpan>[];
-    final markup = RegExp(
-      r'\[u\]\[ref=([^\]]*)\]\[color=([^\]]*)\](.*?)\[/color\]\[/ref\]\[/u\]|\[color=([^\]]*)\](.*?)\[/color\]',
-      dotAll: true,
-    );
-    var last = 0;
-    final text = app.infoText;
-    Color parse(String hex) =>
-        Color(int.parse('FF${hex.replaceFirst('#', '').padRight(6, '0').substring(0, 6)}', radix: 16));
-    for (final m in markup.allMatches(text)) {
-      spans.add(TextSpan(text: text.substring(last, m.start)));
-      if (m[1] != null) {
-        final pv = m[1]!;
-        spans.add(
-          WidgetSpan(
-            alignment: PlaceholderAlignment.baseline,
-            baseline: TextBaseline.alphabetic,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: () {
-                  final node = app.activeCommentNode?.parent;
-                  if (node != null) app.board.setHoverPv(pv.substring(1).split(' '), node, enabled: true);
-                },
-                child: Text(
-                  m[3]!,
-                  style: TextStyle(color: parse(m[2]!), decoration: TextDecoration.underline),
-                ),
-              ),
-            ),
-          ),
-        );
-      } else {
-        spans.add(
-          TextSpan(
-            text: m[5],
-            style: TextStyle(color: parse(m[4]!)),
-          ),
-        );
-      }
-      last = m.end;
+  State<_InfoText> createState() => _InfoTextState();
+}
+
+class _InfoTextState extends State<_InfoText> {
+  final _links = <TapGestureRecognizer>[];
+
+  void _disposeLinks() {
+    for (final link in _links) {
+      link.dispose();
     }
-    spans.add(TextSpan(text: text.substring(last)));
+    _links.clear();
+  }
+
+  TapGestureRecognizer _link(VoidCallback onTap) {
+    final link = TapGestureRecognizer()..onTap = onTap;
+    _links.add(link);
+    return link;
+  }
+
+  @override
+  void dispose() {
+    _disposeLinks();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = widget.app;
+    final theme = Theme.of(context);
+    _disposeLinks();
+    final spans = [
+      for (final part in app.infoParts)
+        switch (part) {
+          CommentText(heading: true) => TextSpan(text: part.text, style: theme.textTheme.titleSmall),
+          CommentText() => TextSpan(text: part.text),
+          CommentVariation(:final moves) => TextSpan(
+            text: part.text,
+            style: TextStyle(color: theme.colorScheme.primary, decoration: TextDecoration.underline),
+            mouseCursor: SystemMouseCursors.click,
+            recognizer: _link(() {
+              final node = app.activeCommentNode?.parent;
+              if (node != null) app.board.setHoverPv(moves, node, enabled: true);
+            }),
+          ),
+        },
+    ];
     return SelectionArea(
-      child: Text.rich(TextSpan(children: spans), style: Theme.of(context).textTheme.bodyMedium!.copyWith(height: 1.4)),
+      child: Text.rich(TextSpan(children: spans), style: theme.textTheme.bodyMedium!.copyWith(height: 1.4)),
     );
   }
 }

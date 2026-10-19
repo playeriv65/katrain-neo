@@ -59,8 +59,11 @@ installer/windows/         Inno Setup script
 - **Board.** A `CustomPainter` in three layers that repaint independently: board and grid (on resize), stones and
   evaluation dots (on a new position), hints, variations and hover (on analysis and mouse moves). Text is laid out
   once per size.
-- **Look.** Material 3, dark, with the board's own textures and the evaluation colours for score, win rate and point
-  loss. The arrangement: the board on the left with display toggles above and navigation below; players, clock or
+- **Look.** Material 3, dark, all colours from one seeded scheme except what carries meaning: the board's textures,
+  the evaluation colours for score, win rate and point loss, and the engine light. Flutter's own texts (Cancel,
+  Close, tooltips, the text field menu) follow the language through `flutter_localizations`. A move's comments come
+  from the core as parts (`CommentPart`: text, headings, variations), and variations are links that show them on the
+  board. The window is at least 800x600. The arrangement: the board on the left with display toggles above and navigation below; players, clock or
   move tree, graph, statistics and notes on the right; a drawer for players, game and settings. In small windows the
   top bar shows its toggles as icons when their labels do not fit, the bottom bar drops the 10-move steps and
   rotation (their keys still work), and the side panel scrolls rather than squeeze the notes. Chinese, Japanese and

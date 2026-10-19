@@ -188,6 +188,7 @@ const Map<String, String> stringsFr = {
   'general:anim_pv_time': 'Durée entre chaque coup \nd\'une animation',
   'general:debug_level': 'Niveau de débogage \naffiché dans la console',
   'general:debug_level:hint': 'Afficher 1 pour \nsignaler des erreurs',
+  'general:restore_window_size': 'Restaurer la taille de la fenêtre au démarrage',
   'go to engine help page':
       'Si le problème persiste, vous pouvez consulter une page d\'aide tenue à jour en cliquant sur {link}.',
   'handicap': 'Handicap',
@@ -284,6 +285,7 @@ const Map<String, String> stringsFr = {
   'theme:normal': 'Par défaut',
   'theme:red-green-colourblind': 'Daltonisme rouge-vert',
   'timer settings': 'Cadence de jeu',
+  'timer:pause': 'Mettre la pendule en pause',
   'to move': 'au coup',
   'top_move_delta_score': 'Variation du score',
   'top_move_delta_winrate': 'Variation pronostiq.',

@@ -1,4 +1,5 @@
-// Colours, sizes, textures and sounds of the board and the panels. Colours are given as RGBA lists of 0-1 values;
+// Colours, sizes and textures of the board, the evaluation colours and the move tree. The rest of the interface takes
+// its colours from the Material colour scheme (ui/app_theme.dart). Colours are given as RGBA lists of 0-1 values;
 // [kc] converts them.
 
 import 'dart:ui';
@@ -23,55 +24,16 @@ final lightOrange = kc([1, 0.5, 0.25, 1]);
 final blue = kc([0.3, 0.7, 0.9, 1]);
 
 abstract final class KTheme {
-  // font
-  static const defaultFont = 'NotoSansCJKsc';
+  /// The font of coordinates, move numbers and hint labels on the board.
   static const boardFont = 'Roboto';
-  static const inputFontSize = 20.0; // sp
-  static const descFontSize = 18.0; // sp
-  static const notesFontSize = 16.0; // sp
 
-  // app colors
-  static final backgroundColor = kc([36 / 255, 48 / 255, 62 / 255, 1]);
-  static final boxBackgroundColor = kc([46 / 255, 65 / 255, 88 / 255, 1]);
-  static final lighterBackgroundColor = kc([64 / 255, 85 / 255, 110 / 255, 1]);
-  static final scrollbarColor = lightGrey;
-  static final textColor = white;
+  // what the evaluation lines, statistics and toggles are coloured by
   static final scoreColor = blue;
   static final winrateColor = green;
   static final pointlossColor = yellow;
-  static final buttonInactiveColor = lightGrey;
-  static final buttonBorderColor = white;
-  static final buttonTextColor = white;
-  static final pauseActiveColor = orange;
-  static final timerTextColor = green;
-  static final timerTextTimeoutColor = orange;
   static final circleTextColors = {'W': black, 'B': white};
-  static final notesTabFontColor = yellow;
-  static final infoTabFontColor = white;
-  static final errorBorderColor = red;
-  static final menuItemFontColor = white;
-  static final menuItemShortcutColor = lightGrey;
-  static final playAnalyzeTabColor = yellow;
-  static final inputFontColor = white;
-  static final inputLineColor = kc([1, 1, 1, 0.12]);
-  static final inputHintColor = kc([1, 1, 1, 0.5]);
-  static final inputErrorColor = kc([0.84, 0, 0, 1]);
-  static final rippleColor = kc([0.74, 0.74, 0.74, 1]);
-  static final checkboxSelectedColor = kc([0.93, 0.93, 0.93, 1]);
-  static final checkboxUnselectedColor = kc([1, 1, 1, 0.7]);
-  static final checkboxDisabledColor = kc([1, 1, 1, 0.12]);
-  static final mistakeButtonColor = kc([0.79, 0.06, 0.06, 1]);
   static final statWorseColor = kc([0.8, 0.4, 0.2, 1]);
   static final statBetterColor = kc([0.2, 0.5, 0.1, 1]);
-
-  // app spacing
-  static const rightPanelAspectRatio = 0.4; // W/H
-  static const controlsPanelAspectRatio = 13.5; // W/H
-  static const controlsPanelMinHeight = 50.0;
-  static const controlsPanelMaxHeight = 75.0; // dp
-  static const cpSpacing = 6.0;
-  static const cpSmallSpacing = 3.0;
-  static const cpPadding = 6.0;
 
   // textures
   static const stoneTexture = {'B': 'assets/img/B_stone.png', 'W': 'assets/img/W_stone.png'};
@@ -79,26 +41,12 @@ abstract final class KTheme {
   static const lastMoveTexture = 'assets/img/inner.png';
   static const topMoveTexture = 'assets/img/topmove.png';
   static const boardTexture = 'assets/img/board.png';
-  static const graphTexture = 'assets/img/graph_bg.png';
   static const circleTexture = {'B': 'assets/img/black_circle.png', 'W': 'assets/img/white_circle.png'};
 
-  // sounds
-  static const stoneSounds = [
-    'sounds/stone1.wav',
-    'sounds/stone2.wav',
-    'sounds/stone3.wav',
-    'sounds/stone4.wav',
-    'sounds/stone5.wav',
-  ];
-  static const capturingSound = 'sounds/capturing.wav';
-  static const countdownSound = 'sounds/countdownbeep.wav';
-  static const minimumTimePassedSound = 'sounds/boing.wav';
-  static const mistakeSounds = <String>[];
-
-  // eval dots
   /// Grid spaces the lines run on past a cut side of the zoomed view.
   static const zoomLineRunOn = 0.5;
 
+  // eval dots
   static final evalColors = {
     'theme:normal': [
       kc([0.447, 0.129, 0.42, 1]),
@@ -127,7 +75,7 @@ abstract final class KTheme {
 
   static final hintTextColor = black;
 
-  static final regionBorderColor = lighterBackgroundColor;
+  static final regionBorderColor = kc([64 / 255, 85 / 255, 110 / 255, 1]);
   static final insertBoardColorTint = kc([1, 1, 1, 0.6]);
   static final passCircleColor = kc([0.45, 0.05, 0.45, 0.7]);
   static final passCircleTextColor = kc([0.85, 0.85, 0.85]);
@@ -136,16 +84,11 @@ abstract final class KTheme {
   static final numberColor = kc([0.85, 0.68, 0.40, 0.8]);
 
   static final nextMoveDashContrastColors = {'B': lighterGrey, 'W': grey};
-  static final outlineColors = {
-    'B': kc([0.3, 0.3, 0.3, 0.5]),
-    'W': kc([0.7, 0.7, 0.7, 0.5]),
-  };
   static final pvTextColors = {'W': black, 'B': white}; // numbers in PV
 
   // board
   static final lineColor = kc([0, 0, 0, 1]);
   static const starpointSize = 0.1;
-  static final boardColor = kc([0.85, 0.68, 0.40, 1]);
   static const stoneSize = 0.505; // texture edge is transparent
 
   static const ghostAlpha = 0.6;
@@ -165,11 +108,10 @@ abstract final class KTheme {
   static const hintsLoAlpha = 0.6;
   static const hintsAlpha = 0.8;
   static final topMoveBorderColor = kc([10 / 255, 200 / 255, 250 / 255, 1.0]);
-  static const childScale = 0.95;
   static const hintScale = 0.98;
   static const uncertainHintScale = 0.7;
 
-  // ponder light
+  // the engine light: off, busy, ready, pondering
   static final engineDownColor = evalColors['theme:normal']![1];
   static final engineBusyColor = evalColors['theme:normal']![2];
   static final engineReadyColor = evalColors['theme:normal']!.last;
@@ -181,10 +123,7 @@ abstract final class KTheme {
   static final scoreMarkerColor = kc([0.2, 0.6, 0.8, 1]);
   static final pointlossMarkerColor = kc([0.7, 0.7, 0.05, 1]);
 
-  // move tree
-  static final moveTreeLine = lightGrey;
-  static final moveTreeCurrent = yellow;
-  static final moveTreeSelected = red;
+  // move tree: insert mode, collapsed branches and setup nodes, stone outlines
   static final moveTreeInsertNodeParent = green;
   static final moveTreeInsertCurrent = orange;
   static final moveTreeInsertOther = lightOrange;

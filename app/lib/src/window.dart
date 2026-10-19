@@ -13,6 +13,9 @@ import 'state/app_controller.dart';
 /// Set to keep the window hidden (to try the app without it taking the screen).
 const hiddenWindowVariable = 'KATRAIN_NEO_HIDDEN';
 
+/// The smallest window the layout is made for (the layout test checks it).
+const minimumWindowSize = Size(800, 600);
+
 /// Sizes the window (as last time, or to fit the screen) and shows it; on closing, saves the ui state and the
 /// window's placement and stops the engine.
 Future<void> setUpWindow(AppController app, String title) async {
@@ -49,7 +52,7 @@ Future<void> setUpWindow(AppController app, String title) async {
       });
 
   await windowManager.waitUntilReadyToShow(
-    WindowOptions(size: windowSize, title: title, center: !validPosition),
+    WindowOptions(size: windowSize, minimumSize: minimumWindowSize, title: title, center: !validPosition),
     () async {
       if (validPosition) await windowManager.setPosition(Offset(left!.toDouble(), top!.toDouble()));
       if (Platform.environment[hiddenWindowVariable] == null) {

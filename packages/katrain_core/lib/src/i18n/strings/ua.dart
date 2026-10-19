@@ -184,6 +184,7 @@ const Map<String, String> stringsUa = {
   'general:anim_pv_time': 'Інтервал між ходами під час анімації послідовності',
   'general:debug_level': 'Рівень діагностики в консолі',
   'general:debug_level:hint': 'Встановіть значення 1 для звітування про помилки',
+  'general:restore_window_size': 'Відновлювати розмір вікна під час запуску',
   'go to engine help page':
       'Якщо проблеми залишаються, скористайтеся {link} для перегляду актуальної сторінки з порадами щодо вирішення.',
   'handicap': 'Фора',
@@ -279,6 +280,7 @@ const Map<String, String> stringsUa = {
   'theme:normal': 'Стандартна тема',
   'theme:red-green-colourblind': 'Червоний-зелений для дальтоніків',
   'timer settings': 'Налаштувати таймер',
+  'timer:pause': 'Зупинити годинник',
   'to move': 'до ходу',
   'top_move_delta_score': 'Зміна рахунку',
   'top_move_delta_winrate': 'Зміна шансу',

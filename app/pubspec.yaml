@@ -14,6 +14,8 @@ dependencies:
   file_selector: ^1.1.0
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   katrain_core:
     path: ../packages/katrain_core
   screen_retriever: ^0.2.2

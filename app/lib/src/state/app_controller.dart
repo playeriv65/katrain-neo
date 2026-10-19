@@ -62,7 +62,7 @@ class AppController extends HostBase with ChangeNotifier {
 
   // what the panels show of the current position
   GameNode? activeCommentNode;
-  String infoText = '';
+  List<CommentPart> infoParts = const [];
   String noteText = '';
   String statsScore = '';
   String statsWinrate = '';
@@ -599,9 +599,9 @@ class AppController extends HostBase with ChangeNotifier {
     activeCommentNode = commentNode;
     final lockAi = (config('trainer/lock_ai') ?? false) == true && mode == modePlay;
     final details = panels['notes_panel']!.options['info-details']! && !lockAi;
-    infoText = currentNode.move != null || currentNode.isRoot
-        ? commentNode.comment(teach: playersInfo[commentNode.player]!.beingTaught, details: details)
-        : '';
+    infoParts = currentNode.move != null || currentNode.isRoot
+        ? commentNode.commentParts(teach: playersInfo[commentNode.player]!.beingTaught, details: details)
+        : const [];
     final analysed = commentNode.analysisExists;
     statsScore = analysed ? commentNode.formatScore() ?? '' : '';
     statsWinrate = analysed ? commentNode.formatWinrate() ?? '' : '';

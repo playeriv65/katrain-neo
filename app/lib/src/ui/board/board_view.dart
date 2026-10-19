@@ -185,7 +185,7 @@ class _BoardViewState extends State<BoardView> {
           // navigate to move
           app.setCurrentNode(node.parent!);
         } else {
-          app.infoText = node.comment(sgf: true);
+          app.infoParts = node.commentParts(sgf: true);
           app.activeCommentNode = node;
           if (node.parent!.analysisExists) {
             board.setHoverPv(

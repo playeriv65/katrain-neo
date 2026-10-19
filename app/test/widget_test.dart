@@ -6,6 +6,6 @@ import 'package:katrain_neo/src/theme.dart';
 void main() {
   test('theme colours convert', () {
     expect(kc([1, 0, 0, 1]).r, 1);
-    expect(KTheme.backgroundColor.a, 1);
+    expect(KTheme.stoneColors['B']!.a, 1);
   });
 }

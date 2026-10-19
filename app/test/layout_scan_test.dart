@@ -15,11 +15,13 @@ import 'package:katrain_neo/src/state/app_controller.dart';
 import 'package:katrain_neo/src/state/dialogs.dart';
 import 'package:katrain_neo/src/ui/board/board_images.dart';
 import 'package:katrain_neo/src/ui/move_tree.dart';
+import 'package:katrain_neo/src/window.dart' show minimumWindowSize;
 
 import 'fonts.dart';
 
-/// Window sizes in logical pixels: the default window on a 1366x768 laptop, on a 1920x1080 display, and wide.
-const sizes = [Size(868, 668), Size(1274, 980), Size(1600, 900)];
+/// Window sizes in logical pixels: the smallest window, the default window on a 1366x768 laptop and on a 1920x1080
+/// display, and wide.
+const sizes = [minimumWindowSize, Size(868, 668), Size(1274, 980), Size(1600, 900)];
 const languages = ['en', 'cn', 'de', 'ru', 'fr', 'jp', 'ko', 'tr'];
 
 /// The font each language needs beyond Segoe UI (or Roboto standing in for it); without it, the language is not

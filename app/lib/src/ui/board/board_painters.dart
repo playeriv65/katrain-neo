@@ -11,6 +11,7 @@ import 'package:katrain_core/katrain_core.dart';
 
 import '../../state/app_controller.dart';
 import '../../theme.dart';
+import '../app_theme.dart' show fontFallback;
 import 'board_geometry.dart';
 import 'board_images.dart';
 
@@ -21,13 +22,21 @@ void drawText(
   String text, {
   required double fontSize,
   required Color color,
-  String font = KTheme.boardFont,
+  String? font = KTheme.boardFont,
+  List<String>? fallback,
 }) {
   if (fontSize <= 0) return;
   final painter = TextPainter(
     text: TextSpan(
       text: text,
-      style: TextStyle(fontFamily: font, fontSize: fontSize, fontWeight: FontWeight.bold, color: color, height: 1.0),
+      style: TextStyle(
+        fontFamily: font,
+        fontFamilyFallback: fallback,
+        fontSize: fontSize,
+        fontWeight: FontWeight.bold,
+        color: color,
+        height: 1.0,
+      ),
     ),
     textDirection: TextDirection.ltr,
     textAlign: TextAlign.center,
@@ -725,7 +734,8 @@ class BoardHoverPainter extends CustomPainter {
         text,
         fontSize: diameter * 0.25,
         color: KTheme.passCircleTextColor,
-        font: KTheme.defaultFont,
+        font: null, // words, in the interface's font
+        fallback: fontFallback(i18n.lang),
       );
     }
     _drawApiMarks(canvas, currentNode);

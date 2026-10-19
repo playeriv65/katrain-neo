@@ -43,6 +43,9 @@ class TopBar extends StatelessWidget {
   /// Room a labelled toggle takes besides its label: padding, the icon and the border.
   static const _chipChrome = 56.0;
 
+  /// Room kept free so that the estimate errs towards icons.
+  static const _margin = 16.0;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -59,7 +62,11 @@ class TopBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
         children: [
-          IconButton(tooltip: 'Alt', onPressed: onMenu, icon: const Icon(Icons.menu)),
+          IconButton(
+            tooltip: '${MaterialLocalizations.of(context).openAppDrawerTooltip} (Alt)',
+            onPressed: onMenu,
+            icon: const Icon(Icons.menu),
+          ),
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -67,18 +74,22 @@ class TopBar extends StatelessWidget {
                 final menuWidth = width(menuLabel) + _chipChrome + 8;
                 final labelled =
                     labels.map((l) => width(l) + _chipChrome + _spacing).fold(0.0, (a, b) => a + b) + menuWidth;
-                final showLabels = labelled <= constraints.maxWidth;
+                final showLabels = labelled + _margin <= constraints.maxWidth;
                 final compactMenu =
-                    !showLabels && displayToggles.length * (40 + _spacing) + menuWidth > constraints.maxWidth;
+                    !showLabels && displayToggles.length * (40 + _spacing) + menuWidth + _margin > constraints.maxWidth;
+                // the estimate is close, not exact: a row a pixel too wide is scaled down rather than cut
                 return Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    spacing: _spacing,
-                    children: [
-                      for (final (i, (key, _, shortcut, icon)) in displayToggles.indexed)
-                        _toggle(key, labels[i], shortcut, icon, showLabels),
-                      AnalysisMenu(app: app, compact: compactMenu),
-                    ],
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      spacing: _spacing,
+                      children: [
+                        for (final (i, (key, _, shortcut, icon)) in displayToggles.indexed)
+                          _toggle(key, labels[i], shortcut, icon, showLabels),
+                        AnalysisMenu(app: app, compact: compactMenu),
+                      ],
+                    ),
                   ),
                 );
               },

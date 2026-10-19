@@ -14,6 +14,22 @@ const _cjkFonts = {
   'ko': ['Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans CJK KR'],
 };
 
+/// The app's languages as locales, for Flutter's own texts (Cancel, Close, tooltips, the text field menu) and for
+/// choosing glyph forms.
+const appLocales = {
+  'en': Locale('en'),
+  'cn': Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans', countryCode: 'CN'),
+  'tw': Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant', countryCode: 'TW'),
+  'jp': Locale('ja'),
+  'ko': Locale('ko'),
+  'de': Locale('de'),
+  'es': Locale('es'),
+  'fr': Locale('fr'),
+  'ru': Locale('ru'),
+  'tr': Locale('tr'),
+  'ua': Locale('uk'),
+};
+
 /// The fonts to fall back to in [lang]: the language's CJK fonts first, so Chinese is not drawn in Japanese forms.
 List<String> fontFallback(String lang) => [
   ...?_cjkFonts[lang],
@@ -21,29 +37,22 @@ List<String> fontFallback(String lang) => [
     if (e.key != lang) ...e.value,
 ];
 
+/// The colour the scheme is derived from: a slate blue.
+const _seed = Color(0xFF2E4158);
+
 ThemeData appTheme({String lang = 'en'}) {
-  final scheme = ColorScheme.fromSeed(
-    seedColor: KTheme.boxBackgroundColor,
-    brightness: Brightness.dark,
-    surface: KTheme.backgroundColor,
-  );
+  final scheme = ColorScheme.fromSeed(seedColor: _seed, brightness: Brightness.dark);
   return ThemeData(
     useMaterial3: true,
     fontFamilyFallback: fontFallback(lang),
     colorScheme: scheme,
-    scaffoldBackgroundColor: KTheme.backgroundColor,
     cardTheme: CardThemeData(
-      color: KTheme.boxBackgroundColor,
+      color: scheme.surfaceContainer,
       margin: EdgeInsets.zero,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
     tooltipTheme: const TooltipThemeData(waitDuration: Duration(milliseconds: 500)),
-    chipTheme: ChipThemeData(
-      selectedColor: scheme.primaryContainer,
-      checkmarkColor: scheme.onPrimaryContainer,
-      side: BorderSide(color: scheme.outlineVariant),
-    ),
     visualDensity: VisualDensity.compact,
   );
 }

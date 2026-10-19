@@ -350,7 +350,7 @@ class _ConfigDialogState extends State<ConfigDialog> {
         SwitchListTile(
           dense: true,
           contentPadding: EdgeInsets.zero,
-          title: const Text('Restore window size on startup'),
+          title: Text(i18n.tr('general:restore_window_size')),
           value: restoreSize,
           onChanged: (v) => setState(() => restoreSize = v),
         ),

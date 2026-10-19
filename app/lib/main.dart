@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:katrain_core/api.dart';
 import 'package:katrain_core/io.dart';
 import 'package:katrain_core/katrain_core.dart';
@@ -92,6 +93,9 @@ class _KaTrainNeoAppState extends State<KaTrainNeoApp> {
       title: appTitle,
       debugShowCheckedModeBanner: false,
       theme: appTheme(lang: i18n.lang),
+      locale: appLocales[i18n.lang],
+      supportedLocales: appLocales.values,
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       navigatorKey: _navigator,
       builder: (context, child) => KeyboardShortcuts(app: app, navigator: _navigator, child: child!),
       home: ListenableBuilder(

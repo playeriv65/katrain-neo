@@ -22,7 +22,6 @@ class BoardImages {
       KTheme.lastMoveTexture,
       KTheme.topMoveTexture,
       KTheme.boardTexture,
-      KTheme.graphTexture,
     ];
     final images = <String, ui.Image>{};
     for (final path in paths) {
