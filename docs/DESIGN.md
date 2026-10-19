@@ -6,8 +6,9 @@ from KaTrain (MIT, © Sander Land and contributors); it is not affiliated with o
 
 ## Goals
 
-- Everything KaTrain does, in the same places: the same panels, menus, popups, shortcuts and settings, so a KaTrain
-  user feels at home. The look is modernised, the layout and behaviour are not reinvented.
+- Everything KaTrain does: the same functions, controls, settings and shortcuts, and the same game logic (tested
+  against KaTrain). The interface is not a copy of KaTrain's Kivy look: it uses natural, modern Flutter components
+  (Material 3), with the board's information shown as KaTrain shows it.
 - Smooth: resizing, hovering and continuous analysis at display refresh rate.
 - Strong engines: a local KataGo process (any backend, e.g. our ROCm build) or a remote KataGo over WebSocket (e.g. a
   cloud GPU). No in-browser or reimplemented engine.
@@ -75,17 +76,19 @@ behind one interface:
 - The board is a `CustomPainter` with three layers that repaint independently: board and grid (only on resize),
   stones and evaluation dots (on position change), hints, PV and hover (on analysis and mouse move). Text is laid out
   once per size, not rasterised per frame.
-- State lives in plain `ChangeNotifier` controllers exposed with `InheritedNotifier`, no state management package to
-  begin with.
-- Layout follows KaTrain: board on the left, a right column with players, timer or move tree, score graph, stats and
-  info/notes panels, a top bar with the analysis toggles and the analysis menu, navigation at the bottom, the
-  hamburger menu for game and settings.
+- State lives in a plain `ChangeNotifier` (`KaTrainGui`, the port of KaTrain's controller with its message queue),
+  no state management package.
+- The arrangement follows KaTrain (board on the left; players, clock or move tree, score graph, stats and info/notes
+  on the right; display toggles and the analysis menu on top; navigation below; a drawer for players, game and
+  settings), built from Material 3 parts: segmented buttons, filter chips, cards, menus, dialogs, tooltips with the
+  keyboard shortcuts. The board keeps KaTrain's textures, hint colours and labels.
+- Fonts: the system's for the interface; Roboto (Apache-2.0, as Kivy ships it) for the board's coordinates and
+  numbers.
 - Assets: only what KaTrain licenses under MIT is reused, with credit: board and stone textures, sounds. Its menu
-  icons (Flaticon, used by KaTrain with permission) and the DIGITAL-7 font (non-commercial) are not; KaTrain Neo uses
-  Material Symbols and its own fonts instead. KataGo binaries and models are never committed, the app downloads or
+  icons and flags (Flaticon, used by KaTrain with permission) and the DIGITAL-7 font (non-commercial) are not;
+  KaTrain Neo uses Material icons and language names instead. KataGo binaries and models are never committed, the app downloads or
   points at them.
-- Translations: KaTrain's `.po` files (10 languages, by KaTrain's translators) are converted to Flutter ARB files,
-  with credit. Chinese and English first.
+- Translations: KaTrain's compiled catalogues (by KaTrain's translators) are generated into the core, with credit.
 
 ## Parity checklist
 

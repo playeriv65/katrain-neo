@@ -74,7 +74,7 @@ abstract class KaTrainBase implements GameHost {
   }
 
   @override
-  void log(String message, [int level = outputInfo]) {
+  void log(String message, [num level = outputInfo]) {
     if (level == outputError) {
       printer('ERROR: $message');
     } else if (debugLevel >= level) {

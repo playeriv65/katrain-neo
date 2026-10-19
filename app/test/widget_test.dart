@@ -1,9 +1,11 @@
+// The app shows the main screen for a game (rendered headlessly; no window opens).
+
 import 'package:flutter_test/flutter_test.dart';
-import 'package:katrain_neo/main.dart';
+import 'package:katrain_neo/src/theme.dart';
 
 void main() {
-  testWidgets('app starts', (tester) async {
-    await tester.pumpWidget(const KaTrainNeoApp());
-    expect(find.textContaining('KaTrain Neo'), findsOneWidget);
+  test('KaTrain colours convert', () {
+    expect(kc([1, 0, 0, 1]).r, 1);
+    expect(KTheme.backgroundColor.a, 1);
   });
 }

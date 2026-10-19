@@ -13,7 +13,10 @@ translations are the work of the KaTrain authors. KaTrain credits, among others:
 The full list of KaTrain contributors and translators is in KaTrain's
 [CONTRIBUTIONS.md](https://github.com/sanderland/katrain/blob/master/CONTRIBUTIONS.md).
 
-Not reused from KaTrain: its menu icons (from Flaticon, used by KaTrain with permission) and the DIGITAL-7 font
+Reused from KaTrain (MIT): the board, stone, evaluation dot and graph textures and the sounds, in `app/assets`.
+The board's text uses Roboto (Apache License 2.0, `app/assets/fonts/LICENSE-Roboto.txt`), the copy Kivy ships.
+
+Not reused from KaTrain: its menu icons and flags (from Flaticon, used by KaTrain with permission) and the DIGITAL-7 font
 (free for non-commercial use only).
 
 **[KataGo](https://github.com/lightvector/KataGo)** is by David J Wu (lightvector) and contributors. It is not part of
