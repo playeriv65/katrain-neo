@@ -77,7 +77,7 @@ jobs:
           echo "version=$(sed -n 's/^version: *\([^+]*\).*/\1/p' app/pubspec.yaml)" >> "$GITHUB_OUTPUT"
       - name: Build the katrain-neo command
         shell: bash
-        run: dart compile exe packages/katrain_cli/bin/katrain_neo.dart -o "cli/katrain-neo${{ matrix.target == 'windows' && '.exe' || '' }}"
+        run: mkdir -p cli && dart compile exe packages/katrain_cli/bin/katrain_neo.dart -o "cli/katrain-neo${{ matrix.target == 'windows' && '.exe' || '' }}"
       - name: Package (Windows)
         if: matrix.target == 'windows'
         shell: bash
