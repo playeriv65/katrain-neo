@@ -28,12 +28,17 @@ class GameClock {
   /// Whether the AI is to move (its time does not run).
   bool ai = false;
 
+  /// The current time; tests give their own.
+  final DateTime Function() _now;
+
   GameNode? _lastNode;
-  DateTime _lastTick = DateTime.now();
+  late DateTime _lastTick = _now();
   bool _beeping = false;
 
   /// Changes whenever the clock shows something new.
   final ValueNotifier<int> ticks = ValueNotifier(0);
+
+  GameClock({DateTime Function()? now}) : _now = now ?? DateTime.now;
 
   bool get paused => _paused;
   set paused(bool value) {
@@ -47,7 +52,7 @@ class GameClock {
   /// holds the game.
   void tick(Game game, Player player, ClockSettings settings, Sounds sounds, {required bool running}) {
     final node = game.currentNode;
-    final now = DateTime.now();
+    final now = _now();
     final mainTime = settings.mainTime * 60;
     final byoLength = math.max(1.0, settings.byoLength);
     final byoPeriods = math.max(1, settings.byoPeriods);
@@ -57,11 +62,10 @@ class GameClock {
     var usedPeriod = false;
     if (!_paused && !player.ai && running) {
       if (identical(_lastNode, node) && node.children.isEmpty) {
-        if (mainRemaining > 0) {
-          game.mainTimeUsed += elapsed;
-        } else {
-          node.timeUsed += elapsed;
-        }
+        // main time first; what goes beyond it counts towards the period
+        final fromMain = math.max(0.0, math.min(elapsed, mainRemaining));
+        game.mainTimeUsed += fromMain;
+        node.timeUsed += elapsed - fromMain;
       } else {
         node.timeUsed = 0; // a new position starts a new period
         beeping = false;
@@ -101,8 +105,9 @@ class GameClock {
     _beeping = beeping;
 
     final shown = (timeRemaining, periodsRemaining, ai);
-    if (mainRemaining > 0) {
-      timeRemaining = mainRemaining;
+    final mainLeft = mainTime - game.mainTimeUsed;
+    if (mainLeft > 0) {
+      timeRemaining = mainLeft;
       periodsRemaining = null;
     } else {
       timeRemaining = player.periodsUsed == byoPeriods ? 0 : math.max(0, byoLength - node.timeUsed);

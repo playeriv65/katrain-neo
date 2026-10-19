@@ -94,7 +94,9 @@ The app serves an HTTP API on 127.0.0.1 with a token per run, on port 8765 or th
   (`test/support`). Test game records are in `test/data`. One test runs a real KataGo when `KATAGO_EXE`,
   `KATAGO_MODEL` and `KATAGO_CONFIG` are set, and is skipped otherwise (as in CI).
 - CLI: every command's request, usage errors, links, and end to end against an in-test server.
-- App: widget tests and headless rendering (`flutter test`); `test/render_test.dart` writes the main screen and the
+- App: the controller and the clock tested on the real engine with a pretend KataGo behind it
+  (`app/test/support/fake_katago.dart`: it records the queries and answers them when the test says so); widget tests
+  and headless rendering (`flutter test`); `test/render_test.dart` writes the main screen and the
   dialogs to PNGs when `NEO_RENDER_SGF` (a game) and `NEO_RENDER_OUT` (a folder) are set. Checks never open windows; the app runs hidden with
   `KATRAIN_NEO_HIDDEN=1`.
 - CI (GitHub Actions): format, analyze with `--fatal-infos`, all tests, and builds for the three platforms. A `v*` tag

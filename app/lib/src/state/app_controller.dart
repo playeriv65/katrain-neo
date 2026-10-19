@@ -78,7 +78,11 @@ class AppController extends HostBase with ChangeNotifier {
   GameNode? moveTreeSelectedNode;
 
   Future<void> _queue = Future.value();
+  int _queued = 0;
   Timer? _clockTimer;
+
+  /// Whether no action is queued or running.
+  bool get idle => _queued == 0;
 
   AppController(super.configStore, {required this.resourceDir, Sounds? sounds, super.debugLevel})
     : sounds = sounds ?? const Sounds.silent();
@@ -166,17 +170,20 @@ class AppController extends HostBase with ChangeNotifier {
   Future<void> _enqueue(String what, FutureOr<void> Function(Game game) action, {bool react = true}) {
     final g = game;
     if (g == null) return Future.value();
+    _queued += 1;
     return _queue = _queue.then((_) async {
-      if (!identical(game, g)) {
-        log('Skipped $what: the game was replaced', outputExtraDebug);
-        return;
-      }
       try {
+        if (!identical(game, g)) {
+          log('Skipped $what: the game was replaced', outputExtraDebug);
+          return;
+        }
         await action(g);
         if (react) await _react();
       } catch (e, st) {
         log('$what failed: $e', outputError);
         debugPrintStack(stackTrace: st);
+      } finally {
+        _queued -= 1;
       }
     });
   }
@@ -620,7 +627,7 @@ class AppController extends HostBase with ChangeNotifier {
         sound: config('timer/sound') == true,
       ),
       sounds,
-      running: mode == modePlay,
+      running: mode == modePlay && !popupOpen,
     );
   }
 

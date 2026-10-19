@@ -6,7 +6,7 @@ KaTrain Neo is a Flutter/Dart desktop app for Go with KataGo. Read [docs/ARCHITE
 
 - `packages/katrain_core` stays pure Dart (no `package:flutter` imports) so it is testable with `dart test`.
 - Every change to behaviour comes with tests of the behaviour (what a user or an agent sees), on the fakes in
-  `packages/katrain_core/test/support` rather than recorded outputs. A bug found and not fixed yet is a skipped test
+  `packages/katrain_core/test/support` and `app/test/support` rather than recorded outputs. A bug found and not fixed yet is a skipped test
   with `skip: 'bug: ...'`.
 - Keep the settings keys, the SGF analysis format (`KT`, `KTV`) and the local API's commands, arguments and JSON
   results compatible: settings files, game records and agents rely on them. Change them on purpose and say so.
