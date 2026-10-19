@@ -10,9 +10,11 @@ import 'package:katrain_core/katrain_core.dart';
 
 import '../state/app_controller.dart';
 import '../theme.dart';
+import 'app_theme.dart';
 import 'board/board_images.dart';
 import 'move_tree.dart';
 import 'score_graph.dart';
+import 'stone_avatar.dart';
 
 class SidePanel extends StatelessWidget {
   /// The info and notes panel is never squeezed below this.
@@ -91,7 +93,7 @@ class SidePanel extends StatelessWidget {
                 id: 'graph_panel',
                 title: i18n.tr('closedlabel:scoregraph'),
                 options: const ['score', 'winrate', 'points'],
-                colors: [KTheme.scoreColor, KTheme.winrateColor, KTheme.pointlossColor],
+                colors: EvalColors.of(context).all,
                 child: SizedBox(
                   height: graphHeight,
                   child: ScoreGraph(
@@ -108,7 +110,7 @@ class SidePanel extends StatelessWidget {
                 id: 'stats_panel',
                 title: i18n.tr('closedlabel:movestats'),
                 options: const ['score', 'winrate', 'points'],
-                colors: [KTheme.scoreColor, KTheme.winrateColor, KTheme.pointlossColor],
+                colors: EvalColors.of(context).all,
                 child: _Stats(app: app, options: statsPanel.options),
               ),
               const SizedBox(height: 8),
@@ -175,9 +177,9 @@ class PlayerCard extends StatelessWidget {
           children: [
             Tooltip(
               message: i18n.tr('captures'),
-              child: CircleAvatar(
+              child: StoneAvatar(
+                player: player,
                 radius: 18,
-                backgroundColor: KTheme.stoneColors[player],
                 child: Text(
                   captures,
                   style: text.titleMedium!.copyWith(
@@ -362,14 +364,15 @@ class _Stats extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lost = app.statsPointsLost;
+    final colors = EvalColors.of(context);
     final rows = [
-      if (options['winrate']!) (i18n.tr('stats:winrate'), app.statsWinrate, KTheme.winrateColor),
-      if (options['score']!) (i18n.tr('stats:score'), app.statsScore, KTheme.scoreColor),
+      if (options['winrate']!) (i18n.tr('stats:winrate'), app.statsWinrate, colors.winrate),
+      if (options['score']!) (i18n.tr('stats:score'), app.statsScore, colors.score),
       if (options['points']!)
         (
           i18n.tr(lost == null || lost > 0 ? 'stats:pointslost' : 'stats:pointsgained'),
           lost != null ? '${i18n.tr('short color ${app.statsPlayer}')}: ${formatFixed(lost.abs(), 1)}' : '…',
-          KTheme.pointlossColor,
+          colors.pointloss,
         ),
     ];
     final text = Theme.of(context).textTheme;

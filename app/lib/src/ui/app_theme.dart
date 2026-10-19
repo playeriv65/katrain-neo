@@ -1,9 +1,7 @@
-// The app's look: Material 3, dark, seeded from a blue-grey. The board's own colours stay where they carry meaning
-// (score, win rate and point loss, evaluation classes, the board).
+// The app's look: Material 3, light or dark as the system is, seeded from a slate blue. Colours that carry meaning
+// stay: score, win rate and point loss (in a shade for each mode), evaluation classes, the board.
 
 import 'package:flutter/material.dart';
-
-import '../theme.dart';
 
 /// Fonts for the characters of Chinese, Japanese and Korean, by language: each language's own glyph forms first, then
 /// the others (Windows, macOS, Linux names).
@@ -40,12 +38,14 @@ List<String> fontFallback(String lang) => [
 /// The colour the scheme is derived from: a slate blue.
 const _seed = Color(0xFF2E4158);
 
-ThemeData appTheme({String lang = 'en'}) {
-  final scheme = ColorScheme.fromSeed(seedColor: _seed, brightness: Brightness.dark);
+/// The app's look in [brightness]; the app follows the system's light or dark mode.
+ThemeData appTheme({String lang = 'en', Brightness brightness = Brightness.dark}) {
+  final scheme = ColorScheme.fromSeed(seedColor: _seed, brightness: brightness);
   return ThemeData(
     useMaterial3: true,
     fontFamilyFallback: fontFallback(lang),
     colorScheme: scheme,
+    extensions: [brightness == Brightness.dark ? EvalColors.dark : EvalColors.light],
     cardTheme: CardThemeData(
       color: scheme.surfaceContainer,
       margin: EdgeInsets.zero,
@@ -57,9 +57,66 @@ ThemeData appTheme({String lang = 'en'}) {
   );
 }
 
-/// The colours of the three kinds of evaluation (score, win rate, point loss), the same everywhere.
-abstract final class StatColors {
-  static Color get score => KTheme.scoreColor;
-  static Color get winrate => KTheme.winrateColor;
-  static Color get pointloss => KTheme.pointlossColor;
+/// The colours of the three kinds of evaluation (score, win rate, point loss) wherever they are told apart: the
+/// graph's lines and scale, the statistics, the panel toggles; and of a player doing better or worse in the report.
+/// Each mode has its own, so they stand out against its surfaces (the test checks the contrast).
+@immutable
+class EvalColors extends ThemeExtension<EvalColors> {
+  final Color score;
+  final Color winrate;
+  final Color pointloss;
+  final Color better;
+  final Color worse;
+  const EvalColors({
+    required this.score,
+    required this.winrate,
+    required this.pointloss,
+    required this.better,
+    required this.worse,
+  });
+
+  static const dark = EvalColors(
+    score: Color(0xFF4DB3E6),
+    winrate: Color(0xFF1ACC1A),
+    pointloss: Color(0xFFCCCC1A),
+    better: Color(0xFF2E6B17),
+    worse: Color(0xFF9A4A22),
+  );
+
+  static const light = EvalColors(
+    score: Color(0xFF00639B),
+    winrate: Color(0xFF187018),
+    pointloss: Color(0xFF7A6300),
+    better: Color(0xFFA5D6A7),
+    worse: Color(0xFFFFCC80),
+  );
+
+  static EvalColors of(BuildContext context) => Theme.of(context).extension<EvalColors>()!;
+
+  /// The three evaluation colours in the order the panels list them.
+  List<Color> get all => [score, winrate, pointloss];
+
+  @override
+  EvalColors copyWith({Color? score, Color? winrate, Color? pointloss, Color? better, Color? worse}) => EvalColors(
+    score: score ?? this.score,
+    winrate: winrate ?? this.winrate,
+    pointloss: pointloss ?? this.pointloss,
+    better: better ?? this.better,
+    worse: worse ?? this.worse,
+  );
+
+  @override
+  EvalColors lerp(EvalColors? other, double t) => other == null
+      ? this
+      : EvalColors(
+          score: Color.lerp(score, other.score, t)!,
+          winrate: Color.lerp(winrate, other.winrate, t)!,
+          pointloss: Color.lerp(pointloss, other.pointloss, t)!,
+          better: Color.lerp(better, other.better, t)!,
+          worse: Color.lerp(worse, other.worse, t)!,
+        );
 }
+
+/// Black or white, whichever reads on [background].
+Color textOn(Color background) =>
+    ThemeData.estimateBrightnessForColor(background) == Brightness.dark ? Colors.white : Colors.black;

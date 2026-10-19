@@ -27,13 +27,8 @@ abstract final class KTheme {
   /// The font of coordinates, move numbers and hint labels on the board.
   static const boardFont = 'Roboto';
 
-  // what the evaluation lines, statistics and toggles are coloured by
-  static final scoreColor = blue;
-  static final winrateColor = green;
-  static final pointlossColor = yellow;
+  // (the colours of score, win rate and point loss off the board are in ui/app_theme.dart, one set for each mode)
   static final circleTextColors = {'W': black, 'B': white};
-  static final statWorseColor = kc([0.8, 0.4, 0.2, 1]);
-  static final statBetterColor = kc([0.2, 0.5, 0.1, 1]);
 
   // textures
   static const stoneTexture = {'B': 'assets/img/B_stone.png', 'W': 'assets/img/W_stone.png'};
@@ -119,9 +114,6 @@ abstract final class KTheme {
 
   // graph
   static final graphDotColor = kc([0.85, 0.3, 0.3, 1]);
-  static final winrateMarkerColor = kc([0.05, 0.7, 0.05, 1]);
-  static final scoreMarkerColor = kc([0.2, 0.6, 0.8, 1]);
-  static final pointlossMarkerColor = kc([0.7, 0.7, 0.05, 1]);
 
   // move tree: insert mode, collapsed branches and setup nodes, stone outlines
   static final moveTreeInsertNodeParent = green;

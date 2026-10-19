@@ -59,8 +59,10 @@ installer/windows/         Inno Setup script
 - **Board.** A `CustomPainter` in three layers that repaint independently: board and grid (on resize), stones and
   evaluation dots (on a new position), hints, variations and hover (on analysis and mouse moves). Text is laid out
   once per size.
-- **Look.** Material 3, dark, all colours from one seeded scheme except what carries meaning: the board's textures,
-  the evaluation colours for score, win rate and point loss, and the engine light. Flutter's own texts (Cancel,
+- **Look.** Material 3, light or dark as the system is, all colours from one seeded scheme except what carries
+  meaning: the board's textures, the engine light, and the colours of score, win rate and point loss, which are a
+  theme extension (`EvalColors`) with a shade for each mode; `app_theme_test.dart` checks their contrast against the
+  surfaces (WCAG 4.5:1). Flutter's own texts (Cancel,
   Close, tooltips, the text field menu) follow the language through `flutter_localizations`. A move's comments come
   from the core as parts (`CommentPart`: text, headings, variations), and variations are links that show them on the
   board. The window is at least 800x600. The arrangement: the board on the left with display toggles above and navigation below; players, clock or
@@ -104,7 +106,7 @@ The app serves an HTTP API on 127.0.0.1 with a token per run, on port 8765 or th
 - App: the controller and the clock tested on the real engine with a pretend KataGo behind it
   (`app/test/support/fake_katago.dart`: it records the queries and answers them when the test says so); widget tests
   and headless rendering (`flutter test`). `test/layout_scan_test.dart` lays out the main screen, the menu and every
-  dialog at three window sizes in eight languages and fails on rows or columns that overflow, text that is cut off
+  dialog in the light and the dark theme, at four window sizes (from the 800x600 minimum) in eight languages, and fails on rows or columns that overflow, text that is cut off
   and content hidden in a sideways scroll; it uses the Windows interface fonts when the machine has them (Chinese,
   Japanese and Korean are scanned only then), and with `NEO_LAYOUT_OUT` (a folder) it saves every screen as a PNG.
   `test/render_test.dart` writes the main screen and the dialogs to PNGs when `NEO_RENDER_SGF` (a game) and

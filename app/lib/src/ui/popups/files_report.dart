@@ -10,6 +10,7 @@ import 'package:katrain_core/katrain_core.dart';
 
 import '../../state/app_controller.dart';
 import '../../theme.dart';
+import '../app_theme.dart';
 import '../side_panel.dart' show PlayerCard;
 import 'config_editor.dart';
 
@@ -146,9 +147,13 @@ class _GameReportDialogState extends State<GameReportDialog> {
     final thresholds = (app.config('trainer/eval_thresholds') as List).cast<num>();
     final (sumStats, histogram, playerPtloss) = gameReport(app.game!, thresholds, depthFilter: depthFilter);
     final labels = [for (final pt in thresholds) pt > 0 ? '≥ $pt' : '< ${thresholds[thresholds.length - 2]}'];
+    // the evaluation classes, toned towards the background so the counts on them read in either mode
+    final dark = Theme.of(context).brightness == Brightness.dark;
     final colors = [
       for (final c in KTheme.evalColors[app.config('trainer/theme')]!)
-        Color.from(alpha: 1, red: c.r * 0.75, green: c.g * 0.75, blue: c.b * 0.75),
+        dark
+            ? Color.from(alpha: 1, red: c.r * 0.75, green: c.g * 0.75, blue: c.b * 0.75)
+            : Color.lerp(c, Colors.white, 0.45)!,
     ];
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
@@ -217,7 +222,13 @@ class _GameReportDialogState extends State<GameReportDialog> {
           children: [
             for (final bw in const ['B', '', 'W'])
               if (bw.isEmpty)
-                cell(Text(labels[thresholds.length - 1 - i]), color: colors[thresholds.length - 1 - i])
+                cell(
+                  Text(
+                    labels[thresholds.length - 1 - i],
+                    style: TextStyle(color: textOn(colors[thresholds.length - 1 - i])),
+                  ),
+                  color: colors[thresholds.length - 1 - i],
+                )
               else
                 stat(
                   '${histogram[i][bw]}',
@@ -288,12 +299,7 @@ class _GameReportDialogState extends State<GameReportDialog> {
     final mine = sumStats[bw]![key];
     final theirs = sumStats[bw == 'B' ? 'W' : 'B']![key] ?? 0;
     final better = ((mine ?? 0) < theirs) != moreIsBetter;
-    return stat(
-      mine != null ? format(mine) : '',
-      mine ?? 0,
-      scale,
-      better ? KTheme.statBetterColor : KTheme.statWorseColor,
-      bw == 'B',
-    );
+    final colors = EvalColors.of(context);
+    return stat(mine != null ? format(mine) : '', mine ?? 0, scale, better ? colors.better : colors.worse, bw == 'B');
   }
 }

@@ -1,5 +1,6 @@
-// Lays out the main screen, the menu and every dialog at several window sizes and in several languages, and reports
-// overflowing layouts and text that is cut off. NEO_LAYOUT_OUT (a folder) also saves each screen as a PNG.
+// Lays out the main screen, the menu and every dialog in the light and the dark theme, at several window sizes and in
+// several languages, and reports overflowing layouts and text that is cut off. NEO_LAYOUT_OUT (a folder) also saves
+// each screen as a PNG.
 
 import 'dart:io';
 import 'dart:math' as math;
@@ -135,41 +136,46 @@ void main() {
     }
 
     final screen = app.screen!;
-    for (final size in sizes) {
-      tester.view.physicalSize = size;
-      tester.view.devicePixelRatio = 1;
-      for (final lang in scanned) {
-        i18n.switchLang(lang);
-        final tag = '${size.width.round()}x${size.height.round()}_$lang';
-        for (final mode in [modeAnalyze, modePlay]) {
-          app.selectMode(mode);
+    // the app follows the system's light or dark mode: both are scanned
+    for (final brightness in Brightness.values) {
+      tester.platformDispatcher.platformBrightnessTestValue = brightness;
+      for (final size in sizes) {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        for (final lang in scanned) {
+          i18n.switchLang(lang);
+          final tag = '${brightness.name}_${size.width.round()}x${size.height.round()}_$lang';
+          for (final mode in [modeAnalyze, modePlay]) {
+            app.selectMode(mode);
+            await settle();
+            check('$tag $mode');
+            await save('${tag}_$mode');
+          }
+          app.toggleMenu();
           await settle();
-          check('$tag $mode');
-          await save('${tag}_$mode');
-        }
-        app.toggleMenu();
-        await settle();
-        check('$tag menu');
-        await save('${tag}_menu');
-        app.toggleMenu();
-        await tester.pumpAndSettle();
-        for (final (name, open) in <(String, void Function())>[
-          for (final dialog in AppDialog.values)
-            if (dialog != AppDialog.saveGameAs) (dialog.name, () => app.openDialog(dialog)),
-          (
-            'engine_failure',
-            () => screen.showEngineFailure(const EngineFailure('KataGo exited with code 1', 1, 'local')),
-          ),
-        ]) {
-          open();
-          await settle();
-          check('$tag $name');
-          await save('${tag}_$name');
-          tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+          check('$tag menu');
+          await save('${tag}_menu');
+          app.toggleMenu();
           await tester.pumpAndSettle();
+          for (final (name, open) in <(String, void Function())>[
+            for (final dialog in AppDialog.values)
+              if (dialog != AppDialog.saveGameAs) (dialog.name, () => app.openDialog(dialog)),
+            (
+              'engine_failure',
+              () => screen.showEngineFailure(const EngineFailure('KataGo exited with code 1', 1, 'local')),
+            ),
+          ]) {
+            open();
+            await settle();
+            check('$tag $name');
+            await save('${tag}_$name');
+            tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+            await tester.pumpAndSettle();
+          }
         }
       }
     }
+    tester.platformDispatcher.clearPlatformBrightnessTestValue();
     i18n.switchLang('en');
     tester.view.reset();
     await app.shutdown();

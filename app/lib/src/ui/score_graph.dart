@@ -9,6 +9,7 @@ import 'package:katrain_core/katrain_core.dart';
 import '../state/app_controller.dart';
 import '../state/graph_model.dart';
 import '../theme.dart';
+import 'app_theme.dart';
 
 class ScoreGraph extends StatefulWidget {
   final AppController app;
@@ -138,12 +139,14 @@ class _ScoreGraphState extends State<ScoreGraph> {
         final size = c.biggest;
         final data = _graphData(widget.app.graph, size);
         final markerSize = (0.1 * size.height).clamp(10.0, 13.0);
+        final colors = EvalColors.of(context);
+        final scheme = Theme.of(context).colorScheme;
         // the scale's labels sit on a backing, so the lines and the current move's dot do not run through them
         Widget marker(String text, Color color, Alignment alignment) => Align(
           alignment: alignment,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.75),
+              color: scheme.surfaceContainer.withValues(alpha: 0.75),
               borderRadius: BorderRadius.circular(3),
             ),
             child: Padding(
@@ -175,26 +178,24 @@ class _ScoreGraphState extends State<ScoreGraph> {
                     widget.showWinrate,
                     widget.showPointloss,
                     _navigateIndex,
-                    Theme.of(context).colorScheme.outlineVariant,
+                    colors,
+                    scheme.outlineVariant,
+                    scheme.outline,
                   ),
                 ),
               ),
               if (widget.showScore) ...[
-                marker('${i18n.tr('short color B')}+${data.scoreScale}', KTheme.scoreMarkerColor, Alignment.topRight),
-                marker(i18n.tr('Jigo'), KTheme.scoreMarkerColor, Alignment.centerRight),
-                marker(
-                  '${i18n.tr('short color W')}+${data.scoreScale}',
-                  KTheme.scoreMarkerColor,
-                  Alignment.bottomRight,
-                ),
+                marker('${i18n.tr('short color B')}+${data.scoreScale}', colors.score, Alignment.topRight),
+                marker(i18n.tr('Jigo'), colors.score, Alignment.centerRight),
+                marker('${i18n.tr('short color W')}+${data.scoreScale}', colors.score, Alignment.bottomRight),
               ],
               if (widget.showWinrate) ...[
-                marker('${50 + data.winrateScale}%', KTheme.winrateMarkerColor, Alignment.topLeft),
-                marker('${50 - data.winrateScale}%', KTheme.winrateMarkerColor, Alignment.bottomLeft),
+                marker('${50 + data.winrateScale}%', colors.winrate, Alignment.topLeft),
+                marker('${50 - data.winrateScale}%', colors.winrate, Alignment.bottomLeft),
               ],
               if (widget.showPointloss) ...[
-                marker('-${data.pointlossScale}', KTheme.pointlossMarkerColor, Alignment.topLeft),
-                marker('0', KTheme.pointlossMarkerColor, Alignment.bottomLeft),
+                marker('-${data.pointlossScale}', colors.pointloss, Alignment.topLeft),
+                marker('0', colors.pointloss, Alignment.bottomLeft),
               ],
             ],
           ),
@@ -211,9 +212,23 @@ class _GraphPainter extends CustomPainter {
   final bool showPointloss;
   final int? navigateIndex;
 
+  final EvalColors colors;
+
   /// The colour of the reference lines: even at half height, half the scale at a quarter and three quarters.
   final Color grid;
-  _GraphPainter(this.data, this.showScore, this.showWinrate, this.showPointloss, this.navigateIndex, this.grid);
+
+  /// The colour of the line at the move being pointed at.
+  final Color pointer;
+  _GraphPainter(
+    this.data,
+    this.showScore,
+    this.showWinrate,
+    this.showPointloss,
+    this.navigateIndex,
+    this.colors,
+    this.grid,
+    this.pointer,
+  );
 
   void _dashed(Canvas canvas, double y, double width, {required double dash, required double gap}) {
     final paint = Paint()
@@ -252,13 +267,13 @@ class _GraphPainter extends CustomPainter {
     _dashed(canvas, size.height / 2, size.width, dash: 6, gap: 4);
     _dashed(canvas, size.height / 4, size.width, dash: 2, gap: 3);
     _dashed(canvas, size.height * 3 / 4, size.width, dash: 2, gap: 3);
-    if (showScore) _line(canvas, data.score, KTheme.scoreColor);
-    if (showWinrate) _line(canvas, data.winrate, KTheme.winrateColor);
-    if (showPointloss) _line(canvas, data.pointloss, KTheme.pointlossColor);
+    if (showScore) _line(canvas, data.score, colors.score);
+    if (showWinrate) _line(canvas, data.winrate, colors.winrate);
+    if (showPointloss) _line(canvas, data.pointloss, colors.pointloss);
     final nav = navigateIndex;
     if (nav != null && nav < data.score.length) {
       final x = data.score[nav].dx;
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), Paint()..color = kc([0.5, 0.5, 0.5, 1]));
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), Paint()..color = pointer);
     }
     const highlight = 6.0;
     final dotPaint = Paint()..color = KTheme.graphDotColor;

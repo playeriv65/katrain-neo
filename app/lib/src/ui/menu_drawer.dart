@@ -8,7 +8,7 @@ import 'package:katrain_core/katrain_core.dart';
 
 import '../state/app_controller.dart';
 import '../state/dialogs.dart';
-import '../theme.dart';
+import 'stone_avatar.dart';
 
 /// The languages offered (Spanish is translated but not offered yet).
 const languages = [
@@ -171,7 +171,7 @@ class _PlayerSetup extends StatelessWidget {
     final subtypes = type == playerAi ? aiStrategiesRecommendedOrder : gameTypes;
     return Row(
       children: [
-        CircleAvatar(radius: 14, backgroundColor: KTheme.stoneColors[bw]),
+        StoneAvatar(player: bw, radius: 14),
         const SizedBox(width: 12),
         Expanded(
           flex: 2,

@@ -92,7 +92,9 @@ class _KaTrainNeoAppState extends State<KaTrainNeoApp> {
     return MaterialApp(
       title: appTitle,
       debugShowCheckedModeBanner: false,
-      theme: appTheme(lang: i18n.lang),
+      theme: appTheme(lang: i18n.lang, brightness: Brightness.light),
+      darkTheme: appTheme(lang: i18n.lang, brightness: Brightness.dark),
+      themeMode: ThemeMode.system,
       locale: appLocales[i18n.lang],
       supportedLocales: appLocales.values,
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
