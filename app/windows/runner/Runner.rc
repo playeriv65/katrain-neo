@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "io.github.playeriv65" "\0"
-            VALUE "FileDescription", "katrain_neo" "\0"
+            VALUE "FileDescription", "KaTrain Neo" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "katrain_neo" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 io.github.playeriv65. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 KaTrain Neo contributors. MIT License." "\0"
             VALUE "OriginalFilename", "katrain_neo.exe" "\0"
-            VALUE "ProductName", "katrain_neo" "\0"
+            VALUE "ProductName", "KaTrain Neo" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

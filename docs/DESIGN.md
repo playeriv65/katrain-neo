@@ -159,7 +159,9 @@ Grouped by phase. A feature counts as done when it behaves like KaTrain, verifie
 
 **Phase 4 — agents and packaging**
 - The agent HTTP API and `katrain` CLI command set (as `katrain-neo`), so existing agent instructions keep working.
-- Installers for Windows, macOS and Linux.
+- Installers for Windows, macOS and Linux: CI builds a Windows installer (Inno Setup, `installer/windows`) and zip, a
+  macOS dmg and a Linux tar.gz, each with the `katrain-neo` command next to the app; a `v*` tag publishes them as a
+  release.
 
 ## Testing
 

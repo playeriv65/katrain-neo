@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -69,3 +70,67 @@ jobs:
       - name: Build
         working-directory: app
         run: flutter build ${{ matrix.target }} --release
+      - name: Version
+        id: version
+        shell: bash
+        run: |
+          echo "version=$(sed -n 's/^version: *\([^+]*\).*/\1/p' app/pubspec.yaml)" >> "$GITHUB_OUTPUT"
+      - name: Build the katrain-neo command
+        shell: bash
+        run: dart compile exe packages/katrain_cli/bin/katrain_neo.dart -o "cli/katrain-neo${{ matrix.target == 'windows' && '.exe' || '' }}"
+      - name: Package (Windows)
+        if: matrix.target == 'windows'
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          dir=app/build/windows/x64/runner/Release
+          cp cli/katrain-neo.exe "$dir/"
+          mkdir -p dist
+          (cd "$dir" && 7z a -tzip "$GITHUB_WORKSPACE/dist/KaTrainNeo-$VERSION-windows-x64.zip" . > /dev/null)
+          iscc="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
+          if [ ! -f "$iscc" ]; then choco install innosetup --no-progress -y; fi
+          "$iscc" //DAppVersion="$VERSION" //DSourceDir="$GITHUB_WORKSPACE/$dir" //O"$GITHUB_WORKSPACE/dist" installer/windows/katrain_neo.iss
+      - name: Package (macOS)
+        if: matrix.target == 'macos'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          app=app/build/macos/Build/Products/Release/katrain_neo.app
+          cp cli/katrain-neo "$app/Contents/MacOS/"
+          mkdir -p dist dmg
+          cp -R "$app" "dmg/KaTrain Neo.app"
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname "KaTrain Neo" -srcfolder dmg -ov -format UDZO "dist/KaTrainNeo-$VERSION-macos.dmg"
+      - name: Package (Linux)
+        if: matrix.target == 'linux'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          bundle=app/build/linux/x64/release/bundle
+          cp cli/katrain-neo "$bundle/"
+          mkdir -p dist
+          cp -R "$bundle" "katrain-neo-$VERSION"
+          tar czf "dist/KaTrainNeo-$VERSION-linux-x64.tar.gz" "katrain-neo-$VERSION"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: katrain-neo-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          prerelease: true

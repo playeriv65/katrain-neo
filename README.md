@@ -18,6 +18,13 @@ teacher, AI, general and engine settings with model and KataGo downloads, load a
 frame, engine recovery), its keyboard shortcuts, sounds, drag and drop, and window placement. The local API and the
 `katrain-neo` command let coding agents read and steer the running app (from our KaTrain fork; see below).
 
+## Install
+
+Builds for Windows (installer or zip), macOS (dmg) and Linux (tar.gz) are attached to each
+[release](https://github.com/playeriv65/katrain-neo/releases), and to every CI run as artifacts. They are early,
+unsigned development builds. KataGo is not included: point the general settings at your KataGo and model, or use the
+download buttons there. The `katrain-neo` command sits next to the app (the Windows installer can add it to PATH).
+
 ## For AI agents: `katrain-neo`
 
 The app serves a local API (127.0.0.1, a token per run in `~/.katrain-neo/api.json`); the `katrain-neo` command
