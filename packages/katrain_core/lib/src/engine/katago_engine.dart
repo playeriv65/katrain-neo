@@ -17,7 +17,7 @@ import '../utils/format.dart';
 import '../utils/template.dart';
 import 'analysis_engine.dart';
 
-/// What the engine needs from the application (KaTrain's `katrain` object).
+/// What the engine needs from the application (KaTrain's `host` object).
 abstract interface class EngineHost {
   void log(String message, num level);
 

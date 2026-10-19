@@ -6,5 +6,5 @@
 *.otf binary
 *.gz binary
 
-# test records must keep their bytes (some use CRLF); the fixtures were generated from them as they are
-packages/katrain_core/test/fixtures/inputs/** -text
+# test records keep their bytes (encodings, line endings)
+packages/katrain_core/test/data/** -text

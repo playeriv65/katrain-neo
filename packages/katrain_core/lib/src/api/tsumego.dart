@@ -12,7 +12,7 @@ import 'dart:io';
 import '../engine/io/local_katago.dart' show expandUser;
 import '../game/game_node.dart';
 import '../game/tsumego_frame.dart' show nearToEdge;
-import '../sgf/codecs/py_codecs.dart';
+import '../sgf/codecs/decode.dart';
 import '../sgf/move.dart';
 import '../utils/format.dart';
 import 'args.dart';

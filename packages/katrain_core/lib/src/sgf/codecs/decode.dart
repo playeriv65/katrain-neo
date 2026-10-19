@@ -47,7 +47,7 @@ String normalizeEncodingName(String name) {
 
 /// The codec Python finds for [encoding] (`codecs.lookup`), among the supported ones; null when Python would raise
 /// LookupError, or for a codec this port does not have.
-String? pyCodecName(String encoding) {
+String? codecName(String encoding) {
   final norm = normalizeEncodingName(encoding);
   if (norm.isEmpty) return null;
   return codecAliases[norm] ?? codecAliases[norm.replaceAll('.', '_')];
@@ -55,8 +55,8 @@ String? pyCodecName(String encoding) {
 
 /// `bytes.decode(encoding, errors="ignore")`, or null when Python has no codec of that name (or this port does not
 /// support it; Python's codecs for EBCDIC, ISO-2022, HZ, UTF-7, Big5-HKSCS and a few others are not included).
-String? pyDecodeIgnore(List<int> bytes, String encoding) {
-  final codec = pyCodecName(encoding);
+String? decodeIgnoringErrors(List<int> bytes, String encoding) {
+  final codec = codecName(encoding);
   if (codec == null) return null;
   return decodeWith(codec, bytes).$1;
 }

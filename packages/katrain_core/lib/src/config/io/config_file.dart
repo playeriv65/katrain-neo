@@ -1,5 +1,5 @@
 // Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/core/base_katrain.py:
-// KaTrainBase._load_config, and the file format of Kivy's JsonStore (kivy/storage/jsonstore.py, MIT), which KaTrain
+// HostBase._load_config, and the file format of Kivy's JsonStore (kivy/storage/jsonstore.py, MIT), which KaTrain
 // keeps its settings in.
 
 import 'dart:convert';
@@ -7,7 +7,7 @@ import 'dart:io';
 
 import '../../constants.dart';
 import '../../engine/io/local_katago.dart' show expandUser;
-import '../katrain_base.dart';
+import '../host_base.dart';
 
 /// Settings in a JSON file, written like Kivy's JsonStore with `indent=4`: the whole file on every change, in
 /// Python's `json.dump` format.
@@ -48,7 +48,7 @@ String defaultConfigText() => '${const JsonEncoder.withIndent('    ').convert(de
 ConfigStore openConfig({
   String? commandLineFile,
   bool forcePackageConfig = false,
-  String dataFolder = neoDataFolder,
+  String dataFolder = defaultDataFolder,
   void Function(String message, int level)? log,
 }) {
   void say(String message, int level) => log?.call(message, level);

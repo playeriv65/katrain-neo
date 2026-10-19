@@ -8,8 +8,8 @@ import 'package:katrain_core/io.dart';
 import 'package:katrain_core/katrain_core.dart';
 import 'package:test/test.dart';
 
-/// KaTrainBase without a GUI.
-class Headless extends KaTrainBase {
+/// HostBase without a GUI.
+class Headless extends HostBase {
   final List<String> lines = [];
 
   Headless(super.configStore, {super.debugLevel}) {
@@ -47,8 +47,9 @@ void main() {
   });
   tearDown(() => tmp.deleteSync(recursive: true));
 
-  test("the defaults are KaTrain's config.json, which is in json.dump format", () {
-    expect((defaultConfig()['general'] as Map)['version'], version);
+  test('the defaults are current and written as they are defined', () {
+    final defaults = parseVersion((defaultConfig()['general'] as Map)['version'] as String);
+    expect(compareVersions(defaults, parseVersion(configMinVersion)), greaterThanOrEqualTo(0));
     expect(defaultConfigText(), defaultConfigJson);
   });
 
@@ -81,13 +82,13 @@ void main() {
     final settings = defaultConfig();
     (settings['general'] as Map)['lang'] = 'cn';
     configFile.writeAsStringSync(jsonEncode(settings));
-    final katrain = Headless(openConfig(dataFolder: folder));
-    expect(katrain.config('general/lang'), 'cn');
-    expect(katrain.config('general/missing', 42), 42);
-    expect(katrain.config('nosection/key'), isNull);
-    expect((katrain.config('trainer') as Map)['eval_thresholds'], [12, 6, 3, 1.5, 0.5, 0]);
-    (katrain.config('game') as Map)['komi'] = 7.5;
-    katrain.saveConfig('game');
+    final host = Headless(openConfig(dataFolder: folder));
+    expect(host.config('general/lang'), 'cn');
+    expect(host.config('general/missing', 42), 42);
+    expect(host.config('nosection/key'), isNull);
+    expect((host.config('trainer') as Map)['eval_thresholds'], [12, 6, 3, 1.5, 0.5, 0]);
+    (host.config('game') as Map)['komi'] = 7.5;
+    host.saveConfig('game');
     (settings['game'] as Map)['komi'] = 7.5;
     expect(configFile.readAsStringSync(), const JsonEncoder.withIndent('    ').convert(settings));
   });
@@ -102,23 +103,23 @@ void main() {
   });
 
   test('players, AI ranks and logging', () {
-    final katrain = Headless(MemoryConfigStore());
-    expect(katrain.debugLevel, 0);
-    expect(katrain.playersInfo['B']!.human, isTrue);
-    katrain.updatePlayer('W', playerType: playerAi, playerSubtype: aiPick);
-    final ai = katrain.playersInfo['W']!;
+    final host = Headless(MemoryConfigStore());
+    expect(host.debugLevel, 0);
+    expect(host.playersInfo['B']!.human, isTrue);
+    host.updatePlayer('W', playerType: playerAi, playerSubtype: aiPick);
+    final ai = host.playersInfo['W']!;
     expect(ai.strategy, aiPick);
     expect(ai.calculatedRank, closeTo(-4.2487, 1e-4)); // as in ai.json
-    katrain.updatePlayer('B', playerType: playerHuman, playerSubtype: playingTeaching);
-    expect(katrain.playersInfo['B']!.beingTaught, isTrue);
-    expect(katrain.playersInfo['B']!.calculatedRank, isNull);
-    katrain.updatePlayer('B'); // a subtype that is not given goes back to normal, as in KaTrain
-    expect(katrain.playersInfo['B']!.playerSubtype, playingNormal);
-    katrain.log('shown');
-    katrain.log('hidden', outputDebug);
-    katrain.log('bad', outputError);
-    expect(katrain.lines, ['shown', 'ERROR: bad']);
-    katrain.resetPlayers();
-    expect(katrain.playersInfo['W']!.human, isTrue);
+    host.updatePlayer('B', playerType: playerHuman, playerSubtype: playingTeaching);
+    expect(host.playersInfo['B']!.beingTaught, isTrue);
+    expect(host.playersInfo['B']!.calculatedRank, isNull);
+    host.updatePlayer('B'); // a subtype that is not given goes back to normal, as in KaTrain
+    expect(host.playersInfo['B']!.playerSubtype, playingNormal);
+    host.log('shown');
+    host.log('hidden', outputDebug);
+    host.log('bad', outputError);
+    expect(host.lines, ['shown', 'ERROR: bad']);
+    host.resetPlayers();
+    expect(host.playersInfo['W']!.human, isTrue);
   });
 }

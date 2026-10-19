@@ -271,7 +271,7 @@ abstract class AIStrategy {
     log('Initializing $strategyName with settings: $settings', outputDebug);
   }
 
-  void log(String message, int level) => game.katrain.log(message, level);
+  void log(String message, int level) => game.host.log(message, level);
 
   /// Generate a move and explanation.
   Future<(Move, String)> generateMove();
@@ -1510,25 +1510,25 @@ Future<(Move?, GameNode?)> generateAiMove(Game game, String aiMode, Map<String, 
   // Custom configs may refer to a removed strategy.
   var strategyFactory = strategyRegistry[aiMode];
   if (strategyFactory == null) {
-    game.katrain.log("AI strategy '$aiMode' not found, falling back to '$aiDefault'", outputError);
+    game.host.log("AI strategy '$aiMode' not found, falling back to '$aiDefault'", outputError);
     strategyFactory = strategyRegistry[aiDefault]!;
   }
   final strategy = strategyFactory(game, aiSettings);
-  game.katrain.log('Generating move using ${strategy.strategyName} (mode $aiMode)', outputDebug);
+  game.host.log('Generating move using ${strategy.strategyName} (mode $aiMode)', outputDebug);
   final Move move;
   final String aiThoughts;
   try {
     (move, aiThoughts) = await strategy.generateMove();
   } on AnalysisDiscardedException catch (e) {
-    game.katrain.log('Discarding AI move: $e', outputDebug);
+    game.host.log('Discarding AI move: $e', outputDebug);
     return (null, null);
   }
   final playedNode = game.play(move, expectedNode: strategy.cn);
   if (playedNode == null) {
-    game.katrain.log('Discarding AI move ${move.gtp()}: position changed', outputDebug);
+    game.host.log('Discarding AI move ${move.gtp()}: position changed', outputDebug);
     return (move, null);
   }
   playedNode.aiThoughts = aiThoughts;
-  game.katrain.log('Move generation complete: ${move.gtp()} -- $aiThoughts', outputDebug);
+  game.host.log('Move generation complete: ${move.gtp()} -- $aiThoughts', outputDebug);
   return (move, playedNode);
 }

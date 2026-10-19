@@ -57,7 +57,7 @@ class TestHost extends FakeHost implements ApiHost {
   void tsumegoFrame(bool ko, int margin) {
     final g = game!;
     if (g.stones.isEmpty) return;
-    final (node, region) = tsumegoFrameFromKatrainGame(g, g.komi, g.currentNode.nextPlayer == 'B', ko, margin);
+    final (node, region) = tsumegoFrameForGame(g, g.komi, g.currentNode.nextPlayer == 'B', ko, margin);
     g.setCurrentNode(node);
     if (region != null) {
       g.setRegionOfInterest([region.$1.$2, region.$1.$1, region.$2.$2, region.$2.$1]);

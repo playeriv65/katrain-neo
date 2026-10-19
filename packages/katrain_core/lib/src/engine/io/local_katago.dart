@@ -5,7 +5,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import '../../config/katrain_base.dart' show neoDataFolder;
+import '../../config/host_base.dart' show defaultDataFolder;
 import '../../constants.dart';
 import '../../i18n/i18n.dart';
 import '../../utils/template.dart';
@@ -40,7 +40,7 @@ class LocalKataGo implements EngineConnection {
   bool _stopping = false;
   final List<StreamSubscription> _subscriptions = [];
 
-  LocalKataGo(this.engine, {required this.resourceDir, this.dataFolder = neoDataFolder});
+  LocalKataGo(this.engine, {required this.resourceDir, this.dataFolder = defaultDataFolder});
 
   Map<String, dynamic> get config => engine.config;
 

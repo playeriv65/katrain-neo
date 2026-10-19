@@ -96,7 +96,7 @@ void main() {
       expect(other.externalGame, isTrue);
       expect(other.root.getProperty('RU'), 'japanese');
       expect((await newGame(sgf: '(;SZ[9]AP[KaTrain:1.16.0];B[cc])')).externalGame, isFalse);
-      expect((await newGame(sgf: '(;SZ[9]AP[$writerName:$writerVersion];B[cc])')).externalGame, isFalse);
+      expect((await newGame(sgf: '(;SZ[9]AP[$appName:$appVersion];B[cc])')).externalGame, isFalse);
     });
 
     test('every node is analysed once the game is shown', () async {
@@ -788,7 +788,7 @@ void main() {
       final game = await newGame(now: DateTime(2024, 3, 5, 7, 8, 9));
       host.playersInfo['B']!.name = 'Ann/Lee?';
       host.playersInfo['W']!.name = 'Bob:"X"';
-      expect(game.generateFilename(), '${writerName}_AnnLee vs BobX 2024-03-05 07 08 09.sgf');
+      expect(game.generateFilename(), '${appName}_AnnLee vs BobX 2024-03-05 07 08 09.sgf');
       expect(game.root.getProperty('PB'), 'Ann/Lee?');
     });
 
@@ -807,7 +807,7 @@ void main() {
     test("another program's game keeps its player names", () async {
       final game = await newGame(sgf: '(;SZ[9]PB[Shusaku]PW[Gennan];B[cc])', now: DateTime(2024, 3, 5));
       host.playersInfo['B']!.name = 'Me';
-      expect(game.generateFilename(), '${writerName}_Shusaku vs Gennan 2024-03-05 00 00 00.sgf');
+      expect(game.generateFilename(), '${appName}_Shusaku vs Gennan 2024-03-05 00 00 00.sgf');
     });
 
     test('the result is written once there is one', () async {
@@ -825,7 +825,7 @@ void main() {
       play(game, 'C3 G7 C7');
       final saved = gameParser.parseSgf(game.sgfToSave());
       expect(line(saved.nodesInTree.last), 'BC3 WG7 BC7');
-      expect(saved.getProperty('AP'), '$writerName:$writerVersion');
+      expect(saved.getProperty('AP'), '$appName:$appVersion');
       expect(saved.getProperty('SZ'), '9');
     });
 

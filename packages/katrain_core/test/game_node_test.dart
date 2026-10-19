@@ -683,7 +683,7 @@ void main() {
       final root = gameParser.parseSgf('(;SZ[9]KM[6.5];B[ee])');
       final again = gameParser.parseSgf(root.sgf());
       expect(again.getProperty('CA'), 'UTF-8');
-      expect(again.getProperty('AP'), '$writerName:$writerVersion');
+      expect(again.getProperty('AP'), '$appName:$appVersion');
       expect(again.getProperty('KTV'), analysisFormatVersion);
       expect(again.getProperty('SZ'), '9');
       expect(again.getProperty('KM'), '6.5');

@@ -3,6 +3,6 @@ import 'package:test/test.dart';
 
 void main() {
   test('core library loads', () {
-    expect(coreVersion, isNotEmpty);
+    expect(appVersion, isNotEmpty);
   });
 }

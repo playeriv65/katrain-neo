@@ -8,7 +8,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import '../config/katrain_base.dart' show neoDataFolder;
+import '../config/host_base.dart' show defaultDataFolder;
 import '../constants.dart';
 import '../engine/analysis_engine.dart';
 import '../engine/io/local_katago.dart' show expandUser;
@@ -111,7 +111,7 @@ class CommandHandler {
 
   /// Where previous games are backed up before an import replaces them.
   final String dataFolder;
-  CommandHandler(this.host, this.state, {String? dataFolder}) : dataFolder = dataFolder ?? expandUser(neoDataFolder);
+  CommandHandler(this.host, this.state, {String? dataFolder}) : dataFolder = dataFolder ?? expandUser(defaultDataFolder);
 
   Future<Object?> dispatch(String name, Map<String, dynamic> args) async {
     final command = apiCommands[name];

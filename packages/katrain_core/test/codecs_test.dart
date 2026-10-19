@@ -169,35 +169,35 @@ void main() {
 
     test('characters beyond the older code pages', () {
       // GBK has characters GB2312 lacks; GB18030 has all of Unicode, partly as four bytes
-      expect(pyDecodeIgnore([0x81, 0x40], 'gbk'), '丂');
-      expect(pyDecodeIgnore([0x81, 0x40], 'gb2312'), '@');
-      expect(pyDecodeIgnore([0xA2, 0xE3], 'gb18030'), '€');
-      expect(pyDecodeIgnore([0x94, 0x39, 0xFC, 0x36], 'gb18030'), '😀');
-      expect(pyDecodeIgnore([0x81, 0x30, 0x81, 0x30], 'gb18030'), '\u0080');
+      expect(decodeIgnoringErrors([0x81, 0x40], 'gbk'), '丂');
+      expect(decodeIgnoringErrors([0x81, 0x40], 'gb2312'), '@');
+      expect(decodeIgnoringErrors([0xA2, 0xE3], 'gb18030'), '€');
+      expect(decodeIgnoringErrors([0x94, 0x39, 0xFC, 0x36], 'gb18030'), '😀');
+      expect(decodeIgnoringErrors([0x81, 0x30, 0x81, 0x30], 'gb18030'), '\u0080');
       // CP949 has all hangul syllables, EUC-KR only the 2350 common ones
-      expect(pyDecodeIgnore([0x8C, 0x63], 'cp949'), '똠');
-      expect(pyDecodeIgnore([0x8C, 0x63], 'euc_kr'), 'c');
+      expect(decodeIgnoringErrors([0x8C, 0x63], 'cp949'), '똠');
+      expect(decodeIgnoringErrors([0x8C, 0x63], 'euc_kr'), 'c');
       // Windows-1252 has letters where ISO-8859-1 has control characters
-      expect(pyDecodeIgnore([0x80, 0x96, 0xE9], 'cp1252'), '€–é');
-      expect(pyDecodeIgnore([0x80, 0x96, 0xE9], 'latin_1'), '\u0080\u0096é');
+      expect(decodeIgnoringErrors([0x80, 0x96, 0xE9], 'cp1252'), '€–é');
+      expect(decodeIgnoringErrors([0x80, 0x96, 0xE9], 'latin_1'), '\u0080\u0096é');
     });
 
     test('other single-byte code pages', () {
-      expect(pyDecodeIgnore([0xC1, 0xC2], 'koi8_r'), 'аб');
-      expect(pyDecodeIgnore([0xE0, 0xE1], 'cp1251'), 'аб');
-      expect(pyDecodeIgnore([0xE1, 0xE2], 'iso8859_7'), 'αβ');
-      expect(pyDecodeIgnore([0xA1], 'tis_620'), 'ก');
-      expect(pyDecodeIgnore([0x8E], 'mac_roman'), 'é');
+      expect(decodeIgnoringErrors([0xC1, 0xC2], 'koi8_r'), 'аб');
+      expect(decodeIgnoringErrors([0xE0, 0xE1], 'cp1251'), 'аб');
+      expect(decodeIgnoringErrors([0xE1, 0xE2], 'iso8859_7'), 'αβ');
+      expect(decodeIgnoringErrors([0xA1], 'tis_620'), 'ก');
+      expect(decodeIgnoringErrors([0x8E], 'mac_roman'), 'é');
     });
 
     test('Unicode encodings', () {
-      expect(pyDecodeIgnore(utf8.encode('棋 Go'), 'utf8'), '棋 Go');
-      expect(pyDecodeIgnore([0xEF, 0xBB, 0xBF, 0x41], 'utf_8_sig'), 'A');
-      expect(pyDecodeIgnore([0xFF, 0xFE, 0x41, 0x00, 0x3D, 0xD8, 0x00, 0xDE], 'utf_16'), 'A😀');
-      expect(pyDecodeIgnore([0xFE, 0xFF, 0x00, 0x41], 'utf_16'), 'A');
-      expect(pyDecodeIgnore([0x00, 0x41], 'utf_16_be'), 'A');
-      expect(pyDecodeIgnore([0x41, 0x00, 0x00, 0x00], 'utf_32_le'), 'A');
-      expect(pyDecodeIgnore([0x00, 0x00, 0xFE, 0xFF, 0x00, 0x01, 0xF6, 0x00], 'utf_32'), '😀');
+      expect(decodeIgnoringErrors(utf8.encode('棋 Go'), 'utf8'), '棋 Go');
+      expect(decodeIgnoringErrors([0xEF, 0xBB, 0xBF, 0x41], 'utf_8_sig'), 'A');
+      expect(decodeIgnoringErrors([0xFF, 0xFE, 0x41, 0x00, 0x3D, 0xD8, 0x00, 0xDE], 'utf_16'), 'A😀');
+      expect(decodeIgnoringErrors([0xFE, 0xFF, 0x00, 0x41], 'utf_16'), 'A');
+      expect(decodeIgnoringErrors([0x00, 0x41], 'utf_16_be'), 'A');
+      expect(decodeIgnoringErrors([0x41, 0x00, 0x00, 0x00], 'utf_32_le'), 'A');
+      expect(decodeIgnoringErrors([0x00, 0x00, 0xFE, 0xFF, 0x00, 0x01, 0xF6, 0x00], 'utf_32'), '😀');
     });
 
     test('invalid bytes are dropped and counted', () {
@@ -235,14 +235,14 @@ void main() {
         'US-ASCII': 'ascii',
       };
       for (final MapEntry(key: name, value: codec) in names.entries) {
-        expect(pyCodecName(name), codec, reason: name);
+        expect(codecName(name), codec, reason: name);
       }
     });
 
     test('unknown names have no codec', () {
-      expect(pyCodecName('klingon'), isNull);
-      expect(pyCodecName(''), isNull);
-      expect(pyDecodeIgnore([0x41], 'klingon'), isNull);
+      expect(codecName('klingon'), isNull);
+      expect(codecName(''), isNull);
+      expect(decodeIgnoringErrors([0x41], 'klingon'), isNull);
     });
   });
 

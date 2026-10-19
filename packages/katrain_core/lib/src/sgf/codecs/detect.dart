@@ -7,7 +7,7 @@
 /// Ties go to Chinese. Short texts in Korean can look like Chinese and are then misread, as with chardet.
 library;
 
-import 'py_codecs.dart';
+import 'decode.dart';
 import 'tables.dart';
 
 /// The encoding to decode [bytes] with, as a Python codec name.

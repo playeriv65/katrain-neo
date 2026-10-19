@@ -17,7 +17,7 @@ import 'src/ui/main_screen.dart';
 import 'src/ui/app_theme.dart';
 import 'src/window.dart';
 
-const appTitle = 'KaTrain Neo v$coreVersion';
+const appTitle = 'KaTrain Neo v$appVersion';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,7 +40,7 @@ Future<void> main(List<String> args) async {
   final api = await startApiServer(
     CommandHandler(AppApiHost(app), app.apiState),
     config: app.config,
-    version: coreVersion,
+    version: appVersion,
     log: app.log,
   );
   onWindowClose(() async => api?.stop());
@@ -49,7 +49,7 @@ Future<void> main(List<String> args) async {
 /// Settings name packaged resources as `katrain/...`; they live in the data folder, with KataGo's analysis settings.
 /// The KataGo program and model are the user's.
 Future<String> prepareResources() async {
-  final dir = Directory('${expandUser(neoDataFolder)}${Platform.pathSeparator}package');
+  final dir = Directory('${expandUser(defaultDataFolder)}${Platform.pathSeparator}package');
   final cfg = File('${dir.path}${Platform.pathSeparator}KataGo${Platform.pathSeparator}analysis_config.cfg');
   if (!cfg.existsSync()) {
     cfg.parent.createSync(recursive: true);

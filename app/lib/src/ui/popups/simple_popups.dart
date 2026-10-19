@@ -218,7 +218,7 @@ class EngineRecoveryDialog extends StatelessWidget {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => openUrl('$homepage/blob/master/ENGINE.md'), child: Text(i18n.tr('link_here'))),
+        TextButton(onPressed: () => openUrl('$homepage#katago'), child: Text(i18n.tr('link_here'))),
         TextButton(
           onPressed: () {
             Navigator.of(context).pop();

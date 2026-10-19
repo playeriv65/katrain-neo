@@ -273,7 +273,7 @@ void main() {
       final current = game.currentNode;
       final problemStones = {for (final m in game.stones) m};
 
-      final (node, region) = tsumegoFrameFromKatrainGame(game, 6.5, false, false, 4);
+      final (node, region) = tsumegoFrameForGame(game, 6.5, false, false, 4);
       expect(node.parent, same(current));
       expect(game.currentNode, same(current), reason: 'the caller shows the frame');
 
@@ -294,7 +294,7 @@ void main() {
     test('an empty board gets an empty frame node and no region', () {
       final root = GameNode(properties: {'SZ': 9});
       final game = BaseGame<GameNode>(root);
-      final (node, region) = tsumegoFrameFromKatrainGame(game, 6.5, true, false, 4);
+      final (node, region) = tsumegoFrameForGame(game, 6.5, true, false, 4);
       expect(node.parent, same(root));
       expect(node.getListProperty('AB'), isEmpty);
       expect(node.getListProperty('AW'), isEmpty);

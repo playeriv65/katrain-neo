@@ -2,7 +2,7 @@
 library;
 
 export 'src/config/default_config.dart';
-export 'src/config/katrain_base.dart';
+export 'src/config/host_base.dart';
 export 'src/constants.dart';
 export 'src/engine/analysis_engine.dart';
 export 'src/engine/katago_engine.dart';
@@ -15,7 +15,7 @@ export 'src/i18n/i18n.dart';
 export 'src/rules/base_game.dart';
 export 'src/rules/rulesets.dart';
 export 'src/sgf/codecs/detect.dart';
-export 'src/sgf/codecs/py_codecs.dart';
+export 'src/sgf/codecs/decode.dart';
 export 'src/sgf/go_node.dart';
 export 'src/sgf/move.dart';
 export 'src/sgf/parser.dart';
@@ -23,6 +23,3 @@ export 'src/utils/format.dart';
 export 'src/utils/random.dart';
 export 'src/utils/template.dart';
 export 'src/utils/utils.dart';
-
-/// Version of the core package.
-const coreVersion = '0.1.0';

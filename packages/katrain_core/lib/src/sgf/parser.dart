@@ -3,7 +3,7 @@
 import 'dart:convert';
 
 import 'codecs/detect.dart';
-import 'codecs/py_codecs.dart';
+import 'codecs/decode.dart';
 import 'go_node.dart';
 import 'move.dart';
 
@@ -59,7 +59,7 @@ class SgfParser<N extends BaseGoNode<N>> {
       }
     }
     final ext = isNgf ? 'ngf' : (isGib ? 'gib' : 'sgf');
-    return parse(pyDecodeIgnore(bytes, enc) ?? pyDecodeIgnore(bytes, defaultEncoding)!, ext: ext);
+    return parse(decodeIgnoringErrors(bytes, enc) ?? decodeIgnoringErrors(bytes, defaultEncoding)!, ext: ext);
   }
 
   /// pysgf's DEFAULT_ENCODING, for encodings Python does not know.
@@ -166,12 +166,12 @@ class SgfParser<N extends BaseGoNode<N>> {
     String rawDate;
     double komi;
     try {
-      boardSize = _pythonInt(lines[1]);
-      handicap = _pythonInt(lines[5]);
+      boardSize = _int(lines[1]);
+      handicap = _int(lines[5]);
       pw = _firstWord(lines[2]);
       pb = _firstWord(lines[3]);
       rawDate = lines[8].substring(0, lines[8].length < 8 ? lines[8].length : 8);
-      komi = _pythonFloat(lines[7]);
+      komi = _float(lines[7]);
       if (handicap == 0 && komi.truncateToDouble() == komi) komi += 0.5;
     } on RangeError {
       (boardSize, handicap, pw, pb, rawDate, komi) = (19, 0, '', '', '', 0);
@@ -241,7 +241,7 @@ class SgfParser<N extends BaseGoNode<N>> {
     String makeResult(int grlt, int zipsu) {
       const easyCases = {3: 'B+R', 4: 'W+R', 7: 'B+T', 8: 'W+T'};
       if (easyCases.containsKey(grlt)) return easyCases[grlt]!;
-      if (grlt == 0 || grlt == 1) return '${grlt == 0 ? 'B' : 'W'}+${_pyDivTen(zipsu)}';
+      if (grlt == 0 || grlt == 1) return '${grlt == 0 ? 'B' : 'W'}+${_tenths(zipsu)}';
       return '';
     }
 
@@ -307,8 +307,8 @@ class SgfParser<N extends BaseGoNode<N>> {
         final String key;
         try {
           key = parts[3] == '1' ? 'B' : 'W';
-          x = _pythonInt(parts[4]);
-          y = 18 - _pythonInt(parts[5]);
+          x = _int(parts[4]);
+          y = 18 - _int(parts[5]);
         } on RangeError {
           throw ParseError('Malformed STO line: $line');
         } on FormatException {
@@ -333,20 +333,20 @@ class SgfParser<N extends BaseGoNode<N>> {
     return t.split(RegExp(r'\s+'))[0];
   }
 
-  static int _pythonInt(String s) {
+  static int _int(String s) {
     final v = int.tryParse(s.trim());
     if (v == null) throw FormatException('invalid literal for int(): $s');
     return v;
   }
 
-  static double _pythonFloat(String s) {
+  static double _float(String s) {
     final v = double.tryParse(s.trim());
     if (v == null) throw FormatException('could not convert string to float: $s');
     return v;
   }
 
   /// `zipsu / 10` formatted like Python's str() of the float.
-  static String _pyDivTen(int zipsu) {
+  static String _tenths(int zipsu) {
     final v = zipsu / 10;
     return v == v.truncateToDouble() ? '${v.toInt()}.0' : v.toString();
   }

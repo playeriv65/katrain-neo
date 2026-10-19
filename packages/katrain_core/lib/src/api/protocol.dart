@@ -4,7 +4,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import '../config/katrain_base.dart' show neoDataFolder;
+import '../config/host_base.dart' show defaultDataFolder;
 import '../engine/io/local_katago.dart' show expandUser;
 
 const apiVersion = 1;
@@ -15,7 +15,7 @@ const healthPath = '/v1/health';
 const tokenHeader = 'X-KaTrain-Token';
 
 /// Where a running KaTrain Neo says how to reach its API.
-String get discoveryFile => '${expandUser(neoDataFolder)}${Platform.pathSeparator}api.json';
+String get discoveryFile => '${expandUser(defaultDataFolder)}${Platform.pathSeparator}api.json';
 
 /// An error reported back to the client as `{"ok": false, "error": {...}}`.
 class ApiError implements Exception {

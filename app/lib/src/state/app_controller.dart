@@ -22,7 +22,7 @@ import 'move_tree_layout.dart';
 import 'sounds.dart';
 import 'view_state.dart';
 
-class AppController extends KaTrainBase with ChangeNotifier {
+class AppController extends HostBase with ChangeNotifier {
   /// Folder with the packaged resources, for `katrain/...` paths in the engine settings.
   final String resourceDir;
   final Sounds sounds;
@@ -444,7 +444,7 @@ class AppController extends KaTrainBase with ChangeNotifier {
   void applyTsumegoFrame(bool ko, int margin) {
     final g = game!;
     if (g.stones.isEmpty) return;
-    final (node, region) = tsumegoFrameFromKatrainGame(g, g.komi, nextPlayerInfo.player == 'B', ko, margin);
+    final (node, region) = tsumegoFrameForGame(g, g.komi, nextPlayerInfo.player == 'B', ko, margin);
     g.setCurrentNode(node);
     if (mode == modePlay) switchUiMode();
     if (region != null) {

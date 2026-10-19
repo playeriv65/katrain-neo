@@ -101,7 +101,7 @@ class MenuDrawer extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.help_outline),
               title: Text(i18n.tr('menu:support')),
-              onTap: () => openUrl('$homepage#support'),
+              onTap: () => openUrl('$homepage/issues'),
             ),
           ],
         ),

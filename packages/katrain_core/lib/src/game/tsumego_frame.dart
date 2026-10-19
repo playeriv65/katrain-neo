@@ -30,7 +30,7 @@ typedef _Stones = List<List<_Point>>;
 
 /// Adds a node with the frame as placed stones after the current node, and returns it with the region to analyse,
 /// `((xmin, xmax), (ymin, ymax))`, if there is one.
-(GameNode, ((int, int), (int, int))?) tsumegoFrameFromKatrainGame(
+(GameNode, ((int, int), (int, int))?) tsumegoFrameForGame(
   BaseGame<GameNode> game,
   double komi,
   bool blackToPlayP,
@@ -43,14 +43,14 @@ typedef _Stones = List<List<_Point>>;
   ];
   final (isize, jsize) = (bwBoard.length, bwBoard[0].length);
   final (blacks, whites, analysisRegion) = tsumegoFrame(bwBoard, komi, blackToPlayP, koP, margin);
-  final sgfBlacks = katrainSgfFromIjs(blacks, isize, jsize, 'B');
-  final sgfWhites = katrainSgfFromIjs(whites, isize, jsize, 'W');
+  final sgfBlacks = sgfFromIjs(blacks, isize, jsize, 'B');
+  final sgfWhites = sgfFromIjs(whites, isize, jsize, 'W');
   final playedNode = GameNode(parent: currentNode, properties: {'AB': sgfBlacks, 'AW': sgfWhites}); // this inserts
-  final katrainRegion = analysisRegion == null ? null : (analysisRegion.$2, analysisRegion.$1);
-  return (playedNode, katrainRegion);
+  final region = analysisRegion == null ? null : (analysisRegion.$2, analysisRegion.$1);
+  return (playedNode, region);
 }
 
-List<String> katrainSgfFromIjs(List<(int, int)> ijs, int isize, int jsize, String player) => [
+List<String> sgfFromIjs(List<(int, int)> ijs, int isize, int jsize, String player) => [
   for (final (i, j) in ijs) Move(coords: (j, i)).sgf((jsize, isize)),
 ];
 

@@ -1,6 +1,6 @@
 // Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/core/remote_engine.py: make_engine.
 
-import '../../config/katrain_base.dart' show neoDataFolder;
+import '../../config/host_base.dart' show defaultDataFolder;
 import '../katago_engine.dart';
 import 'local_katago.dart';
 import 'remote_katago.dart';
@@ -11,7 +11,7 @@ Future<(KataGoEngine, Object)> makeEngine(
   EngineHost host,
   Map<String, dynamic> config, {
   required String resourceDir,
-  String dataFolder = neoDataFolder,
+  String dataFolder = defaultDataFolder,
 }) async {
   if (resolveEngineBackend(config) == 'remote') {
     final engine = KataGoEngine(host, config, engineType: 'remote');

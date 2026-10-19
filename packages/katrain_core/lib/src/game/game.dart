@@ -57,7 +57,7 @@ final _filenameUnsafe = RegExp('[​ㅤ\'<>:"/\\\\|?*]');
 class Game extends BaseGame<GameNode> {
   static const Map<String, Object> defaultProperties = {'GM': 1, 'FF': 4};
 
-  final GameHost katrain;
+  final GameHost host;
 
   /// The engine analysing the positions with each colour to move.
   final Map<String, AnalysisEngine<GameNode>> engines;
@@ -80,7 +80,7 @@ class Game extends BaseGame<GameNode> {
 
   /// A game analysed by [engine]: [moveTree] when one was loaded, otherwise a new empty board from the settings.
   Game(
-    GameHost katrain,
+    GameHost host,
     AnalysisEngine<GameNode> engine, {
     GameNode? moveTree,
     bool analyzeFast = false,
@@ -88,7 +88,7 @@ class Game extends BaseGame<GameNode> {
     String? sgfFilename,
     DateTime? now,
   }) : this.withEngines(
-         katrain,
+         host,
          {'B': engine, 'W': engine},
          moveTree: moveTree,
          analyzeFast: analyzeFast,
@@ -99,7 +99,7 @@ class Game extends BaseGame<GameNode> {
 
   /// A game with a different engine for each colour to move.
   Game.withEngines(
-    GameHost katrain,
+    GameHost host,
     Map<String, AnalysisEngine<GameNode>> engines, {
     GameNode? moveTree,
     bool analyzeFast = false,
@@ -107,7 +107,7 @@ class Game extends BaseGame<GameNode> {
     String? sgfFilename,
     DateTime? now,
   }) : this._(
-         katrain,
+         host,
          engines,
          moveTree,
          analyzeFast,
@@ -117,7 +117,7 @@ class Game extends BaseGame<GameNode> {
        );
 
   Game._(
-    this.katrain,
+    this.host,
     this.engines,
     GameNode? moveTree,
     bool analyzeFast,
@@ -125,12 +125,12 @@ class Game extends BaseGame<GameNode> {
     this.sgfFilename,
     this.gameId,
   ) : super(
-        moveTree ?? _newRoot(katrain, gameProperties, gameId),
-        defaultRules: katrain.config('game/rules') as String,
+        moveTree ?? _newRoot(host, gameProperties, gameId),
+        defaultRules: host.config('game/rules') as String,
         loaded: moveTree != null,
       ) {
     if (moveTree != null) {
-      externalGame = !(root.getProperty('AP') ?? '').contains(programName);
+      externalGame = !(root.getProperty('AP') ?? '').contains(analysisWriterTag);
     }
     // restore shortcuts
     final shortcutIdToNode = {for (final node in root.nodesInTree) node.getProperty('KTSID'): node};
@@ -143,18 +143,18 @@ class Game extends BaseGame<GameNode> {
     Future(() => analyzeAllNodes(analyzeFast: analyzeFast, evenIfPresent: false)); // return faster
   }
 
-  static GameNode _newRoot(GameHost katrain, Map<String, Object?>? gameProperties, String gameId) {
+  static GameNode _newRoot(GameHost host, Map<String, Object?>? gameProperties, String gameId) {
     final root = GameNode(
       properties: {
         ...defaultProperties,
         'DT': gameId,
-        'SZ': katrain.config('game/size'),
-        'KM': katrain.config('game/komi'),
-        'RU': katrain.config('game/rules'),
+        'SZ': host.config('game/size'),
+        'KM': host.config('game/komi'),
+        'RU': host.config('game/rules'),
         ...?gameProperties,
       },
     );
-    final handicap = katrain.config('game/handicap') as int?;
+    final handicap = host.config('game/handicap') as int?;
     if (handicap != null && handicap != 0) root.placeHandicapStones(handicap);
     return root;
   }
@@ -164,7 +164,7 @@ class Game extends BaseGame<GameNode> {
   @override
   void setCurrentNode(GameNode node) {
     if (insertMode) {
-      katrain.setStatus(i18n.tr('finish inserting before navigating'), statusError);
+      host.setStatus(i18n.tr('finish inserting before navigating'), statusError);
       return;
     }
     super.setCurrentNode(node);
@@ -212,7 +212,7 @@ class Game extends BaseGame<GameNode> {
       if (stopOnMistake != null &&
           lost != null &&
           lost >= stopOnMistake &&
-          katrain.playersInfo[cn.player]!.playerType != playerAi) {
+          host.playersInfo[cn.player]!.playerType != playerAi) {
         setCurrentNode(cn.parent!);
         return;
       }
@@ -257,7 +257,7 @@ class Game extends BaseGame<GameNode> {
           stopOnMistake != null &&
           lost != null &&
           lost >= stopOnMistake &&
-          katrain.playersInfo[cn.player]!.playerType != playerAi) {
+          host.playersInfo[cn.player]!.playerType != playerAi) {
         setCurrentNode(cn.parent!);
         return;
       }
@@ -332,7 +332,7 @@ class Game extends BaseGame<GameNode> {
     final score = squareTotal + prisoners['W']! - prisoners['B']! - komi;
     final numSqRepr = '{${[for (final e in numSq.entries) '${e.key}: ${e.value}'].join(', ')}}';
     final prisonersRepr = "{'B': ${prisoners['B']}, 'W': ${prisoners['W']}}";
-    katrain.log(
+    host.log(
       'Manual Scoring: $numSqRepr score by square with $numUnknown unknown, $prisonersRepr captures, and '
       '$komi komi -> score = $score',
       outputDebug,
@@ -353,7 +353,7 @@ class Game extends BaseGame<GameNode> {
     final xProperties = <String, String>{};
     for (final bw in const ['B', 'W']) {
       if (!externalGame) {
-        final info = katrain.playersInfo[bw]!;
+        final info = host.playersInfo[bw]!;
         xProperties['P$bw'] = playerName(info);
         if (info.playerType == playerAi) xProperties['${bw}R'] = rankLabel(info.calculatedRank);
       }
@@ -368,13 +368,13 @@ class Game extends BaseGame<GameNode> {
     final names = {
       for (final bw in const ['B', 'W']) bw: (root.getProperty('P$bw', bw) ?? '').replaceAll(_filenameUnsafe, ''),
     };
-    return '${writerName}_${names['B']} vs ${names['W']} $gameId.sgf';
+    return '${appName}_${names['B']} vs ${names['W']} $gameId.sgf';
   }
 
   /// The SGF that KaTrain's write_sgf saves, with feedback comments, marks and analysis as the trainer settings ask.
   /// Writing it to a file is in the io library (`writeSgf`).
   String sgfToSave([Map<String, dynamic>? trainerConfig]) {
-    trainerConfig ??= (katrain.config('trainer', <String, dynamic>{}) as Map).cast<String, dynamic>();
+    trainerConfig ??= (host.config('trainer', <String, dynamic>{}) as Map).cast<String, dynamic>();
     final saveFeedback = trainerConfig['save_feedback'];
     final evalThresholds = (trainerConfig['eval_thresholds'] as List).cast<num>();
     final saveAnalysis = (trainerConfig['save_analysis'] ?? false) as bool;
@@ -382,7 +382,7 @@ class Game extends BaseGame<GameNode> {
     updateRootProperties();
     final showDotsFor = {
       for (final bw in const ['B', 'W'])
-        bw: ((trainerConfig['eval_show_ai'] ?? true) as bool) || katrain.playersInfo[bw]!.human,
+        bw: ((trainerConfig['eval_show_ai'] ?? true) as bool) || host.playersInfo[bw]!.human,
     };
     return root.sgf(
       SgfSaveOptions(
@@ -447,7 +447,7 @@ class Game extends BaseGame<GameNode> {
     } else {
       regionOfInterest = null;
     }
-    katrain.setStatus('', outputInfo);
+    host.setStatus('', outputInfo);
   }
 
   /// The extra analysis modes: `stop`, `ponder`, `extra` (more visits), `game` (re-analyse the whole game or
@@ -457,7 +457,7 @@ class Game extends BaseGame<GameNode> {
     final cn = currentNode;
 
     if (mode == 'stop') {
-      katrain.pondering = false;
+      host.pondering = false;
       for (final e in engines.values.toSet()) {
         e.stopPondering();
         e.terminateQueries();
@@ -483,7 +483,7 @@ class Game extends BaseGame<GameNode> {
 
     if (mode == 'extra') {
       final extraVisits = cn.analysisVisitsRequested + maxVisits;
-      katrain.setStatus(fillTemplate(i18n.tr('extra analysis'), {'visits': extraVisits}), statusAnalysis);
+      host.setStatus(fillTemplate(i18n.tr('extra analysis'), {'visits': extraVisits}), statusAnalysis);
       cn.analyze(
         engine,
         visits: extraVisits,
@@ -501,7 +501,7 @@ class Game extends BaseGame<GameNode> {
       if (range != null && range[1] < range[0]) {
         range = [range[1], range[0]];
       }
-      final threshold = (katrain.config('trainer/eval_thresholds') as List).cast<num>();
+      final threshold = (host.config('trainer/eval_thresholds') as List).cast<num>();
       final mistakeThreshold = threshold[threshold.length - 4];
       final gameVisits = visits ?? nodes.map((n) => n.analysisVisitsRequested).reduce(math.min) + maxVisits;
       for (final node in nodes) {
@@ -511,9 +511,9 @@ class Game extends BaseGame<GameNode> {
         node.analyze(engine, visits: gameVisits, priority: -1000000, timeLimit: false, reportEvery: null);
       }
       if (range == null) {
-        katrain.setStatus(fillTemplate(i18n.tr('game re-analysis'), {'visits': gameVisits}), statusAnalysis);
+        host.setStatus(fillTemplate(i18n.tr('game re-analysis'), {'visits': gameVisits}), statusAnalysis);
       } else {
-        katrain.setStatus(
+        host.setStatus(
           fillTemplate(i18n.tr('move range analysis'), {
             'start_move': range[0],
             'end_move': range[1],
@@ -548,23 +548,23 @@ class Game extends BaseGame<GameNode> {
         ];
       }
       moveVisits = fastVisits;
-      katrain.setStatus(fillTemplate(i18n.tr('sweep analysis'), {'visits': moveVisits}), statusAnalysis);
+      host.setStatus(fillTemplate(i18n.tr('sweep analysis'), {'visits': moveVisits}), statusAnalysis);
       priority = prioritySweep;
     } else if (mode == 'equalize' || mode == 'alternative' || mode == 'local') {
       if (!cn.analysisComplete && mode != 'local') {
-        katrain.setStatus(i18n.tr('wait-before-extra-analysis'), statusInfo, atNode: currentNode);
+        host.setStatus(i18n.tr('wait-before-extra-analysis'), statusInfo, atNode: currentNode);
         return;
       }
       final moves = cn.analysis['moves'] as Map<String, dynamic>;
       if (mode == 'alternative') {
         // also do a quick update on current candidates so it doesn't look too weird
-        katrain.setStatus(i18n.tr('alternative analysis'), statusAnalysis);
+        host.setStatus(i18n.tr('alternative analysis'), statusAnalysis);
         cn.analyze(engine, priority: priorityAlternatives, timeLimit: false, findAlternatives: true);
         moveVisits = fastVisits;
       } else {
         // equalize
         moveVisits = moves.values.map((d) => (d as Map<String, dynamic>)['visits'] as int).reduce(math.max);
-        katrain.setStatus(fillTemplate(i18n.tr('equalizing analysis'), {'visits': moveVisits}), statusAnalysis);
+        host.setStatus(fillTemplate(i18n.tr('equalizing analysis'), {'visits': moveVisits}), statusAnalysis);
       }
       priority = priorityEqualize;
       analyzeMoves = [for (final gtp in moves.keys) Move.fromGtp(gtp, player: cn.nextPlayer)];
@@ -589,7 +589,7 @@ class Game extends BaseGame<GameNode> {
     int? visits;
     Map<String, dynamic> engineSettings = {};
     if (targetBAdvantage != null) {
-      visits = math.max(25, katrain.config('engine/fast_visits') as int);
+      visits = math.max(25, host.config('engine/fast_visits') as int);
       engineSettings = {'wideRootNoise': 0.03};
     }
 
@@ -611,7 +611,7 @@ class Game extends BaseGame<GameNode> {
 
     analyzeAndPlay = (GameNode node) {
       final candidates = node.candidateMoves;
-      if (!identical(katrain.game, this)) return; // a new game happened
+      if (!identical(host.game, this)) return; // a new game happened
       var aiThoughts = 'Move generated by AI self-play\n';
       final Move move;
       if (setup) {
@@ -644,7 +644,7 @@ class Game extends BaseGame<GameNode> {
           ];
           moveInfo = weightedSelectionWithoutReplacement(weightedCands, 1, (c) => c.$2, random)[0].$1;
           for (final (cand, wt) in weightedCands) {
-            katrain.log(
+            host.log(
               '${identical(moveInfo, cand) ? '* ' : '  '} ${cand['move']} ${cand['scoreLead']} $wt',
               outputExtraDebug,
             );
@@ -658,7 +658,7 @@ class Game extends BaseGame<GameNode> {
           for (final c in candidates.skip(1)) {
             if ((lead(c) - targetScore).abs() < (lead(moveInfo) - targetScore).abs()) moveInfo = c;
           }
-          katrain.log(
+          host.log(
             '* Played ${moveInfo['move']} ${moveInfo['scoreLead']} because score deviation between current '
             'score $nodeScore and target score $targetScore > ${3 * stddev}',
             outputExtraDebug,
@@ -667,7 +667,7 @@ class Game extends BaseGame<GameNode> {
               'Move played to close difference between score ${formatFixed(nodeScore, 1)} and target '
               '${formatFixed(targetScore, 1)} quickly.';
         }
-        katrain.log(
+        host.log(
           'Self-play until $until target $targetBAdvantage: ${candidates.length} candidates -> move '
           '${moveInfo['move']} score ${moveInfo['scoreLead']} point loss ${moveInfo['pointsLost']}',
           outputDebug,
@@ -689,7 +689,7 @@ class Game extends BaseGame<GameNode> {
       newNode.aiThoughts = aiThoughts;
       if (setup) {
         setCurrentNode(newNode);
-        katrain.setStatus(
+        host.setStatus(
           fillTemplate(i18n.tr('setup game status message'), {'move': newNode.depth, 'until_move': untilMove}),
           statusInfo,
         );
@@ -697,7 +697,7 @@ class Game extends BaseGame<GameNode> {
         if (!identical(node, cn)) node.removeShortcut();
         cn.addShortcut(newNode);
       }
-      katrain.redrawMoveTree();
+      host.redrawMoveTree();
       requestAnalysisForNode(newNode);
     };
 
@@ -706,7 +706,7 @@ class Game extends BaseGame<GameNode> {
 
   /// Teaching mode: undoes the move at [node] when it lost enough points, as the trainer settings say.
   void analyzeUndo(GameNode node) {
-    final trainConfig = (katrain.config('trainer') as Map).cast<String, dynamic>();
+    final trainConfig = (host.config('trainer') as Map).cast<String, dynamic>();
     final move = node.move;
     if (!identical(node, currentNode) || node.autoUndo != null || !node.analysisComplete || move == null) return;
     final pointsLost = node.pointsLost!;
@@ -729,11 +729,11 @@ class Game extends BaseGame<GameNode> {
     node.autoUndo = doUndo;
     if (doUndo) {
       undo(1);
-      katrain.setStatus(
+      host.setStatus(
         fillTemplate(i18n.tr('teaching undo message'), {'move': move.gtp(), 'points_lost': pointsLost}),
         statusTeaching,
       );
-      katrain.updateState();
+      host.updateState();
     }
   }
 
@@ -751,7 +751,7 @@ class Game extends BaseGame<GameNode> {
         insertMode = false;
       } else {
         insertAfter = currentNode.orderedChildren[0];
-        katrain.setStatus(i18n.tr('starting insert mode'), statusInfo);
+        host.setStatus(i18n.tr('starting insert mode'), statusInfo);
       }
     } else {
       var copyFromNode = insertAfter!;
@@ -783,14 +783,14 @@ class Game extends BaseGame<GameNode> {
           // illegal move = stop
         }
         calculateGroups(); // recalculate groups
-        katrain.setStatus(fillTemplate(i18n.tr('ending insert mode'), {'num_copied': numCopied}), statusInfo);
+        host.setStatus(fillTemplate(i18n.tr('ending insert mode'), {'num_copied': numCopied}), statusInfo);
         analyzeAllNodes(analyzeFast: true, evenIfPresent: false);
       } else {
-        katrain.setStatus('', statusInfo);
+        host.setStatus('', statusInfo);
       }
     }
-    katrain.insertNode = insertMode ? insertAfter : null;
-    katrain.redrawMoveTree();
-    katrain.updateState(redrawBoard: true);
+    host.insertNode = insertMode ? insertAfter : null;
+    host.redrawMoveTree();
+    host.updateState(redrawBoard: true);
   }
 }

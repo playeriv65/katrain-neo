@@ -62,9 +62,9 @@ class EngineFileFinder {
         app.config('engine/model') as String? ?? '',
         app.config('engine/humanlike_model') as String? ?? '',
         'katrain/models',
-        neoDataFolder,
+        defaultDataFolder,
       ],
-      katagoPaths = [app.config('engine/katago') as String? ?? '', neoDataFolder];
+      katagoPaths = [app.config('engine/katago') as String? ?? '', defaultDataFolder];
 
   String get _package => app.resourceDir.replaceAll('/', Platform.pathSeparator).replaceAll(RegExp(r'[/\\]+$'), '');
 
@@ -113,7 +113,7 @@ class EngineFileFinder {
       return desc != null ? '$desc  -  $path' : path;
     }
 
-    final distributedTrainingModels = expandUser('$neoDataFolder/katago_contribute/kata1/models');
+    final distributedTrainingModels = expandUser('$defaultDataFolder/katago_contribute/kata1/models');
     final files = _search([
       ...paths,
       modelPath,
@@ -239,7 +239,7 @@ Future<List<Download>> downloadModels(
   for (final MapEntry(key: name, value: url) in {...downloads.models, ...distModels}.entries) {
     final filename = url.split('/').last;
     if (names.contains(filename)) continue;
-    final savePath = expandUser('$neoDataFolder/$filename');
+    final savePath = expandUser('$defaultDataFolder/$filename');
     app.log('Downloading $name from $url to $savePath.part', outputInfo);
     final download = Download(name, url);
     started.add(download);
@@ -268,8 +268,8 @@ List<Download>? downloadKatagos(
     final filename = url.split('/').last;
     final exeName = Platform.isWindows ? filename.replaceAll('.zip', '.exe') : filename.replaceAll('.zip', '');
     if (names.contains(exeName)) continue;
-    final zipPath = expandUser('$neoDataFolder/$filename');
-    final exePath = expandUser('$neoDataFolder/$exeName');
+    final zipPath = expandUser('$defaultDataFolder/$filename');
+    final exePath = expandUser('$defaultDataFolder/$exeName');
     app.log('Downloading binary $name from $url to $zipPath', outputInfo);
     final download = Download(name, url);
     started.add(download);

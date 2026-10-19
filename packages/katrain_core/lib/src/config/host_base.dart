@@ -1,4 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/core/base_katrain.py: KaTrainBase
+// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/core/base_katrain.py: HostBase
 // (settings, logging, players) and parse_version. Reading and writing the settings file is in io/config_file.dart.
 
 import 'dart:convert';
@@ -11,7 +11,7 @@ import 'default_config.dart';
 
 /// Where KaTrain Neo keeps its settings and KataGo's files. KaTrain uses `~/.katrain`; a separate folder keeps the
 /// two programs from overwriting each other's settings.
-const neoDataFolder = '~/.katrain-neo';
+const defaultDataFolder = '~/.katrain-neo';
 
 /// KaTrain's default settings (a fresh copy).
 Map<String, dynamic> defaultConfig() => jsonDecode(defaultConfigJson) as Map<String, dynamic>;
@@ -35,7 +35,7 @@ int compareVersions(List<int> a, List<int> b) {
 
 /// Where the settings live: the sections, and how to store one (KaTrain uses Kivy's JsonStore).
 abstract interface class ConfigStore {
-  /// The sections by name; the maps are the ones [KaTrainBase] reads and changes.
+  /// The sections by name; the maps are the ones [HostBase] reads and changes.
   Map<String, dynamic> get data;
 
   /// Replaces a section and saves it.
@@ -53,9 +53,9 @@ class MemoryConfigStore implements ConfigStore {
   void put(String key, Map<String, dynamic> values) => data[key] = Map.of(values);
 }
 
-/// Settings, logging, and players, so other classes like bots who need a katrain instance can be used without a GUI.
+/// Settings, logging, and players, so other classes like bots who need a host instance can be used without a GUI.
 /// The program around a game (the GUI, or a headless runner) adds the rest of [GameHost].
-abstract class KaTrainBase implements GameHost {
+abstract class HostBase implements GameHost {
   int debugLevel;
   @override
   Game? game;
@@ -67,7 +67,7 @@ abstract class KaTrainBase implements GameHost {
   /// Where log lines go; KaTrain prints them.
   void Function(String line) printer = print;
 
-  KaTrainBase(this.configStore, {int? debugLevel}) : debugLevel = debugLevel ?? 0 {
+  HostBase(this.configStore, {int? debugLevel}) : debugLevel = debugLevel ?? 0 {
     _config = configStore.data;
     this.debugLevel = debugLevel ?? (config('general/debug_level', outputInfo) as int);
     resetPlayers();
