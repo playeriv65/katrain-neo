@@ -1,5 +1,5 @@
-// Ported from the playeriv65/katrain fork (https://github.com/playeriv65/katrain), katrain/cli.py: the transport
-// (_connection, _request, call, health).
+// The HTTP transport to a running KaTrain Neo: finds its port and token in the discovery file, posts commands to
+// /v1/command, checks /v1/health, and turns connection failures into NotRunning.
 
 import 'dart:async';
 import 'dart:convert';
@@ -17,7 +17,23 @@ class NotRunning implements Exception {
   String toString() => message;
 }
 
+/// A response envelope: `{"ok": true, "result": ...}` or `{"ok": false, "error": {"code", "message", ...}}`.
 typedef Envelope = Map<String, dynamic>;
+
+/// Seconds the app may search by default before answering a command that waits for the engine.
+const analysisTimeout = 300;
+
+/// One API call: the command, its arguments (null values are dropped when sending) and, for commands that wait
+/// for the engine, the seconds the server may take (the client then waits 30 s longer).
+class ApiCall {
+  final String command;
+  final Map<String, Object?> args;
+  final int? timeout;
+  const ApiCall(this.command, this.args, [this.timeout]);
+
+  @override
+  String toString() => 'ApiCall($command, $args, $timeout)';
+}
 
 /// Talks to a running KaTrain Neo over its local HTTP API.
 class ApiClient {

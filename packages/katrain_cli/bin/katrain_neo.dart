@@ -1,5 +1,4 @@
 // `katrain-neo`: controls a running KaTrain Neo over its local API and prints JSON.
-// Ported from the playeriv65/katrain fork (https://github.com/playeriv65/katrain), katrain/cli.py.
 
 import 'dart:convert';
 import 'dart:io';

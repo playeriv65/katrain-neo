@@ -1,7 +1,6 @@
-// Ported from the playeriv65/katrain fork (https://github.com/playeriv65/katrain), katrain/cli.py: launch_gui.
-// KaTrain Neo is a separate executable instead of `python -m katrain`; it is started detached, so its output is
-// not captured to a log and an early exit is only noticed as a timeout. The config-conflict check
-// (_older_user_config) is not needed: KaTrain Neo has its own data folder.
+// Starts the KaTrain Neo app (`gui`, or `katrain-neo` without a command): reuses a running app, otherwise starts
+// the executable detached and waits until the discovery file of the new process appears and its API answers.
+// The app's output is not captured, so an early exit is only noticed as a timeout.
 
 import 'dart:io';
 
@@ -36,7 +35,7 @@ String expandUser(String path) {
   return home + path.substring(1);
 }
 
-/// Python's os.path.abspath.
+/// [path] made absolute and normalized.
 String absolutePath(String path) => p.normalize(p.absolute(path));
 
 double _now() => DateTime.now().millisecondsSinceEpoch / 1000;
@@ -101,7 +100,7 @@ Future<Envelope> launchGui(
   while (_now() < deadline) {
     final info = readInfo();
     final started = info == null ? null : _started(info);
-    // match on start time rather than pid, as cli.py does
+    // the discovery file must come from this launch, not an earlier run (matched on start time, not pid)
     if (info != null && started != null && started >= launched - 1) {
       try {
         if ((await client.health())['ok'] == true) {

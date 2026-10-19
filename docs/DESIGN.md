@@ -84,8 +84,9 @@ so the fork's agent guide applies (`katrain-neo guide` prints it with the new na
 - The app implements `ApiHost` (`app/lib/src/state/api_host.dart`): the board shows the API's marks, a pinned
   variation (it survives hovering, a click clears it) and the zoomed tsumego view (only the problem's part of the
   board, the frame stones hidden; KataGo still sees them).
-- `packages/katrain_cli`: the `katrain-neo` command, a pure Dart program with the fork's argument rules. `katrain-neo
-  gui` starts the app (`KATRAIN_NEO_APP`, or the app next to the CLI) and waits for its API.
+- `packages/katrain_cli`: the `katrain-neo` command, a pure Dart program on package:args (`CommandRunner`, one
+  command per API call, options that take several values are comma separated or repeated). `katrain-neo gui` starts
+  the app (`KATRAIN_NEO_APP`, or the app next to the CLI) and waits for its API.
 - In the core, `regionRoot` (from the fork): a region analysis that also counts as the node's evaluation, used by the
   tsumego frame so the local best move shows no loss. Off by default, so KaTrain's own behaviour is unchanged.
 

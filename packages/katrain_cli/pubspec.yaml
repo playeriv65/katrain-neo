@@ -1,5 +1,5 @@
 name: katrain_cli
-description: "katrain-neo: command line client for a running KaTrain Neo's local API, ported from the playeriv65/katrain fork's katrain command."
+description: "katrain-neo: command line client that controls a running KaTrain Neo over its local HTTP API."
 version: 0.1.0
 publish_to: none
 resolution: workspace

@@ -1,314 +1,801 @@
-// Ported from the playeriv65/katrain fork (https://github.com/playeriv65/katrain), katrain/cli.py: build_parser
-// (every subcommand, option, default and help text) and _accept_global_options_everywhere.
+// The `katrain-neo` command tree: every command with its options and positionals, and the API call it sends.
 
-import 'argparse.dart';
+import 'dart:convert';
+
+import 'package:args/args.dart';
+import 'package:args/command_runner.dart';
+
+import '../agent_guide.dart';
+import 'command_base.dart';
+import 'environment.dart';
+import 'links.dart';
+import 'transport.dart';
 
 const _nodeHelp = 'node: current|root|end|<move N>|main:<N>|n<ID>';
 
-void _addNode(CommandSpec p, [String defaultHelp = 'current node']) =>
-    p.option('node', abbr: 'n', help: '$_nodeHelp (default: $defaultHelp)');
+void _node(ArgParser p, [String fallback = 'current node']) =>
+    p.addOption('node', abbr: 'n', valueHelp: 'REF', help: '$_nodeHelp (default: $fallback)');
 
-void _addAnalysisView(CommandSpec p) {
-  p.option('top', type: ArgType.integer, help: 'number of candidate moves (default 10)');
-  p.flag('no-pv', help: 'omit principal variations');
-  p.option('pv-limit', type: ArgType.integer, help: 'truncate PVs to this many moves');
-  p.flag('ownership', help: 'include the ownership grid');
-  p.flag('policy', help: 'include the top policy moves');
+void _visits(ArgParser p, [String? help]) => p.addOption('visits', abbr: 'v', valueHelp: 'N', help: help);
+
+void _board(ArgParser p) => p.addFlag('board', negatable: false, help: 'include the board');
+
+void _onOff(ArgParser p, String name, [String? help]) => p.addOption(name, valueHelp: 'on|off', help: help);
+
+/// --top, --no-pv, --pv-limit, --ownership: what an analysis result includes.
+void _analysisView(ArgParser p, {bool policy = true}) {
+  p
+    ..addOption('top', valueHelp: 'N', help: 'number of candidate moves (default 10)')
+    ..addFlag('no-pv', negatable: false, help: 'omit principal variations')
+    ..addOption('pv-limit', valueHelp: 'N', help: 'truncate PVs to this many moves')
+    ..addFlag('ownership', negatable: false, help: 'include the ownership grid');
+  if (policy) p.addFlag('policy', negatable: false, help: 'include the top policy moves');
 }
 
-/// The `katrain-neo` command tree.
-CommandSpec buildCommands() {
-  final root = CommandSpec(
-    'katrain-neo',
-    description:
-        'Control a running KaTrain Neo. Run without arguments to start the app. '
-        'Read commands print JSON. Exit codes: 0 ok, 1 command error, 2 usage error, 3 app not running.',
-  );
-  root.option('port', type: ArgType.integer, help: 'API port (default: from ~/.katrain-neo/api.json)', global: true);
-  root.option('timeout', type: ArgType.integer, help: 'seconds to wait for the app / engine', global: true);
-  root.flag('compact', help: 'single-line JSON output', global: true);
-  root.subMetavar = 'COMMAND';
-  root.subRequired = false;
+Map<String, Object?> _analysisViewArgs(Args a) => {
+  'top': a.integer('top'),
+  'pv': !a.flag('no-pv'),
+  'pv_limit': a.integer('pv-limit'),
+  'ownership': a.flag('ownership'),
+  'policy': a.flag('policy'),
+};
 
-  var p = root.sub('gui', 'start KaTrain Neo in the background and wait for its API');
-  p.arg('sgf', nargs: '?', help: 'SGF file to open');
-  p.option('config', help: 'config.json to use (default: ~/.katrain-neo/config.json)');
-  p.flag('no-wait');
+String _scope(Args a) => a.flag('global') ? 'global' : 'node';
 
-  root.sub('ping', 'check that the API is reachable');
-  root.sub('guide', 'print the agent usage guide (markdown)');
-  root.sub('commands', 'list all API commands');
-  p = root.sub('call', 'call any API command with JSON arguments');
-  p.arg('command');
-  p.arg('json_args', nargs: '?', defaultValue: '{}', help: 'e.g. \'{"node": "45"}\'');
-  p = root.sub('open', 'follow a katrain:// link (goto / variation / pv / analysis)');
-  p.arg('url');
+const _markColors = 'red, blue, green, yellow, orange, purple, cyan, white, black, #rrggbb';
 
-  // reading
-  root.sub('status', 'game info, current node, mode, engine state');
-  p = root.sub('board', 'stones on the board');
-  _addNode(p);
-  p.flag('ascii', help: 'print only the text diagram');
-  p = root.sub('node', 'details of a node');
-  p.arg('ref', nargs: '?', help: 'node reference (default current)');
-  p = root.sub('history', 'moves from the root to a node');
-  _addNode(p);
-  p.flag('future', help: 'continue to the end of the line');
-  p.flag('no-eval', help: 'omit per-move evaluations');
-  p = root.sub('tree', 'game tree with all variations');
-  _addNode(p, 'root');
-  p.option('max-depth', type: ArgType.integer);
-  p = root.sub('variations', 'alternatives at a node and branch points on its line');
-  _addNode(p);
+/// All top-level commands.
+List<Command<int>> buildCommands() => [
+  ..._appCommands(),
+  ..._readingCommands(),
+  ..._analysisCommands(),
+  ..._navigationCommands(),
+  ..._displayCommands(),
+  _tsumegoCommands(),
+  _sandboxCommands(),
+];
 
-  // sgf / game
-  p = root.sub('sgf', 'import or export SGF');
-  var q = p.sub('export', 'print SGF or write it to a file');
-  q.option('out', abbr: 'o', help: 'file to write (refuses to overwrite without --overwrite)');
-  q.flag('overwrite');
-  q.flag('analysis', help: 'embed KaTrain analysis');
-  q.flag('comments', help: 'add KaTrain move comments');
-  q.flag('marks', help: 'add best-move marks');
-  q = p.sub('import', 'load an SGF file into the app (current game is backed up)');
-  q.arg('path', help: 'SGF path, or - for stdin');
-  q.flag('fast', help: 'quick initial analysis');
-  q.flag('end', help: 'go to the last move');
-  p = root.sub('game', 'game-level actions');
-  q = p.sub('new', 'start a new game (current game is backed up)');
-  q.option('size', help: '19, 13, 9 or WxH');
-  q.option('komi', type: ArgType.float);
-  q.option('rules', help: 'japanese, chinese, korean, aga, tromp-taylor, new zealand');
-  q.option('handicap', type: ArgType.integer);
+List<Command<int>> _appCommands() => [
+  CliCommand(
+    'gui',
+    'start KaTrain Neo in the background and wait for its API',
+    params: const [Param.optional('sgf', help: 'SGF file to open')],
+    options: (p) => p
+      ..addOption('config', valueHelp: 'FILE', help: 'config.json to use (default: ~/.katrain-neo/config.json)')
+      ..addFlag('no-wait', negatable: false, help: 'return as soon as the app is started'),
+    action: (a) async {
+      final response = await a.env.launch(
+        config: a.string('config'),
+        sgf: a.string('sgf'),
+        wait: !a.flag('no-wait'),
+        timeout: a.timeout ?? launchTimeout,
+      );
+      return a.env.report(response, compact: a.compact);
+    },
+  ),
+  CliCommand(
+    'ping',
+    'check that the API is reachable',
+    action: (a) async => a.env.report(
+      await a.env.client.health(port: a.port, timeout: a.timeout ?? 3),
+      compact: a.compact,
+    ),
+  ),
+  CliCommand(
+    'guide',
+    'print the agent usage guide (markdown)',
+    action: (a) async {
+      a.env.out.writeln(agentGuide);
+      return exitOk;
+    },
+  ),
+  CliCommand(
+    'commands',
+    'list all API commands',
+    action: (a) async =>
+        a.env.report(await a.env.client.call('commands', null, a.port, a.timeout ?? 60), compact: a.compact),
+  ),
+  CliCommand(
+    'call',
+    'call any API command with JSON arguments',
+    params: const [
+      Param('command', help: 'API command, e.g. nav.goto (see "katrain-neo commands")'),
+      Param.optional('json', help: 'arguments as a JSON object, e.g. \'{"node": "45"}\'', defaultsTo: '{}'),
+    ],
+    action: (a) async {
+      final Object? args;
+      try {
+        args = jsonDecode(a.string('json')!);
+      } on FormatException catch (e) {
+        a.fail('Invalid JSON arguments: ${e.message}');
+      }
+      if (args is! Map<String, dynamic>) a.fail('The JSON arguments must be an object.');
+      // the server may take args.timeout seconds; wait a minute longer
+      final serverTimeout = switch (args['timeout']) {
+        null => 0,
+        final int i => i,
+        final double d when d.isFinite => d.truncate(),
+        final String s when int.tryParse(s.trim()) != null => int.parse(s.trim()),
+        final other => a.fail('Invalid timeout in the JSON arguments: $other'),
+      };
+      final response = await a.env.client.call(a.string('command')!, args, a.port, a.timeout ?? serverTimeout + 60);
+      return a.env.report(response, compact: a.compact);
+    },
+  ),
+  CliCommand(
+    'open',
+    'follow a katrain:// link (goto / state / variation / pv / analysis)',
+    params: const [Param('url', help: 'e.g. katrain://goto/45, katrain://variation/v1?step=2')],
+    action: (a) async {
+      Envelope badLink(String message) => {
+        'ok': false,
+        'error': {'code': 'bad_link', 'message': message},
+      };
+      Envelope response;
+      try {
+        final link = linkToCommand(a.string('url')!);
+        response = await a.env.client.call(link.command, link.args, a.port, a.timeout ?? 60);
+      } on LinkError catch (e) {
+        response = badLink(e.message);
+      } on NotRunning catch (e) {
+        response = badLink(e.message);
+      }
+      return a.env.report(response, compact: a.compact);
+    },
+  ),
+];
 
-  // analysis
-  p = root.sub('analysis', 'KataGo analysis');
-  q = p.sub('get', 'analysis KaTrain already has (no new search)');
-  _addNode(q);
-  _addAnalysisView(q);
-  q.multi('moves', help: 'only these candidate moves');
-  q = p.sub('run', 'search a position to N visits and return the analysis');
-  _addNode(q);
-  _addAnalysisView(q);
-  q.option('visits', abbr: 'v', type: ArgType.integer, help: 'visits (default: engine max_visits)');
-  q.option('region', help: "restrict candidates to a region like C3:G7, or 'gui' for KaTrain's region");
-  q.option('max-time', type: ArgType.float, help: 'time cap in seconds');
-  q.flag('force', help: 'search even if existing analysis is deep enough');
-  q.flag('no-wait', help: 'queue the search and return immediately');
-  q = p.sub('moves', 'search specific moves and compare them');
-  q.arg('moves', nargs: '+', help: 'moves for the player to move, e.g. D4 Q16');
-  _addNode(q);
-  _addAnalysisView(q);
-  q.option('visits', abbr: 'v', type: ArgType.integer);
-  q = p.sub('game', 'queue whole-game analysis in the background');
-  q.option('visits', abbr: 'v', type: ArgType.integer);
-  q.flag('mistakes-only');
-  q.option('range', help: 'move range like 20-60');
-  p.sub('wait', 'wait until the engine is idle');
-  q = p.sub('ponder', 'continuous analysis on/off');
-  q.arg('state', type: ArgType.onOff);
-  p.sub('stop', 'stop pondering and pending queries');
+List<Command<int>> _readingCommands() => [
+  apiCommand('status', 'game info, current node, mode, engine state', (_) => const ApiCall('status', {})),
+  apiCommand(
+    'board',
+    'stones on the board',
+    (a) => ApiCall('board', {'node': a.string('node')}),
+    options: _node,
+    ascii: true,
+  ),
+  apiCommand(
+    'node',
+    'details of a node',
+    (a) => ApiCall('node', {'node': a.string('ref')}),
+    params: const [Param.optional('ref', help: 'node reference (default: current node)')],
+  ),
+  apiCommand(
+    'history',
+    'moves from the root to a node',
+    (a) => ApiCall('history', {'node': a.string('node'), 'future': a.flag('future'), 'eval': !a.flag('no-eval')}),
+    options: (p) {
+      _node(p);
+      p
+        ..addFlag('future', negatable: false, help: 'continue to the end of the line')
+        ..addFlag('no-eval', negatable: false, help: 'omit per-move evaluations');
+    },
+  ),
+  apiCommand(
+    'tree',
+    'game tree with all variations',
+    (a) => ApiCall('tree', {'node': a.string('node'), 'max_depth': a.integer('max-depth')}),
+    options: (p) {
+      _node(p, 'root');
+      p.addOption('max-depth', valueHelp: 'N', help: 'collapse the tree below this depth');
+    },
+  ),
+  apiCommand(
+    'variations',
+    'alternatives at a node and branch points on its line',
+    (a) => ApiCall('variations', {'node': a.string('node')}),
+    options: _node,
+  ),
+  CommandGroup('sgf', 'import or export SGF', [
+    apiCommand(
+      'export',
+      'print SGF or write it to a file',
+      (a) {
+        final out = a.string('out');
+        return ApiCall('sgf.export', {
+          'path': out == null || out.isEmpty ? out : a.env.absolute(out),
+          'overwrite': a.flag('overwrite'),
+          'analysis': a.flag('analysis'),
+          'comments': a.flag('comments'),
+          'marks': a.flag('marks'),
+        });
+      },
+      options: (p) => p
+        ..addOption(
+          'out',
+          abbr: 'o',
+          valueHelp: 'FILE',
+          help: 'file to write (refuses to overwrite without --overwrite)',
+        )
+        ..addFlag('overwrite', negatable: false, help: 'replace an existing file')
+        ..addFlag('analysis', negatable: false, help: 'embed KaTrain analysis')
+        ..addFlag('comments', negatable: false, help: 'add KaTrain move comments')
+        ..addFlag('marks', negatable: false, help: 'add best-move marks'),
+    ),
+    apiCommand(
+      'import',
+      'load an SGF file into the app (current game is backed up)',
+      (a) {
+        final path = a.string('path')!;
+        return ApiCall('sgf.import', {
+          if (path == '-') 'content': a.env.readStdin() else 'path': a.env.absolute(path),
+          'fast': a.flag('fast'),
+          'at_end': a.flag('end'),
+        });
+      },
+      params: const [Param('path', help: 'SGF path, or - for standard input')],
+      options: (p) => p
+        ..addFlag('fast', negatable: false, help: 'quick initial analysis')
+        ..addFlag('end', negatable: false, help: 'go to the last move'),
+    ),
+  ]),
+  CommandGroup('game', 'game-level actions', [
+    apiCommand(
+      'new',
+      'start a new game (current game is backed up)',
+      (a) => ApiCall('game.new', {
+        'size': a.string('size'),
+        'komi': a.number('komi'),
+        'rules': a.string('rules'),
+        'handicap': a.integer('handicap'),
+      }),
+      options: (p) => p
+        ..addOption('size', valueHelp: 'SIZE', help: '19, 13, 9 or WxH')
+        ..addOption('komi', valueHelp: 'KOMI')
+        ..addOption('rules', valueHelp: 'RULES', help: 'japanese, chinese, korean, aga, tromp-taylor, new zealand')
+        ..addOption('handicap', valueHelp: 'N'),
+    ),
+  ]),
+];
 
-  p = root.sub('engine', 'search settings');
-  p.sub('get', 'show settings');
-  q = p.sub('set', 'change settings');
-  q.option('max-visits', type: ArgType.integer);
-  q.option('fast-visits', type: ArgType.integer);
-  q.option('max-time', type: ArgType.float);
-  q.option('wide-root-noise', type: ArgType.float);
-  q.flag('save', help: 'persist to the config file');
+List<Command<int>> _analysisCommands() => [
+  CommandGroup('analysis', 'KataGo analysis', [
+    apiCommand(
+      'get',
+      'analysis KaTrain already has (no new search)',
+      (a) => ApiCall('analysis.get', {'node': a.string('node'), 'moves': a.list('moves'), ..._analysisViewArgs(a)}),
+      options: (p) {
+        _node(p);
+        _analysisView(p);
+        p.addMultiOption('moves', valueHelp: 'D4,Q16', help: 'only these candidate moves');
+      },
+    ),
+    apiCommand(
+      'run',
+      'search a position to N visits and return the analysis',
+      (a) {
+        final t = a.timeout ?? analysisTimeout;
+        return ApiCall('analysis.run', {
+          'node': a.string('node'),
+          'visits': a.integer('visits'),
+          'region': a.string('region'),
+          'max_time': a.number('max-time'),
+          'force': a.flag('force'),
+          'wait': !a.flag('no-wait'),
+          'timeout': t,
+          ..._analysisViewArgs(a),
+        }, t);
+      },
+      options: (p) {
+        _node(p);
+        _analysisView(p);
+        _visits(p, 'visits (default: engine max_visits)');
+        p
+          ..addOption(
+            'region',
+            valueHelp: 'C3:G7',
+            help: "restrict candidates to a region like C3:G7, or 'gui' for KaTrain's region",
+          )
+          ..addOption('max-time', valueHelp: 'SECONDS', help: 'time cap')
+          ..addFlag('force', negatable: false, help: 'search even if existing analysis is deep enough')
+          ..addFlag('no-wait', negatable: false, help: 'queue the search and return immediately');
+      },
+    ),
+    apiCommand(
+      'moves',
+      'search specific moves and compare them',
+      (a) {
+        final t = a.timeout ?? analysisTimeout;
+        return ApiCall('analysis.moves', {
+          'node': a.string('node'),
+          'moves': a.list('moves'),
+          'visits': a.integer('visits'),
+          'timeout': t,
+          ..._analysisViewArgs(a),
+        }, t);
+      },
+      params: const [Param.repeated('moves', help: 'moves for the player to move, e.g. D4 Q16')],
+      options: (p) {
+        _node(p);
+        _analysisView(p);
+        _visits(p);
+      },
+    ),
+    apiCommand(
+      'game',
+      'queue whole-game analysis in the background',
+      (a) => ApiCall('analysis.game', {
+        'visits': a.integer('visits'),
+        'mistakes_only': a.flag('mistakes-only'),
+        'move_range': a.string('range'),
+      }),
+      options: (p) {
+        _visits(p);
+        p
+          ..addFlag('mistakes-only', negatable: false, help: 'only re-analyse the mistakes')
+          ..addOption('range', valueHelp: 'FROM-TO', help: 'move range like 20-60');
+      },
+    ),
+    apiCommand('wait', 'wait until the engine is idle', (a) {
+      final t = a.timeout ?? analysisTimeout;
+      return ApiCall('analysis.wait', {'timeout': t}, t);
+    }),
+    apiCommand(
+      'ponder',
+      'continuous analysis on/off',
+      (a) => ApiCall('analysis.ponder', {'on': a.onOff('state')}),
+      params: const [Param('state', help: 'on | off')],
+    ),
+    apiCommand('stop', 'stop pondering and pending queries', (_) => const ApiCall('analysis.stop', {})),
+  ]),
+  CommandGroup('engine', 'search settings', [
+    apiCommand('get', 'show settings', (_) => const ApiCall('engine.get', {})),
+    apiCommand(
+      'set',
+      'change settings',
+      (a) => ApiCall('engine.set', {
+        'max_visits': a.integer('max-visits'),
+        'fast_visits': a.integer('fast-visits'),
+        'max_time': a.number('max-time'),
+        'wide_root_noise': a.number('wide-root-noise'),
+        'save': a.flag('save'),
+      }),
+      options: (p) => p
+        ..addOption('max-visits', valueHelp: 'N')
+        ..addOption('fast-visits', valueHelp: 'N')
+        ..addOption('max-time', valueHelp: 'SECONDS')
+        ..addOption('wide-root-noise', valueHelp: 'X')
+        ..addFlag('save', negatable: false, help: 'persist to the config file'),
+    ),
+  ]),
+];
 
-  // navigation
-  p = root.sub('goto', 'jump to a node');
-  p.arg('ref', help: '<move N> | main:<N> | n<ID> | root | end');
-  p.flag('board', help: 'include the board');
-  for (final (name, help) in const [('next', 'step forward'), ('prev', 'step back')]) {
-    p = root.sub(name, help);
-    p.arg('n', nargs: '?', type: ArgType.integer, defaultValue: 1);
-    p.flag('board');
-  }
-  p = root.sub('branch', 'switch between sibling variations');
-  p.arg('which', help: 'next | prev | <index>');
-  p.flag('board');
-  p = root.sub('play', 'play moves from the current position (adds them to the game)');
-  p.arg('moves', nargs: '+', help: 'D4 Q16 ..., colors alternate; prefix B:/W: to force');
-  p.option('color', help: 'color of the first move');
-  p.flag('no-analyze');
-  p.flag('board');
+List<Command<int>> _navigationCommands() => [
+  apiCommand(
+    'goto',
+    'jump to a node',
+    (a) => ApiCall('nav.goto', {'node': a.string('ref'), 'board': a.flag('board')}),
+    params: const [Param('ref', help: '<move N> | main:<N> | n<ID> | root | end')],
+    options: _board,
+  ),
+  for (final (name, help) in const [('next', 'step forward'), ('prev', 'step back')])
+    apiCommand(
+      name,
+      help,
+      (a) => ApiCall('nav.$name', {'n': a.integer('n'), 'board': a.flag('board')}),
+      params: const [Param.optional('n', help: 'number of moves', defaultsTo: '1')],
+      options: _board,
+    ),
+  apiCommand(
+    'branch',
+    'switch between sibling variations',
+    (a) => switch (a.string('which')) {
+      'next' => ApiCall('nav.branch', {'direction': 1, 'board': a.flag('board')}),
+      'prev' => ApiCall('nav.branch', {'direction': -1, 'board': a.flag('board')}),
+      final index => ApiCall('nav.branch', {'index': index, 'board': a.flag('board')}),
+    },
+    params: const [Param('which', help: 'next | prev | <index>')],
+    options: _board,
+  ),
+  apiCommand(
+    'play',
+    'play moves from the current position (adds them to the game)',
+    (a) => ApiCall('play', {
+      'moves': a.list('moves'),
+      'color': a.string('color'),
+      'analyze': !a.flag('no-analyze'),
+      'board': a.flag('board'),
+    }),
+    params: const [Param.repeated('moves', help: 'D4 Q16 ..., colors alternate; prefix B:/W: to force')],
+    options: (p) {
+      p
+        ..addOption('color', valueHelp: 'B|W', help: 'color of the first move')
+        ..addFlag('no-analyze', negatable: false, help: 'do not analyse the new moves');
+      _board(p);
+    },
+  ),
+  CommandGroup('variation', 'create, delete, promote, register and show variations', [
+    apiCommand(
+      'add',
+      'add a variation below a node',
+      (a) => ApiCall('variation.add', {
+        'moves': a.list('moves'),
+        'from': a.string('from'),
+        'color': a.string('color'),
+        'goto': a.flag('goto'),
+        'analyze': a.string('analyze'),
+      }),
+      params: const [Param.repeated('moves', help: 'D4 Q16 ..., colors alternate; prefix B:/W: to force')],
+      options: (p) => p
+        ..addOption('from', valueHelp: 'REF', help: 'start node (default: current node)')
+        ..addOption('color', valueHelp: 'B|W', help: 'color of the first move')
+        ..addFlag('goto', negatable: false, help: 'jump to the end of the new variation')
+        ..addOption('analyze', allowed: const ['fast', 'full', 'none'], defaultsTo: 'fast'),
+    ),
+    apiCommand(
+      'delete',
+      'delete a node and its subtree',
+      (a) => ApiCall('variation.delete', {'node': a.string('ref'), 'force': a.flag('force')}),
+      params: const [Param('ref', help: 'node reference')],
+      options: (p) => p.addFlag('force', negatable: false, help: 'allow deleting original game nodes'),
+    ),
+    apiCommand(
+      'promote',
+      'make the line through a node the main line',
+      (a) => ApiCall('variation.promote', {'node': a.string('ref')}),
+      params: const [Param('ref', help: 'node reference')],
+    ),
+    apiCommand(
+      'register',
+      'register a variation and get an id (v1, v2, ...)',
+      (a) => ApiCall('variation.register', {
+        'moves': a.list('moves'),
+        'from': a.string('from'),
+        'color': a.string('color'),
+        'label': a.string('label'),
+      }),
+      params: const [Param.repeated('moves', help: 'D4 Q16 ..., colors alternate; prefix B:/W: to force')],
+      options: (p) => p
+        ..addOption('from', valueHelp: 'REF', help: 'start node (default: current node)')
+        ..addOption('color', valueHelp: 'B|W', help: 'color of the first move')
+        ..addOption('label', valueHelp: 'TEXT'),
+    ),
+    apiCommand('list', 'registered variations', (_) => const ApiCall('variation.list', {})),
+    apiCommand(
+      'show',
+      'show a registered variation',
+      (a) => ApiCall('variation.show', {'id': a.string('id'), 'as': a.string('as'), 'step': a.integer('step')}),
+      params: const [Param('id', help: 'v1, v2, ...')],
+      options: (p) => p
+        ..addOption('as', allowed: const ['pv', 'branch'], defaultsTo: 'pv')
+        ..addOption('step', valueHelp: 'N', help: 'show only the first N moves'),
+    ),
+  ]),
+];
 
-  p = root.sub('variation', 'create, delete, promote, register and show variations');
-  q = p.sub('add', 'add a variation below a node');
-  q.arg('moves', nargs: '+');
-  q.option('from', dest: 'from_', help: 'start node (default current)');
-  q.option('color');
-  q.flag('goto', help: 'jump to the end of the new variation');
-  q.option('analyze', choices: const ['fast', 'full', 'none'], defaultValue: 'fast');
-  q = p.sub('delete', 'delete a node and its subtree');
-  q.arg('ref');
-  q.flag('force', help: 'allow deleting original game nodes');
-  q = p.sub('promote', 'make the line through a node the main line');
-  q.arg('ref');
-  q = p.sub('register', 'register a variation and get an id (v1, v2, ...)');
-  q.arg('moves', nargs: '+');
-  q.option('from', dest: 'from_');
-  q.option('color');
-  q.option('label');
-  p.sub('list', 'registered variations');
-  q = p.sub('show', 'show a registered variation');
-  q.arg('id');
-  q.option('as', dest: 'as_', choices: const ['pv', 'branch'], defaultValue: 'pv');
-  q.option('step', type: ArgType.integer, help: 'show only the first N moves');
+List<Command<int>> _displayCommands() => [
+  CommandGroup('pv', 'overlay a variation with numbered stones (does not change the game)', [
+    apiCommand(
+      'show',
+      "show moves, or KataGo's PV for --candidate",
+      (a) => ApiCall('pv.show', {
+        'moves': a.list('moves'),
+        'from': a.string('from'),
+        'candidate': a.string('candidate'),
+        'step': a.integer('step'),
+      }),
+      params: const [Param.repeated('moves', optional: true, help: 'moves to show from --from, e.g. C3 D2 C2')],
+      options: (p) => p
+        ..addOption('from', valueHelp: 'REF', help: 'start node (default: current node)')
+        ..addOption('candidate', valueHelp: 'MOVE', help: 'use the analysed PV of this candidate move')
+        ..addOption('step', valueHelp: 'N', help: 'show only the first N moves (omit to animate)'),
+    ),
+    apiCommand(
+      'step',
+      'show one more / fewer move',
+      (a) => ApiCall('pv.step', {'delta': a.integer('delta'), 'index': a.integer('index')}),
+      params: const [Param.optional('delta', help: 'moves to add; negative after --, e.g. -- -1', defaultsTo: '1')],
+      options: (p) => p.addOption('index', valueHelp: 'N', help: 'show exactly N moves'),
+    ),
+    apiCommand('hide', 'remove the overlay', (_) => const ApiCall('pv.hide', {})),
+  ]),
+  CommandGroup('mark', 'marks and highlights on the board', [
+    apiCommand(
+      'add',
+      'mark points',
+      (a) => ApiCall('mark.add', {
+        'points': a.list('points'),
+        'type': a.string('type'),
+        'text': a.list('text'),
+        'color': a.string('color'),
+        'scope': _scope(a),
+      }),
+      params: const [Param.repeated('points', help: 'D4 E5 ...')],
+      options: (p) => p
+        ..addOption(
+          'type',
+          abbr: 't',
+          allowed: const ['circle', 'square', 'triangle', 'cross', 'label', 'dot'],
+          defaultsTo: 'circle',
+        )
+        ..addMultiOption('text', valueHelp: 'A,B', help: 'label texts (default A, B, C...)')
+        ..addOption('color', abbr: 'c', valueHelp: 'COLOR', help: _markColors)
+        ..addFlag('global', negatable: false, help: 'keep showing on every move (default: this node only)'),
+    ),
+    apiCommand(
+      'area',
+      'highlight a rectangle',
+      (a) => ApiCall('mark.area', {
+        'region': a.string('region'),
+        'text': a.string('text'),
+        'color': a.string('color'),
+        'scope': _scope(a),
+      }),
+      params: const [Param('region', help: 'e.g. C3:G7')],
+      options: (p) => p
+        ..addOption('text', valueHelp: 'TEXT')
+        ..addOption('color', abbr: 'c', valueHelp: 'COLOR', help: _markColors)
+        ..addFlag('global', negatable: false, help: 'keep showing on every move (default: this node only)'),
+    ),
+    apiCommand('list', 'list marks', (_) => const ApiCall('mark.list', {})),
+    apiCommand(
+      'clear',
+      'remove marks (all, or given points / ids)',
+      (a) => ApiCall('mark.clear', {'points': a.list('points'), 'ids': a.list('ids')}),
+      params: const [Param.repeated('points', optional: true, help: 'only marks on these points')],
+      options: (p) => p.addMultiOption('ids', valueHelp: 'ID,ID', help: 'mark ids from "mark list"'),
+    ),
+  ]),
+  CommandGroup('region', 'KataGo region of interest', [
+    apiCommand(
+      'set',
+      'restrict the analysis to a region',
+      (a) => ApiCall('region.set', {'region': a.string('region')}),
+      params: const [Param('region', help: 'e.g. C3:G7')],
+    ),
+    apiCommand('clear', 'analyse the whole board again', (_) => const ApiCall('region.clear', {})),
+  ]),
+  apiCommand(
+    'view',
+    'toggle display layers',
+    (a) => ApiCall('view.set', {
+      'hints': a.onOff('hints'),
+      'ownership': a.onOff('ownership'),
+      'policy': a.onOff('policy'),
+      'eval': a.onOff('eval'),
+      'children': a.onOff('children'),
+      'move_numbers': a.onOff('move-numbers'),
+      'zoom': a.string('zoom'),
+      'hide_frame': a.onOff('hide-frame'),
+    }),
+    options: (p) {
+      for (final name in const ['hints', 'ownership', 'policy', 'eval', 'children', 'move-numbers']) {
+        _onOff(p, name);
+      }
+      p.addOption('zoom', valueHelp: 'C3:G7|auto|off', help: 'show only part of the board (auto: the tsumego problem)');
+      _onOff(p, 'hide-frame', 'hide the tsumego frame stones');
+    },
+  ),
+  apiCommand(
+    'mode',
+    'switch play / analyze mode',
+    (a) => ApiCall('mode.set', {'mode': a.string('mode')}),
+    params: const [
+      Param('mode', allowed: ['play', 'analyze']),
+    ],
+  ),
+  apiCommand(
+    'message',
+    'show a line in the status bar',
+    (a) => ApiCall('message', {'text': a.string('text')}),
+    params: const [Param('text', help: 'the line to show')],
+  ),
+  CommandGroup('state', 'save / restore board states', [
+    for (final (name, help) in const [
+      ('save', 'remember the position, mode, region, marks and overlay'),
+      ('restore', 'return to a saved state'),
+    ])
+      apiCommand(
+        name,
+        help,
+        (a) => ApiCall('state.$name', {'name': a.string('name')}),
+        params: const [Param.optional('name', help: 'state name', defaultsTo: 'default')],
+      ),
+    apiCommand('list', 'saved states', (_) => const ApiCall('state.list', {})),
+  ]),
+  CommandGroup('demo', 'temporary demonstrations that leave the game record untouched', [
+    apiCommand(
+      'start',
+      'snapshot the position; later additions are temporary',
+      (a) => ApiCall('demo.start', {'label': a.string('label')}),
+      options: (p) => p.addOption('label', valueHelp: 'TEXT'),
+    ),
+    apiCommand(
+      'end',
+      'remove demo moves and restore the snapshot',
+      (a) => ApiCall('demo.end', {'keep': a.flag('keep')}),
+      options: (p) => p.addFlag('keep', negatable: false, help: 'keep the moves added during the demo'),
+    ),
+    apiCommand('status', 'whether a demo is running', (_) => const ApiCall('demo.status', {})),
+  ]),
+];
 
-  // display
-  p = root.sub('pv', 'overlay a variation with numbered stones (does not change the game)');
-  q = p.sub('show', "show moves, or KataGo's PV for --candidate");
-  q.arg('moves', nargs: '*');
-  q.option('from', dest: 'from_', help: 'start node (default current)');
-  q.option('candidate', help: 'use the analysed PV of this candidate move');
-  q.option('step', type: ArgType.integer, help: 'show only the first N moves (omit to animate)');
-  q = p.sub('step', 'show one more / fewer move');
-  q.arg('delta', nargs: '?', type: ArgType.integer, defaultValue: 1);
-  q.option('index', type: ArgType.integer, help: 'show exactly N moves');
-  p.sub('hide', 'remove the overlay');
+Command<int> _tsumegoCommands() {
+  void filters(ArgParser p) => p
+    ..addOption('set', valueHelp: 'TEXT', help: 'only problems whose collection/folder contains this text')
+    ..addOption('difficulty', valueHelp: 'LABEL', help: 'only problems with this difficulty label');
+  int engineTimeout(Args a) => a.timeout ?? analysisTimeout;
 
-  p = root.sub('mark', 'marks and highlights on the board');
-  q = p.sub('add', 'mark points');
-  q.arg('points', nargs: '+');
-  q.option(
-    'type',
-    abbr: 't',
-    defaultValue: 'circle',
-    choices: const ['circle', 'square', 'triangle', 'cross', 'label', 'dot'],
-  );
-  q.multi('text', help: 'label texts (default A, B, C...)');
-  q.option('color', abbr: 'c', help: 'red, blue, green, yellow, orange, purple, cyan, white, black, #rrggbb');
-  q.flag('global', dest: 'global_', help: 'keep showing on every move (default: this node only)');
-  q = p.sub('area', 'highlight a rectangle');
-  q.arg('region', help: 'C3:G7');
-  q.option('text');
-  q.option('color', abbr: 'c');
-  q.flag('global', dest: 'global_');
-  p.sub('list', 'list marks');
-  q = p.sub('clear', 'remove marks (all, or given points / ids)');
-  q.arg('points', nargs: '*');
-  q.multi('ids');
+  return CommandGroup('tsumego', 'life-and-death problems', [
+    apiCommand(
+      'list',
+      'list problems in an SGF file or folder',
+      (a) => ApiCall('tsumego.list', {
+        'source': a.env.absolute(a.string('source')!),
+        'set': a.string('set'),
+        'difficulty': a.string('difficulty'),
+        'limit': a.integer('limit'),
+      }),
+      params: const [Param('source', help: 'SGF file or folder (searched recursively)')],
+      options: (p) {
+        filters(p);
+        p.addOption('limit', valueHelp: 'N', defaultsTo: '200');
+      },
+    ),
+    apiCommand(
+      'load',
+      'load a problem: frame + local search, zoomed view with the frame hidden',
+      (a) => ApiCall('tsumego.load', {
+        'source': a.env.absolute(a.string('source')!),
+        'index': a.integer('index'),
+        'set': a.string('set'),
+        'difficulty': a.string('difficulty'),
+        'frame': a.onOff('frame'),
+        'margin': a.integer('margin'),
+        'ko': a.flag('ko'),
+        'zoom': !a.flag('no-zoom'),
+      }),
+      params: const [Param('source', help: 'SGF file or folder')],
+      options: (p) {
+        p
+          ..addFlag('no-zoom', negatable: false, help: 'keep the full-board view')
+          ..addOption('index', abbr: 'i', valueHelp: 'N', defaultsTo: '0', help: 'problem index from "tsumego list"');
+        filters(p);
+        _onOff(p, 'frame', "KaTrain's tsumego frame (default: on, off for center problems)");
+        p
+          ..addOption('margin', valueHelp: 'N', defaultsTo: '4')
+          ..addFlag('ko', negatable: false, help: 'frame with ko threats');
+      },
+    ),
+    apiCommand(
+      'target',
+      'set goal and target group',
+      (a) => ApiCall('tsumego.target', {
+        'goal': a.string('goal'),
+        'group': a.string('group'),
+        'region': a.string('region'),
+      }),
+      options: (p) => p
+        ..addOption('goal', allowed: const ['kill', 'live'], help: 'from the perspective of the player to move')
+        ..addOption('group', valueHelp: 'MOVE', help: 'a stone of the target group, e.g. C3')
+        ..addOption('region', valueHelp: 'C3:G7', help: 'local search area, e.g. A1:F6'),
+    ),
+    apiCommand(
+      'try',
+      'play a move; KataGo answers locally',
+      (a) => ApiCall('tsumego.try', {
+        'move': a.string('move'),
+        'visits': a.integer('visits'),
+        'reply': !a.flag('no-reply'),
+        'timeout': engineTimeout(a),
+      }, engineTimeout(a)),
+      params: const [Param('move', help: 'e.g. B2')],
+      options: (p) {
+        _visits(p);
+        p.addFlag('no-reply', negatable: false, help: 'do not let KataGo answer');
+      },
+    ),
+    apiCommand(
+      'eval',
+      'evaluate the current problem position',
+      (a) => ApiCall('tsumego.eval', {'visits': a.integer('visits'), 'timeout': engineTimeout(a)}, engineTimeout(a)),
+      options: _visits,
+    ),
+    apiCommand('reset', 'back to the starting position', (_) => const ApiCall('tsumego.reset', {})),
+    apiCommand(
+      'solution',
+      "reference solution from the SGF, or KataGo's line",
+      (a) => ApiCall('tsumego.solution', {
+        'show': a.flag('show'),
+        'visits': a.integer('visits'),
+        'timeout': engineTimeout(a),
+      }, engineTimeout(a)),
+      options: (p) {
+        p.addFlag('show', negatable: false, help: 'overlay it on the board');
+        _visits(p);
+      },
+    ),
+    apiCommand('status', 'the current problem and attempt', (_) => const ApiCall('tsumego.status', {})),
+  ]);
+}
 
-  p = root.sub('region', 'KataGo region of interest');
-  q = p.sub('set');
-  q.arg('region', help: 'C3:G7');
-  p.sub('clear');
-
-  p = root.sub('view', 'toggle display layers');
-  for (final name in const ['hints', 'ownership', 'policy', 'eval', 'children', 'move-numbers']) {
-    p.option(name, type: ArgType.onOff, metavar: 'on|off');
-  }
-  p.option('zoom', metavar: 'C3:G7|auto|off', help: 'show only part of the board (auto: the tsumego problem)');
-  p.option('hide-frame', type: ArgType.onOff, metavar: 'on|off', help: 'hide the tsumego frame stones');
-  p = root.sub('mode', 'switch play / analyze mode');
-  p.arg('mode', choices: const ['play', 'analyze']);
-  p = root.sub('message', 'show a line in the status bar');
-  p.arg('text');
-
-  p = root.sub('state', 'save / restore board states');
-  for (final name in const ['save', 'restore']) {
-    q = p.sub(name);
-    q.arg('name', nargs: '?', defaultValue: 'default');
-  }
-  p.sub('list');
-
-  p = root.sub('demo', 'temporary demonstrations that leave the game record untouched');
-  q = p.sub('start', 'snapshot the position; later additions are temporary');
-  q.option('label');
-  q = p.sub('end', 'remove demo moves and restore the snapshot');
-  q.flag('keep', help: 'keep the moves added during the demo');
-  p.sub('status');
-
-  p = root.sub('tsumego', 'life-and-death problems');
-  q = p.sub('list', 'list problems in an SGF file or folder');
-  q.arg('source', help: 'SGF file or folder (searched recursively)');
-  q.option('set', dest: 'set_', help: 'only problems whose collection/folder contains this text');
-  q.option('difficulty', help: 'only problems with this difficulty label');
-  q.option('limit', type: ArgType.integer, defaultValue: 200);
-  q = p.sub('load', 'load a problem: frame + local search, zoomed view with the frame hidden');
-  q.arg('source', help: 'SGF file or folder');
-  q.flag('no-zoom', help: 'keep the full-board view');
-  q.option('index', abbr: 'i', type: ArgType.integer, defaultValue: 0, help: "problem index from 'tsumego list'");
-  q.option('set', dest: 'set_');
-  q.option('difficulty');
-  q.option(
-    'frame',
-    type: ArgType.onOff,
-    metavar: 'on|off',
-    help: "KaTrain's tsumego frame (default: on, off for center problems)",
-  );
-  q.option('margin', type: ArgType.integer, defaultValue: 4);
-  q.flag('ko', help: 'frame with ko threats');
-  q = p.sub('target', 'set goal and target group');
-  q.option('goal', choices: const ['kill', 'live'], help: 'from the perspective of the player to move');
-  q.option('group', help: 'a stone of the target group, e.g. C3');
-  q.option('region', help: 'local search area, e.g. A1:F6');
-  q = p.sub('try', 'play a move; KataGo answers locally');
-  q.arg('move');
-  q.option('visits', abbr: 'v', type: ArgType.integer);
-  q.flag('no-reply', help: 'do not let KataGo answer');
-  q = p.sub('eval', 'evaluate the current problem position');
-  q.option('visits', abbr: 'v', type: ArgType.integer);
-  p.sub('reset', 'back to the starting position');
-  q = p.sub('solution', "reference solution from the SGF, or KataGo's line");
-  q.flag('show', help: 'overlay it on the board');
-  q.option('visits', abbr: 'v', type: ArgType.integer);
-  p.sub('status');
-
-  p = root.sub(
+Command<int> _sandboxCommands() {
+  const id = Param('id', help: 'sandbox id');
+  return CommandGroup(
     'sandbox',
     "background exploration: lines and analysis are kept in the user's game, the board does not move",
+    [
+      apiCommand(
+        'new',
+        "start a background cursor at a position of the user's game",
+        (a) => ApiCall('sandbox.new', {'from': a.string('from'), 'name': a.string('name')}),
+        options: (p) => p
+          ..addOption('from', valueHelp: 'REF', help: "node to copy (default: the user's current position)")
+          ..addOption('name', valueHelp: 'ID', help: 'sandbox id (default s1, s2, ...)'),
+      ),
+      apiCommand(
+        'play',
+        'play moves at the cursor (kept as a variation, board does not move)',
+        (a) => ApiCall('sandbox.play', {'id': a.string('id'), 'moves': a.list('moves'), 'color': a.string('color')}),
+        params: const [
+          id,
+          Param.repeated('moves', help: 'D4 Q16 ..., colors alternate; prefix B:/W: to force'),
+        ],
+        options: (p) => p.addOption('color', valueHelp: 'B|W', help: 'color of the first move'),
+      ),
+      apiCommand(
+        'back',
+        'take back moves in a sandbox',
+        (a) => ApiCall('sandbox.back', {'id': a.string('id'), 'n': a.integer('n')}),
+        params: const [
+          id,
+          Param.optional('n', help: 'number of moves', defaultsTo: '1'),
+        ],
+      ),
+      apiCommand(
+        'board',
+        'show a sandbox board',
+        (a) => ApiCall('sandbox.board', {'id': a.string('id')}),
+        params: const [id],
+        ascii: true,
+      ),
+      apiCommand(
+        'analyze',
+        'analyze a sandbox position at low priority',
+        (a) {
+          final t = a.timeout ?? analysisTimeout;
+          return ApiCall('sandbox.analyze', {
+            'id': a.string('id'),
+            'visits': a.integer('visits'),
+            'moves': a.list('moves'),
+            'top': a.integer('top'),
+            'pv': !a.flag('no-pv'),
+            'pv_limit': a.integer('pv-limit'),
+            'ownership': a.flag('ownership'),
+            'force': a.flag('force'),
+            'timeout': t,
+          }, t);
+        },
+        params: const [id],
+        options: (p) {
+          _visits(p);
+          p.addMultiOption('moves', valueHelp: 'H6,H4', help: 'compare these candidate moves');
+          _analysisView(p, policy: false);
+          p.addFlag('force', negatable: false, help: 'search even if existing analysis is deep enough');
+        },
+      ),
+      apiCommand(
+        'show',
+        "bring a sandbox line to the user's board",
+        (a) => ApiCall('sandbox.show', {'id': a.string('id'), 'as': a.string('as'), 'step': a.integer('step')}),
+        params: const [id],
+        options: (p) => p
+          ..addOption(
+            'as',
+            allowed: const ['pv', 'goto'],
+            defaultsTo: 'pv',
+            help: "pv overlay, or move the user's board there",
+          )
+          ..addOption('step', valueHelp: 'N', help: 'show only the first N moves'),
+      ),
+      apiCommand('list', 'list sandboxes', (_) => const ApiCall('sandbox.list', {})),
+      apiCommand(
+        'drop',
+        "forget a sandbox (or 'all'); --prune also deletes the variations it added",
+        (a) => ApiCall('sandbox.drop', {'id': a.string('id'), 'prune': a.flag('prune')}),
+        params: const [Param('id', help: "sandbox id, or 'all'")],
+        options: (p) => p.addFlag('prune', negatable: false, help: "delete the sandbox's API-created variations"),
+      ),
+    ],
   );
-  q = p.sub('new', "start a background cursor at a position of the user's game");
-  q.option('from', dest: 'from_', help: "node to copy (default: the user's current position)");
-  q.option('name', help: 'sandbox id (default s1, s2, ...)');
-  q = p.sub('play', 'play moves at the cursor (kept as a variation, board does not move)');
-  q.arg('id');
-  q.arg('moves', nargs: '+');
-  q.option('color', help: 'color of the first move');
-  q = p.sub('back', 'take back moves in a sandbox');
-  q.arg('id');
-  q.arg('n', nargs: '?', type: ArgType.integer, defaultValue: 1);
-  q = p.sub('board', 'show a sandbox board');
-  q.arg('id');
-  q.flag('ascii', help: 'print only the text diagram');
-  q = p.sub('analyze', 'analyze a sandbox position at low priority');
-  q.arg('id');
-  q.option('visits', abbr: 'v', type: ArgType.integer);
-  q.multi('moves', help: 'compare these candidate moves');
-  q.option('top', type: ArgType.integer);
-  q.flag('no-pv');
-  q.option('pv-limit', type: ArgType.integer);
-  q.flag('ownership');
-  q.flag('force');
-  q = p.sub('show', "bring a sandbox line to the user's board");
-  q.arg('id');
-  q.option(
-    'as',
-    dest: 'as_',
-    choices: const ['pv', 'goto'],
-    defaultValue: 'pv',
-    help: "pv overlay, or move the user's board there",
-  );
-  q.option('step', type: ArgType.integer, help: 'show only the first N moves');
-  p.sub('list', 'list sandboxes');
-  q = p.sub('drop', "forget a sandbox (or 'all'); --prune also deletes the variations it added");
-  q.arg('id');
-  q.flag('prune', help: "delete the sandbox's API-created variations");
-
-  _acceptGlobalOptionsEverywhere(root);
-  return root;
-}
-
-/// Lets --port/--timeout/--compact also appear after the subcommand (agents put them anywhere).
-void _acceptGlobalOptionsEverywhere(CommandSpec parser) {
-  for (final child in parser.subcommands.values) {
-    child.option('port', type: ArgType.integer, hidden: true, global: true);
-    child.option('timeout', type: ArgType.integer, hidden: true, global: true);
-    child.flag('compact', hidden: true, global: true);
-    _acceptGlobalOptionsEverywhere(child);
-  }
 }

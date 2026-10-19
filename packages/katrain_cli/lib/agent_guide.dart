@@ -1,6 +1,5 @@
-// The agent guide printed by `katrain-neo guide`: katrain/api/AGENT_GUIDE.md from the playeriv65/katrain fork
-// (https://github.com/playeriv65/katrain), with `katrain-neo` commands and the ~/.katrain-neo/ data folder.
-// A Dart constant so that a compiled `dart compile exe` binary needs no files next to it.
+// The agent guide printed by `katrain-neo guide`: how an AI agent reads, analyses and shows positions through the
+// CLI. A Dart constant so that a compiled `dart compile exe` binary needs no files next to it.
 
 const agentGuide = r'''
 # KaTrain Neo CLI — guide for AI agents
@@ -18,8 +17,12 @@ you explain them. The CLI never writes teaching text for you.
 - Numbers: `winrate` / `score_lead` are for the **player to move** at that node; `black_winrate` /
   `black_score_lead` are from Black's view. `points_lost` is always positive for a loss.
 - `--compact` gives single-line JSON. `--timeout N` raises waiting limits. Both work anywhere on the line.
-- Run `katrain-neo <command> --help` for every option. `katrain-neo commands` lists the raw API;
-  `katrain-neo call <command> '<json>'` calls it directly.
+- Options are written out in full (`--visits`, or the short form `-v`; no abbreviations like `--vis`). Options that
+  take several values take them comma separated or repeated: `--moves D4,Q16` or `--moves D4 --moves Q16`.
+  Moves given as plain arguments are separated by spaces: `play D4 Q16`. A negative number as an argument goes
+  after `--`: `pv step -- -1`.
+- Run `katrain-neo <command> --help` (or `katrain-neo help <command>`) for every option. `katrain-neo commands`
+  lists the raw API; `katrain-neo call <command> '<json>'` calls it directly.
 
 ## Node references (`--node`, `goto`, `--from`)
 
@@ -68,7 +71,7 @@ katrain-neo play D4 Q16            # adds moves to the game (colors alternate; B
 katrain-neo variation add C3 D2 --from 45 [--goto]   # add a side line without moving there
 katrain-neo variation delete n88   # only API-created nodes unless --force
 katrain-neo variation promote n88  # make it the main line
-katrain-neo mark add D4 E5 --type label --text A B   # also circle|square|triangle|cross|dot, --color, --global
+katrain-neo mark add D4 E5 --type label --text A,B   # also circle|square|triangle|cross|dot, --color, --global
 katrain-neo mark area C3:G7 --text "weak group" --color orange
 katrain-neo mark clear
 katrain-neo view --hints on --ownership off          # also policy, eval, children, move-numbers
@@ -85,7 +88,7 @@ Two ways, use whichever fits:
 1. **PV overlay** (no tree change at all): numbered stones drawn on the board.
    ```
    katrain-neo pv show --candidate D4 --step 1   # KataGo's line for D4, first move only
-   katrain-neo pv step                           # one more move (pv step -1 goes back)
+   katrain-neo pv step                           # one more move (pv step -- -1 goes back)
    katrain-neo pv show C3 D2 C2 --step 3
    katrain-neo pv hide
    ```
@@ -116,7 +119,7 @@ The user is looking at, and may be playing on, the same KaTrain board you contro
 katrain-neo sandbox new --from 36            # -> {"id": "s1", ...}; cursor at the position after move 36
 katrain-neo sandbox play s1 H5 B8 E8         # kept as a variation; the user's board stays where it is
 katrain-neo sandbox analyze s1 -v 2000       # stored in that node; the GUI's own analysis goes first
-katrain-neo sandbox analyze s1 --moves H6 H4 # compare candidates; stored in the node's candidate list
+katrain-neo sandbox analyze s1 --moves H6,H4 # compare candidates; stored in the node's candidate list
 katrain-neo sandbox back s1 2 | sandbox board s1 --ascii | sandbox list
 katrain-neo sandbox show s1 --step 3         # foreground: overlay the line on the user's board
 katrain-neo sandbox show s1 --as goto        # foreground: move the user's board to the sandbox position
