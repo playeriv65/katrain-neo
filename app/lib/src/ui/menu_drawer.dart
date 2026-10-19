@@ -144,9 +144,8 @@ class PlayerSetupBlock extends StatelessWidget {
             ),
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton.icon(
+            child: IconButton(
               icon: const Icon(Icons.swap_vert),
-              label: Text(i18n.tr('swap')),
               onPressed: () {
                 final b = _player('B');
                 final w = _player('W');
@@ -177,6 +176,7 @@ class _PlayerSetup extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: DropdownButtonFormField<String>(
+            key: ValueKey('$bw-type-$type'),
             initialValue: type,
             isExpanded: true,
             decoration: InputDecoration(labelText: i18n.tr('player:type'), isDense: true),
@@ -191,7 +191,7 @@ class _PlayerSetup extends StatelessWidget {
         Expanded(
           flex: 2,
           child: DropdownButtonFormField<String>(
-            key: ValueKey('$bw$type'),
+            key: ValueKey('$bw-$type-$subtype'),
             initialValue: subtypes.contains(subtype) ? subtype : subtypes.first,
             isExpanded: true,
             decoration: InputDecoration(

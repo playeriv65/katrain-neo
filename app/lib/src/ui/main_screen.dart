@@ -9,6 +9,7 @@ import 'board/board_images.dart';
 import 'board/board_view.dart';
 import 'bottom_bar.dart';
 import 'menu_drawer.dart';
+import 'popups/popups.dart';
 import 'side_panel.dart';
 import 'top_bar.dart';
 
@@ -25,6 +26,19 @@ class _MainScreenState extends State<MainScreen> {
   final _passButtonKey = GlobalKey();
   final _boardKey = GlobalKey();
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  late final _popups = PopupPresenter(widget.gui, () => context);
+
+  @override
+  void initState() {
+    super.initState();
+    widget.gui.presentPopup = _popups.present;
+  }
+
+  @override
+  void dispose() {
+    widget.gui.presentPopup = null;
+    super.dispose();
+  }
 
   /// The pass button in the board's coordinates, for a pass in a variation.
   Rect? _passButtonRect() {

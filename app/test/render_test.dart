@@ -102,6 +102,28 @@ void main() {
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pump();
     await save('main_play');
+
+    for (final (name, args) in <(String, List<Object?>)>[
+      ('new-game-popup', []),
+      ('timer-popup', []),
+      ('teacher-popup', []),
+      ('ai-popup', []),
+      ('config-popup', []),
+      ('analyze-sgf-popup', []),
+      ('game-analysis-popup', []),
+      ('report-popup', []),
+      ('tsumego-frame-popup', []),
+      ('engine-recovery-popup', ['KataGo exited with code 1', 1, 'local']),
+    ]) {
+      gui.act(name, args);
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await save('popup_${name.replaceAll('-popup', '')}');
+      tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+      await tester.pumpAndSettle();
+    }
     gui.dispose();
   }, skip: sgf == null || out == null);
 }

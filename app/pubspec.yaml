@@ -8,6 +8,9 @@ environment:
   sdk: ^3.13.0
 
 dependencies:
+  archive: ^4.5.2
+  audioplayers: ^6.8.1
+  file_selector: ^1.1.0
   flutter:
     sdk: flutter
   katrain_core:

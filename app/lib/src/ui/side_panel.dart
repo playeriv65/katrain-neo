@@ -51,11 +51,11 @@ class SidePanel extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: _PlayerCard(gui: gui, player: 'B'),
+                    child: PlayerCard(gui: gui, player: 'B'),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _PlayerCard(gui: gui, player: 'W'),
+                    child: PlayerCard(gui: gui, player: 'W'),
                   ),
                 ],
               ),
@@ -117,16 +117,19 @@ class SidePanel extends StatelessWidget {
   }
 }
 
-class _PlayerCard extends StatelessWidget {
+class PlayerCard extends StatelessWidget {
   final KaTrainGui gui;
   final String player;
-  const _PlayerCard({required this.gui, required this.player});
+
+  /// The game report shows the players without captures or whose turn it is.
+  final bool inGame;
+  const PlayerCard({super.key, required this.gui, required this.player, this.inGame = true});
 
   @override
   Widget build(BuildContext context) {
     final info = gui.playersInfo[player]!;
-    final active = gui.game?.currentNode.nextPlayer == player;
-    final captures = gui.game?.prisonerCount[player] ?? 0;
+    final active = inGame && gui.game?.currentNode.nextPlayer == player;
+    final captures = inGame ? '${gui.game?.prisonerCount[player] ?? 0}' : '';
     // PlayerInfo.set_label: the name where we have one, otherwise what they are, and the rank
     final showName = info.name.isNotEmpty && info.playerType == playerHuman && info.playerSubtype == playingNormal;
     var subtitle = showName ? info.name : i18n.tr(info.playerSubtype);
@@ -154,7 +157,7 @@ class _PlayerCard extends StatelessWidget {
                 radius: 18,
                 backgroundColor: KTheme.stoneColors[player],
                 child: Text(
-                  '$captures',
+                  captures,
                   style: text.titleMedium!.copyWith(
                     color: KTheme.circleTextColors[player],
                     fontWeight: FontWeight.bold,

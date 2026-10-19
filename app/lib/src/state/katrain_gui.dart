@@ -196,7 +196,7 @@ class KaTrainGui extends KaTrainBase with ChangeNotifier {
     if (sgfFile != null) {
       loadSgfFile(sgfFile, fast: true, rewind: true);
     } else {
-      _doNewGame();
+      doNewGame();
     }
     loadUiState();
     _clock = Timer.periodic(Duration(milliseconds: (_timerInterval * 1000).round()), (_) => updateTimer());
@@ -207,6 +207,11 @@ class KaTrainGui extends KaTrainBase with ChangeNotifier {
   /// Shuts the engine down (on closing the window).
   Future<void> shutdown() async {
     _clock?.cancel();
+    _clock = null;
+    await _stopEngine();
+  }
+
+  Future<void> _stopEngine() async {
     final io = _engineIo;
     if (io is LocalKataGo) await io.shutdown(finish: false);
     if (io is RemoteKataGo) await io.shutdown();
@@ -216,7 +221,7 @@ class KaTrainGui extends KaTrainBase with ChangeNotifier {
   Future<void> restartEngine() async {
     log('Restarting engine', outputInfo);
     setStatus(i18n.tr('restarting engine'), statusInfo);
-    await shutdown();
+    await _stopEngine();
     final (newEngine, io) = await makeEngine(_engineHost, _engineConfig, resourceDir: resourceDir);
     engine = newEngine;
     _engineIo = io;
@@ -263,7 +268,7 @@ class KaTrainGui extends KaTrainBase with ChangeNotifier {
       case 'update_state':
         await _doUpdateState(redrawBoard: (kwargs['redraw_board'] ?? false) as bool);
       case 'new_game':
-        _doNewGame(moveTree: arg(0) as GameNode?, analyzeFast: (kwargs['analyze_fast'] ?? false) as bool);
+        doNewGame(moveTree: arg(0) as GameNode?, analyzeFast: (kwargs['analyze_fast'] ?? false) as bool);
       case 'insert_mode':
         _doInsertMode(arg(0) ?? 'toggle');
       case 'ai_move':
@@ -402,7 +407,7 @@ class KaTrainGui extends KaTrainBase with ChangeNotifier {
 
   // -- game actions
 
-  void _doNewGame({GameNode? moveTree, bool analyzeFast = false, String? sgfFilename}) {
+  void doNewGame({GameNode? moveTree, bool analyzeFast = false, String? sgfFilename}) {
     _pondering = false;
     if ((moveTree != null && mode == modePlay) || (moveTree == null && mode == modeAnalyze)) {
       switchUiMode(); // for new game, go to play, for loaded, analyze
@@ -512,7 +517,7 @@ class KaTrainGui extends KaTrainBase with ChangeNotifier {
       log(pyFormat(i18n.tr('Failed to load SGF'), {'error': e}), outputError);
       return;
     }
-    _doNewGame(moveTree: moveTree, analyzeFast: fast, sgfFilename: File(file).absolute.path);
+    doNewGame(moveTree: moveTree, analyzeFast: fast, sgfFilename: File(file).absolute.path);
     if (!rewind) game!.redo(999);
   }
 
@@ -532,7 +537,7 @@ class KaTrainGui extends KaTrainBase with ChangeNotifier {
       return false;
     }
     moveTree.nodesInTree.last.analyze(engine!); // speed up result for looking at end of game
-    _doNewGame(moveTree: moveTree, analyzeFast: true);
+    doNewGame(moveTree: moveTree, analyzeFast: true);
     act('redo', [9999]);
     log('Imported game from clipboard.', outputInfo);
     return true;
