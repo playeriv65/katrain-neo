@@ -8,7 +8,7 @@ import 'package:katrain_core/api.dart';
 import 'package:katrain_core/katrain_core.dart';
 import 'package:test/test.dart';
 
-import 'api_harness.dart';
+import 'support/api_host.dart';
 
 void main() {
   late Directory tmp;
@@ -18,7 +18,7 @@ void main() {
   setUp(() async {
     tmp = Directory.systemTemp.createTempSync('katrain_neo_api');
     final CommandHandler handler;
-    (host, handler) = apiFixture(tmp.path);
+    (host, handler) = apiSetup(tmp.path);
     server = await ApiServer.start(
       handler,
       version: '0.0.0',

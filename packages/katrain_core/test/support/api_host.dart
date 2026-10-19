@@ -4,14 +4,13 @@
 import 'package:katrain_core/api.dart';
 import 'package:katrain_core/katrain_core.dart';
 
-import 'game_script.dart';
+import 'fake_engine.dart';
+import 'fake_host.dart';
 
-class TestHost extends RecordingHost implements ApiHost {
+class TestHost extends FakeHost implements ApiHost {
   late AnalysisEngine<GameNode> testEngine;
   TestHost(super.settings);
 
-  @override
-  bool pondering = false;
   @override
   String mode = modePlay;
   @override
@@ -82,8 +81,8 @@ class TestHost extends RecordingHost implements ApiHost {
 
 /// Answers every query at once: the first empty points as candidates, Black slightly ahead. A search of one move
 /// (a refinement) scores worse the further its column is from A; the ownership says Black owns everything.
-class AnsweringEngine extends RecordingEngine {
-  AnsweringEngine(super.host, super.config);
+class AnsweringEngine extends FakeEngine {
+  AnsweringEngine(super.config);
 
   @override
   void requestAnalysis(
@@ -151,10 +150,10 @@ class AnsweringEngine extends RecordingEngine {
 }
 
 /// A host with an empty 19x19 game, and the command handler on it.
-(TestHost, CommandHandler) apiFixture(String dataFolder) {
+(TestHost, CommandHandler) apiSetup(String dataFolder) {
   final settings = defaultConfig();
   final host = TestHost(settings);
-  host.testEngine = AnsweringEngine(host, (settings['engine'] as Map).cast<String, dynamic>());
+  host.testEngine = AnsweringEngine((settings['engine'] as Map).cast<String, dynamic>());
   host.newGame(null);
   return (host, CommandHandler(host, ApiState(), dataFolder: dataFolder));
 }

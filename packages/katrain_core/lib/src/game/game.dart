@@ -400,8 +400,8 @@ class Game extends BaseGame<GameNode> {
 
   void analyzeAllNodes({int priority = priorityGameAnalysis, bool analyzeFast = false, bool evenIfPresent = true}) {
     for (final node in root.nodesInTree) {
-      // forced, or not present, or something went wrong in loading
-      if (evenIfPresent || !node.loadAnalysis()) {
+      // forced, or neither analysed already nor loaded from the file
+      if (evenIfPresent || !(node.analysisExists || node.loadAnalysis())) {
         node.clearAnalysis();
         node.analyze(engines[node.nextPlayer]!, priority: priority, analyzeFast: analyzeFast);
       }
@@ -499,7 +499,7 @@ class Game extends BaseGame<GameNode> {
       final nodes = root.nodesInTree;
       var range = (moveRange == null || moveRange.isEmpty) ? null : moveRange;
       if (range != null && range[1] < range[0]) {
-        range = [range[1], range[0]]; // KaTrain reverses the list into an iterator here, which then fails
+        range = [range[1], range[0]];
       }
       final threshold = (katrain.config('trainer/eval_thresholds') as List).cast<num>();
       final mistakeThreshold = threshold[threshold.length - 4];
@@ -507,7 +507,7 @@ class Game extends BaseGame<GameNode> {
       for (final node in nodes) {
         final maxPointLoss = [node, ...node.children].map((c) => c.pointsLost ?? 0).reduce(math.max);
         if (mistakesOnly && maxPointLoss <= mistakeThreshold) continue;
-        if (range != null && !(range[0] <= node.depth - 1 && node.depth - 1 <= range[1])) continue;
+        if (range != null && !(range[0] <= node.depth && node.depth <= range[1])) continue;
         node.analyze(engine, visits: gameVisits, priority: -1000000, timeLimit: false, reportEvery: null);
       }
       if (range == null) {

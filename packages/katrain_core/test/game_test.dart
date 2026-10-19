@@ -442,17 +442,10 @@ void main() {
         expect(requests.map((r) => r.visits), everyElement(50));
       });
 
-      test(
-        'a move range analyses those moves only',
-        () {
-          final requests = engine.requestsDuring(() => game.analyzeExtra('game', moveRange: [2, 4]));
-          expect([for (final r in requests) r.node.depth], [2, 3, 4]);
-        },
-        skip:
-            'bug: the range is off by one, analyzeExtra checks node.depth - 1 (as KaTrain does), so moves 2-4 '
-            're-analyse the positions after moves 3, 4 and 5; the re-analysis dialog starts its range at the current '
-            'move, which is then left out',
-      );
+      test('a move range analyses those moves only', () {
+        final requests = engine.requestsDuring(() => game.analyzeExtra('game', moveRange: [2, 4]));
+        expect([for (final r in requests) r.node.depth], [2, 3, 4]);
+      });
 
       test('a reversed move range is the same range, and the status names it', () {
         final forward = engine.requestsDuring(() => game.analyzeExtra('game', moveRange: [1, 3]));
@@ -962,23 +955,16 @@ void main() {
       expect(requests.map((r) => r.analyzeFast), everyElement(isTrue));
     });
 
-    test(
-      'ending keeps the analysis of the nodes that were already there',
-      () {
-        for (final node in [game.root, ...main]) {
-          evaluate(node, 0);
-        }
-        game.setInsertMode(true);
-        play(game, 'E5 E3');
-        final requests = engine.requestsDuring(() => game.setInsertMode(false));
-        expect([game.root, ...main].map((n) => n.analysisExists), everyElement(isTrue));
-        expect({for (final r in requests) r.node}, isNot(contains(main[3])));
-      },
-      skip:
-          'bug: ending insert mode calls analyzeAllNodes(evenIfPresent: false), which only keeps analysis loaded '
-          'from an SGF file (as in KaTrain), so the analysis of every node in the game is thrown away and redone '
-          'with fast visits',
-    );
+    test('ending keeps the analysis of the nodes that were already there', () {
+      for (final node in [game.root, ...main]) {
+        evaluate(node, 0);
+      }
+      game.setInsertMode(true);
+      play(game, 'E5 E3');
+      final requests = engine.requestsDuring(() => game.setInsertMode(false));
+      expect([game.root, ...main].map((n) => n.analysisExists), everyElement(isTrue));
+      expect({for (final r in requests) r.node}, isNot(contains(main[3])));
+    });
 
     test('copying stops at the first move that is no longer legal', () {
       game.setInsertMode(true);

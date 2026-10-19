@@ -8,7 +8,7 @@ import 'package:katrain_core/api.dart';
 import 'package:katrain_core/katrain_core.dart';
 import 'package:test/test.dart';
 
-import 'api_harness.dart';
+import 'support/api_host.dart';
 
 const game =
     '(;GM[1]FF[4]SZ[19]KM[6.5]PB[Shin]PW[Iyama];B[pd]C[first];W[dp];B[pq];W[dd];B[fq]'
@@ -21,7 +21,7 @@ void main() {
 
   setUp(() {
     tmp = Directory.systemTemp.createTempSync('katrain_neo_api');
-    (host, api) = apiFixture(tmp.path);
+    (host, api) = apiSetup(tmp.path);
   });
   tearDown(() => tmp.deleteSync(recursive: true));
 
