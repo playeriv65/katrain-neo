@@ -19,4 +19,7 @@ Not reused from KaTrain: its menu icons (from Flaticon, used by KaTrain with per
 **[KataGo](https://github.com/lightvector/KataGo)** is by David J Wu (lightvector) and contributors. It is not part of
 this repository.
 
+The SGF parser is ported from **[pysgf](https://github.com/sanderland/pysgf)** (MIT, © 2020 Sander Land), which KaTrain
+uses. The test game records in `packages/katrain_core/test/fixtures/inputs/` other than the `edge_*.sgf` files are KaTrain's own test data.
+
 When content from KaTrain is ported, the file or the commit says where it comes from.
