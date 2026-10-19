@@ -54,6 +54,13 @@ simple.
 Same keys and file format as KaTrain (its defaults, saved like Kivy's JsonStore), but in `~/.katrain-neo` instead of
 `~/.katrain`, so KaTrain Neo and KaTrain never overwrite each other's settings.
 
+### File encodings
+
+Files are decoded exactly as KaTrain decodes them (Python's `bytes.decode(..., errors="ignore")`), with tables
+generated from CPython's codecs. Without a `CA` property KaTrain asks chardet (LGPL, not ported) about the first 300
+bytes; KaTrain Neo guesses from the whole file instead (valid UTF-8; else the CJK codec with the fewest errors and the
+most plausible text; Windows-1252 for western text). Short Korean texts can still be read as Chinese.
+
 ### Engine
 
 KaTrain talks to KataGo's JSON analysis engine; KaTrain Neo uses the same protocol and builds the same queries

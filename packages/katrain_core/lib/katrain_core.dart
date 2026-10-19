@@ -14,6 +14,8 @@ export 'src/game/tsumego_frame.dart';
 export 'src/i18n/i18n.dart';
 export 'src/rules/base_game.dart';
 export 'src/rules/rulesets.dart';
+export 'src/sgf/codecs/detect.dart';
+export 'src/sgf/codecs/py_codecs.dart';
 export 'src/sgf/go_node.dart';
 export 'src/sgf/move.dart';
 export 'src/sgf/parser.dart';

@@ -25,6 +25,7 @@ dart test packages/katrain_core
 cd app && flutter analyze && flutter test
 python tools/fixtures/generate.py --katrain <path to a KaTrain checkout>   # refresh differential fixtures
 python tools/port/generate.py --katrain <path to a KaTrain checkout>       # regenerate constants, translations, defaults
+python tools/port/codecs_gen.py                                            # regenerate the codec tables (needs charset_normalizer)
 dart format -l 120 packages/katrain_core/lib                               # the generators do not format
 ```
 

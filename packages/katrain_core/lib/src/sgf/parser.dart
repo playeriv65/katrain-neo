@@ -2,6 +2,8 @@
 
 import 'dart:convert';
 
+import 'codecs/detect.dart';
+import 'codecs/py_codecs.dart';
 import 'go_node.dart';
 import 'move.dart';
 
@@ -39,10 +41,9 @@ class SgfParser<N extends BaseGoNode<N>> {
     _ => throw ParseError('Unsupported file extension: $ext'),
   };
 
-  /// Decodes and parses a file's bytes; [fileName] decides the format and helps choose the encoding.
-  ///
-  /// pysgf guesses unknown encodings with chardet; here only UTF-8 and Latin-1 are recognised so far, anything else
-  /// is read as UTF-8.
+  /// Decodes and parses a file's bytes (pysgf's `from_file`); [fileName] decides the format and helps choose the
+  /// encoding: UTF-8 for NGF, GIB and Fox files, else the `CA` property, else a guess (see detectEncoding). Decoding
+  /// drops invalid bytes as Python's `errors="ignore"` does; an unknown encoding is read as UTF-8.
   N parseBytes(List<int> bytes, {String fileName = 'game.sgf', String? encoding}) {
     final lower = fileName.toLowerCase();
     final isGib = lower.endsWith('.gib');
@@ -52,13 +53,17 @@ class SgfParser<N extends BaseGoNode<N>> {
       if (isGib || isNgf || _contains(bytes, ascii.encode('AP[foxwq]'))) {
         enc = 'utf8';
       } else {
-        final match = RegExp(r'CA\[(.*?)\]').firstMatch(latin1.decode(bytes, allowInvalid: true));
-        enc = match?[1] ?? 'utf8';
+        // bytes.decode("ascii", errors="ignore") of the value; Python's `.` stops only at \n
+        final match = RegExp(r'CA\[([^\n]*?)\]').firstMatch(latin1.decode(bytes, allowInvalid: true));
+        enc = match != null ? match[1]!.replaceAll(RegExp(r'[^\x00-\x7F]'), '') : detectEncoding(bytes);
       }
     }
     final ext = isNgf ? 'ngf' : (isGib ? 'gib' : 'sgf');
-    return parse(_decodeIgnoringErrors(bytes, enc), ext: ext);
+    return parse(pyDecodeIgnore(bytes, enc) ?? pyDecodeIgnore(bytes, defaultEncoding)!, ext: ext);
   }
+
+  /// pysgf's DEFAULT_ENCODING, for encodings Python does not know.
+  static const defaultEncoding = 'UTF-8';
 
   static bool _contains(List<int> haystack, List<int> needle) {
     outer:
@@ -69,15 +74,6 @@ class SgfParser<N extends BaseGoNode<N>> {
       return true;
     }
     return false;
-  }
-
-  /// Like Python's `bytes.decode(encoding, errors="ignore")` for the encodings supported so far.
-  static String _decodeIgnoringErrors(List<int> bytes, String encoding) {
-    final e = encoding.toLowerCase().replaceAll('-', '').replaceAll('_', '');
-    if (e == 'latin1' || e == 'iso88591' || e == 'l1') {
-      return latin1.decode(bytes, allowInvalid: true);
-    }
-    return utf8.decode(bytes, allowMalformed: true).replaceAll('�', '');
   }
 
   // -- SGF

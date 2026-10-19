@@ -22,4 +22,11 @@ this repository.
 The SGF parser is ported from **[pysgf](https://github.com/sanderland/pysgf)** (MIT, © 2020 Sander Land), which KaTrain
 uses. The test game records in `packages/katrain_core/test/fixtures/inputs/` other than the `edge_*.sgf` files are KaTrain's own test data.
 
+Reading SGF files in legacy encodings (GBK, Big5, Shift_JIS, EUC-KR and others) uses decoding tables generated from
+**CPython**'s codecs (`tools/port/codecs_gen.py`), so the text is exactly what KaTrain reads; CPython is
+Copyright (c) 2001 Python Software Foundation, under the PSF License. Guessing the encoding of files without a `CA`
+property uses the most frequent Chinese, Japanese and Korean characters from
+**[charset_normalizer](https://github.com/jawah/charset_normalizer)** (MIT, (c) TAHRI Ahmed R.). KaTrain (through
+pysgf) guesses with chardet, which is LGPL and not used here.
+
 When content from KaTrain is ported, the file or the commit says where it comes from.
