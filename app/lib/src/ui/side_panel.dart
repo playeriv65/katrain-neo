@@ -2,6 +2,8 @@
 // undo and resign (play) or the move tree (analysis), and the collapsable score graph, move statistics and
 // info/notes panels with their toggles.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:katrain_core/katrain_core.dart';
 
@@ -12,6 +14,9 @@ import 'move_tree.dart';
 import 'score_graph.dart';
 
 class SidePanel extends StatelessWidget {
+  /// The info and notes panel is never squeezed below this.
+  static const _minNotesHeight = 140.0;
+
   final AppController app;
   final BoardImages images;
   const SidePanel({super.key, required this.app, required this.images});
@@ -25,7 +30,17 @@ class SidePanel extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, c) {
           final graphHeight = (c.maxHeight * 0.2).clamp(110.0, 260.0);
-          return Column(
+          final notesPanel = app.panels['notes_panel']!;
+          final notes = _PanelCard(
+            app: app,
+            id: 'notes_panel',
+            title: i18n.tr('closedlabel:info&notes'),
+            options: const ['info', 'info-details', 'notes'],
+            colors: [KTheme.infoTabFontColor, KTheme.infoTabFontColor, KTheme.notesTabFontColor],
+            expand: true,
+            child: _InfoAndNotes(app: app),
+          );
+          final top = Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Tooltip(
@@ -98,15 +113,23 @@ class SidePanel extends StatelessWidget {
                 child: _Stats(app: app, options: statsPanel.options),
               ),
               const SizedBox(height: 8),
-              Expanded(
-                child: _PanelCard(
-                  app: app,
-                  id: 'notes_panel',
-                  title: i18n.tr('closedlabel:info&notes'),
-                  options: const ['info', 'info-details', 'notes'],
-                  colors: [KTheme.infoTabFontColor, KTheme.infoTabFontColor, KTheme.notesTabFontColor],
-                  expand: true,
-                  child: _InfoAndNotes(app: app),
+            ],
+          );
+          // The notes fill the room left; when that is less than they need, the whole column scrolls.
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: top),
+              SliverLayoutBuilder(
+                builder: (context, constraints) => SliverToBoxAdapter(
+                  child: notesPanel.open
+                      ? SizedBox(
+                          height: math.max(
+                            constraints.viewportMainAxisExtent - constraints.precedingScrollExtent,
+                            _minNotesHeight,
+                          ),
+                          child: notes,
+                        )
+                      : notes,
                 ),
               ),
             ],
@@ -130,7 +153,7 @@ class PlayerCard extends StatelessWidget {
     final info = app.playersInfo[player]!;
     final active = inGame && app.game?.currentNode.nextPlayer == player;
     final captures = inGame ? '${app.game?.prisonerCount[player] ?? 0}' : '';
-    // PlayerInfo.set_label: the name where we have one, otherwise what they are, and the rank
+    // the name where there is one, otherwise what they are, and the rank
     final showName = info.name.isNotEmpty && info.playerType == playerHuman && info.playerSubtype == playingNormal;
     var subtitle = showName ? info.name : i18n.tr(info.playerSubtype);
     final rank = info.playerType == playerHuman ? info.sgfRank : rankLabel(info.calculatedRank);
@@ -290,6 +313,9 @@ class _PanelCard extends StatelessWidget {
                 children: [
                   for (final (i, option) in options.indexed)
                     FilterChip(
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      labelPadding: const EdgeInsets.symmetric(horizontal: 2),
                       label: Text(i18n.tr('tab:$option')),
                       selected: panel.options[option]!,
                       showCheckmark: false,

@@ -38,41 +38,78 @@ class TopBar extends StatelessWidget {
   final VoidCallback onMenu;
   const TopBar({super.key, required this.app, required this.onMenu});
 
+  static const _spacing = 8.0;
+
+  /// Room a labelled toggle takes besides its label: padding, the icon and the border.
+  static const _chipChrome = 56.0;
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final labelStyle = theme.chipTheme.labelStyle ?? theme.textTheme.labelLarge!;
+    final scaler = MediaQuery.textScalerOf(context);
+    double width(String text) => (TextPainter(
+      text: TextSpan(text: text, style: labelStyle),
+      textDirection: TextDirection.ltr,
+      textScaler: scaler,
+    )..layout()).width;
+    final labels = [for (final (_, label, _, _) in displayToggles) i18n.tr(label).replaceAll('\n', ' ')];
+    final menuLabel = i18n.tr('btn:Analyze');
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
         children: [
           IconButton(tooltip: 'Alt', onPressed: onMenu, icon: const Icon(Icons.menu)),
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Center(
-                child: Wrap(
-                  spacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    for (final (key, label, shortcut, icon) in displayToggles)
-                      Tooltip(
-                        message: shortcut,
-                        child: FilterChip(
-                          avatar: Icon(icon, size: 16),
-                          label: Text(i18n.tr(label).replaceAll('\n', ' ')),
-                          selected: app.analysisControls[key]!,
-                          showCheckmark: false,
-                          onSelected: key == 'hints' && app.analysisControls['policy']!
-                              ? null
-                              : (v) => app.setAnalysisControl(key, v),
-                        ),
-                      ),
-                    AnalysisMenu(app: app),
-                  ],
-                ),
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // labels while everything fits, else icons with the label as tooltip
+                final menuWidth = width(menuLabel) + _chipChrome + 8;
+                final labelled =
+                    labels.map((l) => width(l) + _chipChrome + _spacing).fold(0.0, (a, b) => a + b) + menuWidth;
+                final showLabels = labelled <= constraints.maxWidth;
+                final compactMenu =
+                    !showLabels && displayToggles.length * (40 + _spacing) + menuWidth > constraints.maxWidth;
+                return Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: _spacing,
+                    children: [
+                      for (final (i, (key, _, shortcut, icon)) in displayToggles.indexed)
+                        _toggle(key, labels[i], shortcut, icon, showLabels),
+                      AnalysisMenu(app: app, compact: compactMenu),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _toggle(String key, String label, String shortcut, IconData icon, bool showLabel) {
+    final selected = app.analysisControls[key]!;
+    final onChanged = key == 'hints' && app.analysisControls['policy']!
+        ? null
+        : (bool v) => app.setAnalysisControl(key, v);
+    if (!showLabel) {
+      return IconButton.outlined(
+        tooltip: '$label ($shortcut)',
+        isSelected: selected,
+        icon: Icon(icon, size: 18),
+        onPressed: onChanged == null ? null : () => onChanged(!selected),
+      );
+    }
+    return Tooltip(
+      message: shortcut,
+      child: FilterChip(
+        avatar: Icon(icon, size: 16),
+        label: Text(label),
+        selected: selected,
+        showCheckmark: false,
+        onSelected: onChanged,
       ),
     );
   }
@@ -80,7 +117,10 @@ class TopBar extends StatelessWidget {
 
 class AnalysisMenu extends StatelessWidget {
   final AppController app;
-  const AnalysisMenu({super.key, required this.app});
+
+  /// Only the icon, with the label as tooltip.
+  final bool compact;
+  const AnalysisMenu({super.key, required this.app, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
@@ -94,11 +134,21 @@ class AnalysisMenu extends StatelessWidget {
             child: Text(i18n.tr(label)),
           ),
       ],
-      builder: (context, controller, _) => FilledButton.tonalIcon(
-        onPressed: () => controller.isOpen ? controller.close() : controller.open(),
-        icon: const Icon(Icons.insights),
-        label: Text(i18n.tr('btn:Analyze')),
-      ),
+      builder: (context, controller, _) {
+        void toggle() => controller.isOpen ? controller.close() : controller.open();
+        if (compact) {
+          return IconButton.filledTonal(
+            tooltip: i18n.tr('btn:Analyze'),
+            onPressed: toggle,
+            icon: const Icon(Icons.insights),
+          );
+        }
+        return FilledButton.tonalIcon(
+          onPressed: toggle,
+          icon: const Icon(Icons.insights),
+          label: Text(i18n.tr('btn:Analyze')),
+        );
+      },
     );
   }
 }

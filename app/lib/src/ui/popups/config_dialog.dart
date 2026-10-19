@@ -164,35 +164,39 @@ class _ConfigDialogState extends State<ConfigDialog> {
     final controller = paths[key]!;
     final text = controller.text.trim();
     final missing = !(allowEmpty && text.isEmpty) && !_exists(text);
+    final helper = [?foundLabel, if (hint != null) i18n.tr(hint).replaceAll(lineBreak, ' ')].join('\n');
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: TextField(
-        controller: controller,
-        decoration: InputDecoration(
-          labelText: i18n.tr(label),
-          hintText: hint == null ? null : i18n.tr(hint),
-          errorText: missing ? i18n.tr('file not found') : null,
-          helperText: foundLabel,
-          isDense: true,
-          suffixIcon: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (found != null)
-                PopupMenuButton<String>(
-                  icon: const Icon(Icons.arrow_drop_down_circle_outlined),
-                  tooltip: foundLabel,
-                  onSelected: (path) => controller.text = path,
-                  itemBuilder: (_) => [
-                    if (key == 'engine/katago') PopupMenuItem(value: '', child: Text(i18n.tr('default katago option'))),
-                    for (final f in found) PopupMenuItem(value: f.path, child: Text(f.description)),
-                  ],
+      child: FieldLabel(
+        label: i18n.tr(label),
+        child: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            errorText: missing ? i18n.tr('file not found') : null,
+            helperText: helper.isEmpty ? null : helper,
+            helperMaxLines: 6,
+            isDense: true,
+            suffixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (found != null)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.arrow_drop_down_circle_outlined),
+                    tooltip: foundLabel,
+                    onSelected: (path) => controller.text = path,
+                    itemBuilder: (_) => [
+                      if (key == 'engine/katago')
+                        PopupMenuItem(value: '', child: Text(i18n.tr('default katago option'))),
+                      for (final f in found) PopupMenuItem(value: f.path, child: Text(f.description)),
+                    ],
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.folder_open_outlined),
+                  tooltip: i18n.tr(label),
+                  onPressed: () => _browse(key),
                 ),
-              IconButton(
-                icon: const Icon(Icons.folder_open_outlined),
-                tooltip: i18n.tr(label),
-                onPressed: () => _browse(key),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -302,23 +306,29 @@ class _ConfigDialogState extends State<ConfigDialog> {
         Offstage(offstage: backend != 'local', child: _local()),
         Offstage(
           offstage: backend != 'remote',
-          child: TextField(
-            controller: remoteUrl,
-            decoration: InputDecoration(
-              labelText: i18n.tr('engine:remote_url'),
-              hintText: i18n.tr('engine:remote_url:hint'),
-              isDense: true,
+          child: FieldLabel(
+            label: i18n.tr('engine:remote_url'),
+            child: TextField(
+              controller: remoteUrl,
+              decoration: InputDecoration(
+                helperText: i18n.tr('engine:remote_url:hint'),
+                helperMaxLines: 5,
+                isDense: true,
+              ),
             ),
           ),
         ),
         Offstage(
           offstage: backend != 'custom',
-          child: TextField(
-            controller: altCommand,
-            decoration: InputDecoration(
-              labelText: i18n.tr('engine:altcommand'),
-              hintText: i18n.tr('engine:altcommand:hint'),
-              isDense: true,
+          child: FieldLabel(
+            label: i18n.tr('engine:altcommand'),
+            child: TextField(
+              controller: altCommand,
+              decoration: InputDecoration(
+                helperText: i18n.tr('engine:altcommand:hint'),
+                helperMaxLines: 5,
+                isDense: true,
+              ),
             ),
           ),
         ),

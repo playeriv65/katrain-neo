@@ -141,13 +141,20 @@ class _ScoreGraphState extends State<ScoreGraph> {
         final size = c.biggest;
         final data = _graphData(widget.app.graph, size);
         final markerSize = (0.1 * size.height).clamp(10.0, 13.0);
+        // the scale's labels sit on a backing, so the lines and the current move's dot do not run through them
         Widget marker(String text, Color color, Alignment alignment) => Align(
           alignment: alignment,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 1),
-            child: Text(
-              text,
-              style: TextStyle(fontSize: markerSize, color: color, height: 1.15),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: KTheme.boxBackgroundColor.withValues(alpha: 0.75),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Text(
+                text,
+                style: TextStyle(fontSize: markerSize, color: color, height: 1.15),
+              ),
             ),
           ),
         );

@@ -91,11 +91,13 @@ class _TsumegoFrameDialogState extends State<TsumegoFrameDialog> {
       },
       child: Column(
         children: [
-          TextFormField(
-            initialValue: '$margin',
-            decoration: InputDecoration(labelText: i18n.tr('tsumego:walldistance')),
-            keyboardType: TextInputType.number,
-            onChanged: (v) => margin = int.tryParse(v) ?? margin,
+          FieldLabel(
+            label: i18n.tr('tsumego:walldistance'),
+            child: TextFormField(
+              initialValue: '$margin',
+              keyboardType: TextInputType.number,
+              onChanged: (v) => margin = int.tryParse(v) ?? margin,
+            ),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -142,10 +144,9 @@ class _ReAnalyzeGameDialogState extends State<ReAnalyzeGameDialog> {
       },
       child: Column(
         children: [
-          TextFormField(
-            initialValue: '$visits',
-            decoration: InputDecoration(labelText: i18n.tr('reanalyze max visits')),
-            onChanged: (v) => visits = int.tryParse(v) ?? visits,
+          FieldLabel(
+            label: i18n.tr('reanalyze max visits'),
+            child: TextFormField(initialValue: '$visits', onChanged: (v) => visits = int.tryParse(v) ?? visits),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -156,20 +157,24 @@ class _ReAnalyzeGameDialogState extends State<ReAnalyzeGameDialog> {
           Row(
             children: [
               Expanded(
-                child: TextFormField(
-                  enabled: moveRange,
-                  initialValue: '$startMove',
-                  decoration: InputDecoration(labelText: i18n.tr('from move')),
-                  onChanged: (v) => startMove = int.tryParse(v) ?? startMove,
+                child: FieldLabel(
+                  label: i18n.tr('from move'),
+                  child: TextFormField(
+                    enabled: moveRange,
+                    initialValue: '$startMove',
+                    onChanged: (v) => startMove = int.tryParse(v) ?? startMove,
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: TextFormField(
-                  enabled: moveRange,
-                  initialValue: '$endMove',
-                  decoration: InputDecoration(labelText: i18n.tr('to move')),
-                  onChanged: (v) => endMove = int.tryParse(v) ?? endMove,
+                child: FieldLabel(
+                  label: i18n.tr('to move'),
+                  child: TextFormField(
+                    enabled: moveRange,
+                    initialValue: '$endMove',
+                    onChanged: (v) => endMove = int.tryParse(v) ?? endMove,
+                  ),
                 ),
               ),
             ],

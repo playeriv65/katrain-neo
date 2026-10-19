@@ -25,6 +25,18 @@ class BottomBar extends StatelessWidget {
       onPressed: onPressed,
       icon: Icon(icon, color: color),
     );
+    return LayoutBuilder(
+      // a narrow bar leaves out the 10-move steps and rotation; their keys still work
+      builder: (context, constraints) => _bar(context, nav, next, full: constraints.maxWidth >= 620),
+    );
+  }
+
+  Widget _bar(
+    BuildContext context,
+    Widget Function(IconData, String, VoidCallback, {Color? color}) nav,
+    String next, {
+    required bool full,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
@@ -38,7 +50,7 @@ class BottomBar extends StatelessWidget {
             color: KTheme.mistakeButtonColor,
           ),
           nav(Icons.first_page, 'Home', () => app.undo(9999)),
-          nav(Icons.fast_rewind, 'Shift+←', () => app.undo(10)),
+          if (full) nav(Icons.fast_rewind, 'Shift+←', () => app.undo(10)),
           nav(Icons.chevron_left, '←', () => app.undo()),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -56,11 +68,10 @@ class BottomBar extends StatelessWidget {
             ),
           ),
           nav(Icons.chevron_right, '→', () => app.redo()),
-          nav(Icons.fast_forward, 'Shift+→', () => app.redo(10)),
+          if (full) nav(Icons.fast_forward, 'Shift+→', () => app.redo(10)),
           nav(Icons.last_page, 'End', () => app.redo(9999)),
           nav(Icons.keyboard_double_arrow_right, 'N', () => app.findMistake(), color: KTheme.mistakeButtonColor),
-          const SizedBox(width: 8),
-          nav(Icons.rotate_right, i18n.tr('Rotate'), app.rotate),
+          if (full) ...[const SizedBox(width: 8), nav(Icons.rotate_right, i18n.tr('Rotate'), app.rotate)],
           const Spacer(),
           _EngineStatus(app: app),
         ],

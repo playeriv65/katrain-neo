@@ -7,18 +7,18 @@ import '../../state/app_controller.dart';
 import '../../theme.dart';
 import 'config_editor.dart';
 
-Widget _labelled(BuildContext context, String label, Widget input) => Padding(
+Widget _labelled(BuildContext context, String label, Widget input, {double inputWidth = 300}) => Padding(
   padding: const EdgeInsets.symmetric(vertical: 4),
   child: Row(
     children: [
       Expanded(child: Text(label, style: Theme.of(context).textTheme.bodyMedium)),
       const SizedBox(width: 16),
-      SizedBox(width: 260, child: input),
+      SizedBox(width: inputWidth, child: input),
     ],
   ),
 );
 
-/// A dropdown over translated keys, storing the key (`LabelledSpinner`).
+/// A dropdown over translated keys, storing the key.
 Widget _choice(String value, List<String> refs, ValueChanged<String> onChanged) => DropdownButtonFormField<String>(
   initialValue: refs.contains(value) ? value : refs.first,
   isExpanded: true,
@@ -94,7 +94,7 @@ class _TeacherDialogState extends State<TeacherDialog> {
       title: i18n.tr('teacher settings'),
       actionLabel: i18n.tr('update teacher'),
       onAction: _update,
-      width: 680,
+      width: 760,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -142,6 +142,7 @@ class _TeacherDialogState extends State<TeacherDialog> {
                 ],
               ],
             ),
+            inputWidth: 440,
           ),
           _labelled(context, i18n.tr('show stats if'), _number('trainer/low_visits', integer: true)),
           _labelled(context, i18n.tr('show last n dots'), _number('trainer/eval_on_show_last', integer: true)),

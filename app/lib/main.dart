@@ -70,13 +70,28 @@ class KaTrainNeoApp extends StatefulWidget {
 class _KaTrainNeoAppState extends State<KaTrainNeoApp> {
   final _navigator = GlobalKey<NavigatorState>();
 
+  // the fonts depend on the language
+  void _onLanguage(I18n _) => setState(() {});
+
+  @override
+  void initState() {
+    super.initState();
+    i18n.addListener(_onLanguage);
+  }
+
+  @override
+  void dispose() {
+    i18n.removeListener(_onLanguage);
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = widget.app;
     return MaterialApp(
       title: appTitle,
       debugShowCheckedModeBanner: false,
-      theme: appTheme(),
+      theme: appTheme(lang: i18n.lang),
       navigatorKey: _navigator,
       builder: (context, child) => KeyboardShortcuts(app: app, navigator: _navigator, child: child!),
       home: ListenableBuilder(

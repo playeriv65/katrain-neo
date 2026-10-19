@@ -122,15 +122,52 @@ class _NumberFieldState extends State<NumberField> {
   }
 
   @override
-  Widget build(BuildContext context) => TextField(
-    controller: _controller,
-    keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-    decoration: InputDecoration(labelText: widget.label, helperText: widget.helper, isDense: true),
-    onChanged: widget.onChanged,
+  Widget build(BuildContext context) => FieldLabel(
+    label: widget.label,
+    child: TextField(
+      controller: _controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+      decoration: InputDecoration(
+        helperText: widget.helper?.replaceAll(lineBreak, ' '),
+        helperMaxLines: 3,
+        isDense: true,
+      ),
+      onChanged: widget.onChanged,
+    ),
   );
 }
 
-/// `LabelledSelectionSlider`: a slider over fixed (value, label) steps next to a text field, which may hold any
+/// A line break and the spaces around it: translations break lines for narrower layouts than these.
+final lineBreak = RegExp(r'\s*\n\s*');
+
+/// A field with its label above it, so a long label wraps instead of covering the value.
+class FieldLabel extends StatelessWidget {
+  final String label;
+  final Widget child;
+  const FieldLabel({super.key, required this.label, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    if (label.isEmpty) return child;
+    final theme = Theme.of(context);
+    return MergeSemantics(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // the text wraps where it needs to
+          Text(
+            label.replaceAll(lineBreak, ' '),
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+/// A slider over fixed (value, label) steps next to a text field, which may hold any
 /// number; the text wins when it is not empty.
 class SelectionSliderField extends StatefulWidget {
   final List<(num, String)> values;
@@ -155,7 +192,7 @@ class _SelectionSliderFieldState extends State<SelectionSliderField> {
   late final _controller = TextEditingController(text: '${widget.initial}');
   int index = 0;
 
-  /// `SelectionSlider.set_value`: the closest step, the first one on a tie.
+  /// The closest step to [value], the first one on a tie.
   void _setIndexFrom(Object? value) {
     if (value is! num) return;
     var best = 0;

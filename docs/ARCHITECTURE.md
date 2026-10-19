@@ -61,9 +61,13 @@ installer/windows/         Inno Setup script
   once per size.
 - **Look.** Material 3, dark, with the board's own textures and the evaluation colours for score, win rate and point
   loss. The arrangement: the board on the left with display toggles above and navigation below; players, clock or
-  move tree, graph, statistics and notes on the right; a drawer for players, game and settings.
+  move tree, graph, statistics and notes on the right; a drawer for players, game and settings. In small windows the
+  top bar shows its toggles as icons when their labels do not fit, the bottom bar drops the 10-move steps and
+  rotation (their keys still work), and the side panel scrolls rather than squeeze the notes. Chinese, Japanese and
+  Korean text falls back to each language's own system font first, so Chinese is not drawn in Japanese forms.
 - **Dialogs** read and write settings by path (`ConfigEditor`, e.g. `trainer/eval_thresholds::2`); Enter applies,
-  Escape closes, a popup key closes its open popup. Files are loaded and saved through the system's dialogs.
+  Escape closes, a popup key closes its open popup. A field's label sits above it (`FieldLabel`), so long
+  translations wrap instead of covering the value. Files are loaded and saved through the system's dialogs.
 - **Keyboard.** Shortcuts (`ui/keyboard.dart`) sit above the navigator; a focused text field keeps its keys. Alt alone
   opens the menu, Tab alone switches between play and analysis.
 - **Platform.** The window's size and position are restored (`window_manager`), dropped files are loaded
@@ -96,10 +100,12 @@ The app serves an HTTP API on 127.0.0.1 with a token per run, on port 8765 or th
 - CLI: every command's request, usage errors, links, and end to end against an in-test server.
 - App: the controller and the clock tested on the real engine with a pretend KataGo behind it
   (`app/test/support/fake_katago.dart`: it records the queries and answers them when the test says so); widget tests
-  and headless rendering (`flutter test`); `test/render_test.dart` writes the main screen and the
-  dialogs to PNGs when `NEO_RENDER_SGF` (a game) and `NEO_RENDER_OUT` (a folder) are set. Checks never open windows; the app runs hidden with
-  `KATRAIN_NEO_HIDDEN=1`.
-- CI (GitHub Actions): format, analyze with `--fatal-infos`, all tests, and builds for the three platforms. A `v*` tag
+  and headless rendering (`flutter test`). `test/layout_scan_test.dart` lays out the main screen, the menu and every
+  dialog at three window sizes in eight languages and fails on rows or columns that overflow, text that is cut off
+  and content hidden in a sideways scroll; it uses the Windows interface fonts when the machine has them (Chinese,
+  Japanese and Korean are scanned only then), and with `NEO_LAYOUT_OUT` (a folder) it saves every screen as a PNG.
+  `test/render_test.dart` writes the main screen and the dialogs to PNGs when `NEO_RENDER_SGF` (a game) and
+  `NEO_RENDER_OUT` (a folder) are set. Checks never open windows; the app runs hidden with `KATRAIN_NEO_HIDDEN=1`.- CI (GitHub Actions): format, analyze with `--fatal-infos`, all tests, and builds for the three platforms. A `v*` tag
   publishes the builds as a release.
 
 ## Roadmap

@@ -175,12 +175,19 @@ class _PlayerSetup extends StatelessWidget {
         CircleAvatar(radius: 14, backgroundColor: KTheme.stoneColors[bw]),
         const SizedBox(width: 12),
         Expanded(
+          flex: 2,
           child: DropdownButtonFormField<String>(
             key: ValueKey('$bw-type-$type'),
             initialValue: type,
             isExpanded: true,
             decoration: InputDecoration(labelText: i18n.tr('player:type'), isDense: true),
-            items: [for (final t in playerTypes) DropdownMenuItem(value: t, child: Text(i18n.tr(t)))],
+            items: [
+              for (final t in playerTypes)
+                DropdownMenuItem(
+                  value: t,
+                  child: Text(i18n.tr(t), maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+            ],
             onChanged: (t) {
               if (t == null || t == type) return;
               onChanged(t, t == playerAi ? aiStrategiesRecommendedOrder.first : gameTypes.first);
@@ -189,7 +196,7 @@ class _PlayerSetup extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          flex: 2,
+          flex: 3,
           child: DropdownButtonFormField<String>(
             key: ValueKey('$bw-$type-$subtype'),
             initialValue: subtypes.contains(subtype) ? subtype : subtypes.first,

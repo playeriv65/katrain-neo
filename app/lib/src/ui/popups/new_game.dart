@@ -221,7 +221,11 @@ class _NewGameDialogState extends State<NewGameDialog> {
               'board size',
               TextField(
                 controller: size,
-                decoration: InputDecoration(hintText: i18n.tr('non square board hint'), isDense: true),
+                decoration: InputDecoration(
+                  helperText: i18n.tr('non square board hint'),
+                  helperMaxLines: 2,
+                  isDense: true,
+                ),
               ),
               _quick(size, const ['9', '13', '19']),
             ),

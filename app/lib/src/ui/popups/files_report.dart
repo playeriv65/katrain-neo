@@ -153,8 +153,11 @@ class _GameReportDialogState extends State<GameReportDialog> {
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
 
-    Widget cell(Widget child, {Color? color}) => Container(
-      height: 32,
+    // labels may take two lines in some languages; bars and numbers keep one row's height
+    Widget cell(Widget child, {Color? color, bool grows = false}) => Container(
+      height: grows ? null : 32,
+      constraints: grows ? const BoxConstraints(minHeight: 32) : null,
+      padding: grows ? const EdgeInsets.symmetric(horizontal: 6, vertical: 4) : null,
       margin: const EdgeInsets.all(1),
       alignment: Alignment.center,
       decoration: BoxDecoration(color: color ?? scheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(4)),
@@ -182,7 +185,7 @@ class _GameReportDialogState extends State<GameReportDialog> {
       TableRow(
         children: [
           const SizedBox(),
-          cell(Text(i18n.tr('header:keystats'), style: text.titleSmall), color: Colors.transparent),
+          cell(Text(i18n.tr('header:keystats'), style: text.titleSmall), color: Colors.transparent, grows: true),
           const SizedBox(),
         ],
       ),
@@ -195,14 +198,18 @@ class _GameReportDialogState extends State<GameReportDialog> {
         TableRow(
           children: [
             _statCell(stat, sumStats, 'B', key, format, scale, moreIsBetter),
-            cell(Text(i18n.tr('stat:$label'))),
+            cell(Text(i18n.tr('stat:$label'), textAlign: TextAlign.center), grows: true),
             _statCell(stat, sumStats, 'W', key, format, scale, moreIsBetter),
           ],
         ),
       TableRow(
         children: [
           for (final h in const ['header:num moves', 'stats:pointslost', 'header:num moves'])
-            cell(Text(i18n.tr(h), style: text.titleSmall), color: Colors.transparent),
+            cell(
+              Text(i18n.tr(h), style: text.titleSmall, textAlign: TextAlign.center),
+              color: Colors.transparent,
+              grows: true,
+            ),
         ],
       ),
       for (var i = 0; i < thresholds.length; i++)
@@ -251,7 +258,11 @@ class _GameReportDialogState extends State<GameReportDialog> {
                 ],
               ),
               const SizedBox(height: 8),
-              Table(columnWidths: const {1: FlexColumnWidth(1.2)}, children: rows),
+              Table(
+                columnWidths: const {1: FlexColumnWidth(1.2)},
+                defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                children: rows,
+              ),
             ],
           ),
         ),
