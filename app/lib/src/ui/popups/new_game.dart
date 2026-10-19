@@ -1,30 +1,30 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/gui/popups.py and popups.kv: NewGamePopup.
+// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/popups.py and popups.kv: NewGamePopup.
 
 import 'package:flutter/material.dart';
 import 'package:katrain_core/katrain_core.dart';
 
-import '../../state/katrain_gui.dart';
+import '../../state/app_controller.dart';
 import '../menu_drawer.dart' show PlayerSetupBlock;
 import 'config_editor.dart';
 
 /// Starts a new game, a game from a position set up by self-play, or edits the current game's players and rules.
 class NewGameDialog extends StatefulWidget {
-  final KaTrainGui gui;
-  const NewGameDialog({super.key, required this.gui});
+  final AppController app;
+  const NewGameDialog({super.key, required this.app});
 
   @override
   State<NewGameDialog> createState() => _NewGameDialogState();
 }
 
 class _NewGameDialogState extends State<NewGameDialog> {
-  late final gui = widget.gui;
-  late final editor = ConfigEditor(gui);
+  late final app = widget.app;
+  late final editor = ConfigEditor(app);
   String mode = 'newgame';
   late final players = {
-    for (final MapEntry(:key, :value) in gui.playersInfo.entries) key: (value.playerType, value.playerSubtype),
+    for (final MapEntry(:key, :value) in app.playersInfo.entries) key: (value.playerType, value.playerSubtype),
   };
   final names = {'B': TextEditingController(), 'W': TextEditingController()};
-  late final komi = TextEditingController(text: pyStr(gui.game!.root.komi));
+  late final komi = TextEditingController(text: pyStr(app.game!.root.komi));
   late final size = TextEditingController(text: pyStr(editor.value('game/size')));
   late final handicap = TextEditingController(text: pyStr(editor.value('game/handicap')));
   late String rules = _normalizedRules() ?? editor.value('game/rules') as String;
@@ -57,7 +57,7 @@ class _NewGameDialogState extends State<NewGameDialog> {
   }
 
   String? _normalizedRules() {
-    final ruleset = gui.game!.root.getProperty('RU', 'japanese')!.trim().toLowerCase();
+    final ruleset = app.game!.root.getProperty('RU', 'japanese')!.trim().toLowerCase();
     for (final (abbr, name) in rulesetsAbbr) {
       if (abbr == ruleset || name == ruleset) return name;
     }
@@ -68,7 +68,7 @@ class _NewGameDialogState extends State<NewGameDialog> {
   void _setMode(String newMode) {
     setState(() => mode = newMode);
     for (final bw in const ['B', 'W']) {
-      final name = gui.game!.root.getProperty('P$bw');
+      final name = app.game!.root.getProperty('P$bw');
       if (name != null && name.isNotEmpty && !name.contains(sgfInternalCommentsMarker)) {
         names[bw]!.text = mode == 'editgame' ? name : '';
       }
@@ -79,11 +79,11 @@ class _NewGameDialogState extends State<NewGameDialog> {
     for (final bw in const ['B', 'W']) {
       final name = names[bw]!.text;
       if (name.isNotEmpty) {
-        gui.game!.root.setProperty('P$bw', name);
+        app.game!.root.setProperty('P$bw', name);
       } else {
-        gui.game!.root.clearProperty('P$bw');
+        app.game!.root.clearProperty('P$bw');
       }
-      gui.updatePlayer(bw, playerType: players[bw]!.$1, playerSubtype: players[bw]!.$2);
+      app.updatePlayer(bw, playerType: players[bw]!.$1, playerSubtype: players[bw]!.$2);
     }
   }
 
@@ -93,24 +93,24 @@ class _NewGameDialogState extends State<NewGameDialog> {
       editor.updateConfig();
       props = editor.collect();
     } on InputParseError catch (e) {
-      gui.setStatus('$e', statusError);
+      app.setStatus('$e', statusError);
       return;
     }
     Navigator.of(context).pop();
-    gui.log('Mode: $mode, settings: ${pyStr(gui.config('game'))}', outputDebug);
+    app.log('Mode: $mode, settings: ${pyStr(app.config('game'))}', outputDebug);
     _updatePlayerInfo(); // type
     if (mode == 'newgame') {
       if (clearCache) {
-        gui.log('Restarting Engine', outputDebug);
-        gui.restartEngine().then((_) {
-          gui.doNewGame();
+        app.log('Restarting Engine', outputDebug);
+        app.restartEngine().then((_) {
+          app.startGame();
           _updatePlayerInfo(); // name
         });
         return;
       }
-      gui.doNewGame();
+      app.startGame();
     } else if (mode == 'editgame') {
-      final root = gui.game!.root;
+      final root = app.game!.root;
       var changed = false;
       for (final (k, current, value) in [
         ('RU', _normalizedRules(), props['game/rules']),
@@ -118,7 +118,7 @@ class _NewGameDialogState extends State<NewGameDialog> {
       ]) {
         if (current != value) {
           changed = true;
-          gui.log(
+          app.log(
             'Property $k changed from ${pyStr(current)} to ${pyStr(value)}, triggering re-analysis of entire game.',
             outputInfo,
           );
@@ -126,12 +126,15 @@ class _NewGameDialogState extends State<NewGameDialog> {
         }
       }
       if (changed) {
-        gui.engine!.onNewGame();
-        gui.game!.analyzeAllNodes(analyzeFast: true);
+        app.engine!.onNewGame();
+        app.game!.analyzeAllNodes(analyzeFast: true);
       }
     } else {
-      gui.doNewGame();
-      gui.act('selfplay-setup', [props['game/setup_move'], props['game/setup_advantage']]);
+      app.startGame();
+      app.selfplay(
+        (props['game/setup_move'] as num).round(),
+        blackAdvantage: (props['game/setup_advantage'] as num).toDouble(),
+      );
     }
     _updatePlayerInfo(); // name
   }
@@ -181,7 +184,7 @@ class _NewGameDialogState extends State<NewGameDialog> {
           ),
           const SizedBox(height: 12),
           PlayerSetupBlock(
-            gui: gui,
+            app: app,
             players: players,
             onChanged: (bw, type, subtype) => setState(() => players[bw] = (type, subtype)),
           ),

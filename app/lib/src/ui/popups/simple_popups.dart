@@ -1,40 +1,41 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/gui/popups.py and popups.kv:
+// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/popups.py and popups.kv:
 // ConfigTimerPopup, TsumegoFramePopup, ReAnalyzeGamePopup and EngineRecoveryPopup.
 
 import 'package:flutter/material.dart';
 import 'package:katrain_core/katrain_core.dart';
 
-import '../../state/katrain_gui.dart';
+import '../../state/app_controller.dart';
+import '../../state/dialogs.dart';
 import '../menu_drawer.dart' show openUrl;
 import 'config_editor.dart';
 
 /// Clock settings: main time, byo-yomi length and periods, and the minimal time a move must take.
 class TimerDialog extends StatefulWidget {
-  final KaTrainGui gui;
-  const TimerDialog({super.key, required this.gui});
+  final AppController app;
+  const TimerDialog({super.key, required this.app});
 
   @override
   State<TimerDialog> createState() => _TimerDialogState();
 }
 
 class _TimerDialogState extends State<TimerDialog> {
-  late final editor = ConfigEditor(widget.gui);
+  late final editor = ConfigEditor(widget.app);
 
   void _update() {
     try {
       editor.updateConfig();
     } on InputParseError catch (e) {
-      widget.gui.setStatus('$e', statusError);
+      widget.app.setStatus('$e', statusError);
       return;
     }
-    final gui = widget.gui;
-    for (final p in gui.playersInfo.values) {
+    final app = widget.app;
+    for (final p in app.playersInfo.values) {
       p.periodsUsed = 0;
     }
-    gui.setTimerPaused(true);
-    gui.game!.currentNode.timeUsed = 0;
-    gui.game!.mainTimeUsed = 0;
-    gui.updateState();
+    app.clock.paused = true;
+    app.game!.currentNode.timeUsed = 0;
+    app.game!.mainTimeUsed = 0;
+    app.updateState();
     Navigator.of(context).pop();
   }
 
@@ -68,8 +69,8 @@ class _TimerDialogState extends State<TimerDialog> {
 
 /// Fills the board around a life-and-death problem.
 class TsumegoFrameDialog extends StatefulWidget {
-  final KaTrainGui gui;
-  const TsumegoFrameDialog({super.key, required this.gui});
+  final AppController app;
+  const TsumegoFrameDialog({super.key, required this.app});
 
   @override
   State<TsumegoFrameDialog> createState() => _TsumegoFrameDialogState();
@@ -87,7 +88,7 @@ class _TsumegoFrameDialogState extends State<TsumegoFrameDialog> {
       width: 420,
       onAction: () {
         Navigator.of(context).pop();
-        widget.gui.act('tsumego-frame', [ko, margin]);
+        widget.app.tsumegoFrame(ko, margin);
       },
       child: Column(
         children: [
@@ -111,8 +112,8 @@ class _TsumegoFrameDialogState extends State<TsumegoFrameDialog> {
 
 /// Analyses the whole game again, or a range of moves, or only around mistakes, with more visits.
 class ReAnalyzeGameDialog extends StatefulWidget {
-  final KaTrainGui gui;
-  const ReAnalyzeGameDialog({super.key, required this.gui});
+  final AppController app;
+  const ReAnalyzeGameDialog({super.key, required this.app});
 
   @override
   State<ReAnalyzeGameDialog> createState() => _ReAnalyzeGameDialogState();
@@ -121,7 +122,7 @@ class ReAnalyzeGameDialog extends StatefulWidget {
 class _ReAnalyzeGameDialogState extends State<ReAnalyzeGameDialog> {
   int visits = 2500;
   bool moveRange = false;
-  late int startMove = widget.gui.game!.currentNode.depth;
+  late int startMove = widget.app.game!.currentNode.depth;
   int endMove = 999;
   bool mistakesOnly = false;
 
@@ -133,14 +134,11 @@ class _ReAnalyzeGameDialogState extends State<ReAnalyzeGameDialog> {
       width: 460,
       onAction: () {
         Navigator.of(context).pop();
-        widget.gui.act(
-          'analyze-extra',
-          ['game'],
-          {
-            'visits': visits,
-            'move_range': moveRange ? [startMove, endMove] : null,
-            'mistakes_only': mistakesOnly,
-          },
+        widget.app.analyzeExtra(
+          'game',
+          visits: visits,
+          moveRange: moveRange ? [startMove, endMove] : null,
+          mistakesOnly: mistakesOnly,
         );
       },
       child: Column(
@@ -191,30 +189,21 @@ class _ReAnalyzeGameDialogState extends State<ReAnalyzeGameDialog> {
 
 /// The engine failed to start or died: what happened, what to try, and retry.
 class EngineRecoveryDialog extends StatelessWidget {
-  final KaTrainGui gui;
-  final String errorMessage;
-  final Object? code;
-  final String engineType;
+  final AppController app;
+  final EngineFailure failure;
   final VoidCallback openSettings;
-  const EngineRecoveryDialog({
-    super.key,
-    required this.gui,
-    required this.errorMessage,
-    required this.code,
-    required this.engineType,
-    required this.openSettings,
-  });
+  const EngineRecoveryDialog({super.key, required this.app, required this.failure, required this.openSettings});
 
   /// KaTrain's message, without its Kivy markup (the links become buttons).
   String _plain(String text) => text.replaceAll(RegExp(r'\[/?[a-z]+(=[^\]]*)?\]'), '');
 
   @override
   Widget build(BuildContext context) {
-    final remote = engineType == 'remote';
+    final remote = failure.engineType == 'remote';
     final settings = i18n.tr('menu:settings');
     final opening = pyFormat(
       i18n.tr(remote ? 'remote engine disconnected popup opening message' : 'engine died popup opening message'),
-      {'code': code, 'error_message': errorMessage},
+      {'code': failure.code, 'error_message': failure.message},
     );
     final suggestion = pyFormat(i18n.tr(remote ? 'remote engine check url suggestion' : 'change engine suggestion'), {
       'link': settings,
@@ -241,7 +230,7 @@ class EngineRecoveryDialog extends StatelessWidget {
         FilledButton(
           onPressed: () {
             Navigator.of(context).pop();
-            gui.restartEngine();
+            app.restartEngine();
           },
           child: Text(i18n.tr('engine recovery: retry')),
         ),

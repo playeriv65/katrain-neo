@@ -1,4 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/gui/sound.py: sounds play only when the
+// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/sound.py: sounds play only when the
 // "timer/sound" setting is on, each file from one cached player, restarted when played again.
 
 import 'package:audioplayers/audioplayers.dart';

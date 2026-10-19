@@ -1,4 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/gui/badukpan.py: draw_board (texture,
+// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/badukpan.py: draw_board (texture,
 // lines, star points, coordinates), draw_board_contents (territory, stones with evaluation dots, last move and move
 // numbers, policy) and draw_hover_contents (top moves, next moves, ghost stone, principal variation, region of
 // interest, the pass circle). KaTrain draws in Kivy coordinates (y up); positions come from BoardGeometry here.
@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:katrain_core/api.dart' show visibleMarks;
 import 'package:katrain_core/katrain_core.dart';
 
-import '../../state/katrain_gui.dart';
+import '../../state/app_controller.dart';
 import '../../theme.dart';
 import 'board_geometry.dart';
 import 'board_images.dart';
@@ -55,10 +55,10 @@ void drawArc(Canvas canvas, Offset pos, double r, Color color, double width, [do
 }
 
 /// The trainer settings the board uses (KaTrain's `trainer_config`).
-Map<String, dynamic> trainerConfig(KaTrainGui gui) => (gui.config('trainer') as Map).cast<String, dynamic>();
+Map<String, dynamic> trainerConfig(AppController app) => (app.config('trainer') as Map).cast<String, dynamic>();
 
-Color? evalColor(KaTrainGui gui, double pointsLost, [List<bool>? showDotsForClass]) {
-  final tc = trainerConfig(gui);
+Color? evalColor(AppController app, double pointsLost, [List<bool>? showDotsForClass]) {
+  final tc = trainerConfig(app);
   final i = evaluationClass(pointsLost, (tc['eval_thresholds'] as List).cast<num>());
   final colors = KTheme.evalColors[tc['theme']]!;
   if (showDotsForClass == null || showDotsForClass[i]) return colors[i];
@@ -67,14 +67,14 @@ Color? evalColor(KaTrainGui gui, double pointsLost, [List<bool>? showDotsForClas
 
 /// The board itself: texture, lines, star points and coordinates.
 class BoardBackgroundPainter extends CustomPainter {
-  final KaTrainGui gui;
+  final AppController app;
   final BoardImages images;
   final BoardGeometry geo;
-  BoardBackgroundPainter(this.gui, this.images, this.geo, Listenable repaint) : super(repaint: repaint);
+  BoardBackgroundPainter(this.app, this.images, this.geo, Listenable repaint) : super(repaint: repaint);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final game = gui.game;
+    final game = app.game;
     if (game == null || !geo.valid) return;
     final tint = game.insertMode ? KTheme.insertBoardColorTint : KTheme.boardColorTint; // dreamy in insert mode
     drawTexture(canvas, images[KTheme.boardTexture], geo.boardRect, tint);
@@ -83,7 +83,7 @@ class BoardBackgroundPainter extends CustomPainter {
       ..strokeWidth = 1;
     final xs = geo.columnsX;
     final ys = geo.rowsY;
-    // zoomed: real board edges are edges, cut sides let the lines run on a little (gui/zoomview.py)
+    // zoomed: real board edges are edges, cut sides let the lines run on a little (app/zoomview.py)
     final zoom = geo.zoom;
     final runOn = KTheme.zoomLineRunOn * geo.gridSize;
     final left = xs.first - (zoom == null || zoom[0] == 0 ? 0 : runOn);
@@ -138,20 +138,20 @@ class BoardBackgroundPainter extends CustomPainter {
 
 /// Territory, stones and policy.
 class BoardContentsPainter extends CustomPainter {
-  final KaTrainGui gui;
+  final AppController app;
   final BoardImages images;
   final BoardGeometry geo;
-  BoardContentsPainter(this.gui, this.images, this.geo, Listenable repaint) : super(repaint: repaint);
+  BoardContentsPainter(this.app, this.images, this.geo, Listenable repaint) : super(repaint: repaint);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final game = gui.game;
+    final game = app.game;
     if (game == null || !geo.valid) return;
-    final tc = trainerConfig(gui);
+    final tc = trainerConfig(app);
     final (sizeX, sizeY) = game.boardSize;
     final showNEval = (tc['eval_on_show_last'] ?? 3) as int;
     if (geo.viewClip != null) canvas.clipRect(geo.viewClip!);
-    final hidden = gui.board.hiddenCoords;
+    final hidden = app.board.hiddenCoords;
     List<List<double>>? ownershipGrid;
     List<List<double>>? lossGrid;
     final currentNode = game.currentNode;
@@ -159,10 +159,10 @@ class BoardContentsPainter extends CustomPainter {
     // ownership - allow one move out of date for smooth animation,
     // drawn first so the board is shaded underneath all other elements.
     final ownership = currentNode.ownership ?? currentNode.parent?.ownership;
-    if (gui.analysisControls['ownership']! && ownership != null && ownership.isNotEmpty) {
+    if (app.analysisControls['ownership']! && ownership != null && ownership.isNotEmpty) {
       final lastChild = currentNode.children.isNotEmpty ? currentNode.children.last : null;
       if (lastChild != null &&
-          gui.statusState.$2 == statusTeaching &&
+          app.statusState.$2 == statusTeaching &&
           lastChild.autoUndo == true &&
           lastChild.ownership != null) {
         // loss
@@ -183,11 +183,11 @@ class BoardContentsPainter extends CustomPainter {
     }
 
     // stones
-    final allDotsOff = !gui.analysisControls['eval']!;
+    final allDotsOff = !app.analysisControls['eval']!;
     final hasStone = {for (final m in game.stones) m.coords!: m.player};
     final drawnStone = <(int, int)>{};
     final showDotsFor = {
-      for (final p in const ['B', 'W']) p: (tc['eval_show_ai'] ?? true) == true || gui.playersInfo[p]!.human,
+      for (final p in const ['B', 'W']) p: (tc['eval_show_ai'] ?? true) == true || app.playersInfo[p]!.human,
     };
     final showDotsForClass = (tc['show_dots'] as List).cast<bool>();
     final nodes = currentNode.nodesFromRoot;
@@ -211,7 +211,7 @@ class BoardContentsPainter extends CustomPainter {
         if (hasStone[c] != null && !drawnStone.contains(c)) {
           // skip captures, last only for
           final moveEvalOn = !allDotsOff && showDotsFor[m.player]! && i < showNEval;
-          final evalcol = moveEvalOn && pointsLost != null ? evalColor(gui, pointsLost, showDotsForClass) : null;
+          final evalcol = moveEvalOn && pointsLost != null ? evalColor(app, pointsLost, showDotsForClass) : null;
           final inner = i == 0 && !placements.contains(m) ? KTheme.stoneColors[m.opponent] : null;
           drawnStone.add(c);
           drawStone(
@@ -224,17 +224,17 @@ class BoardContentsPainter extends CustomPainter {
             evalscale: evalscale,
             ownership: ownershipGrid != null && lossGrid == null && !newMove ? ownershipGrid[c.$2][c.$1] : null,
             loss: lossGrid?[c.$2][c.$1],
-            depth: gui.showMoveNum ? node.depth : null,
+            depth: app.showMoveNum ? node.depth : null,
           );
         }
       }
       realizedPointsLost = node.parentRealizedPointsLost;
     }
 
-    if (currentNode.isRoot && gui.debugLevel >= 3) {
+    if (currentNode.isRoot && app.debugLevel >= 3) {
       // secret ;)
       for (var y = 0; y < sizeY; y++) {
-        final evalcol = evalColor(gui, 16 * y / sizeY);
+        final evalcol = evalColor(app, 16 * y / sizeY);
         drawStone(canvas, 0, y, 'B', evalcol: evalcol, evalscale: y / (sizeY - 1));
         drawStone(canvas, 1, y, 'B', innercol: KTheme.stoneColors['W'], evalcol: evalcol);
         drawStone(canvas, 2, y, 'W', evalcol: evalcol, evalscale: y / (sizeY - 1));
@@ -242,8 +242,8 @@ class BoardContentsPainter extends CustomPainter {
       }
     }
 
-    final policy = boardPolicy(gui);
-    if (gui.analysisControls['policy']! && policy != null) {
+    final policy = boardPolicy(app);
+    if (app.analysisControls['policy']! && policy != null) {
       final policyGrid = varToGrid(policy, (sizeX, sizeY));
       final bestMovePolicy = policy.reduce(math.max);
       final colors = KTheme.evalColors[tc['theme']]!;
@@ -303,7 +303,7 @@ class BoardContentsPainter extends CustomPainter {
       canvas,
       images,
       geo,
-      gui,
+      app,
       x,
       y,
       player,
@@ -400,13 +400,13 @@ class BoardContentsPainter extends CustomPainter {
 }
 
 /// The policy to show: the node's, or in AI self-play its parent's (one step out of date).
-List<double>? boardPolicy(KaTrainGui gui) {
-  final cn = gui.game!.currentNode;
+List<double>? boardPolicy(AppController app) {
+  final cn = app.game!.currentNode;
   var policy = cn.policy;
   if ((policy == null || policy.isEmpty) &&
       cn.parent?.policy != null &&
-      gui.lastPlayerInfo.ai &&
-      gui.nextPlayerInfo.ai) {
+      app.lastPlayerInfo.ai &&
+      app.nextPlayerInfo.ai) {
     policy = cn.parent!.policy;
   }
   return (policy == null || policy.isEmpty) ? null : policy;
@@ -418,7 +418,7 @@ void paintStone(
   Canvas canvas,
   BoardImages images,
   BoardGeometry geo,
-  KaTrainGui gui,
+  AppController app,
   int x,
   int y,
   String player, {
@@ -465,7 +465,7 @@ void paintStone(
         blue: (markColor.b + o.b) / 2,
       );
     } else {
-      markColor = KTheme.evalColors[trainerConfig(gui)['theme']]![1].withValues(alpha: 1);
+      markColor = KTheme.evalColors[trainerConfig(app)['theme']]![1].withValues(alpha: 1);
       outlineColor = markColor;
     }
     final markSize =
@@ -512,13 +512,13 @@ void paintStone(
 typedef PvMove = ((int, int), List<String>, GameNode);
 
 /// The top moves to show as hints (badukpan.py `draw_hover_contents`).
-List<Map<String, dynamic>> hintMoves(KaTrainGui gui) {
-  final game = gui.game!;
+List<Map<String, dynamic>> hintMoves(AppController app) {
+  final game = app.game!;
   final cn = game.currentNode;
-  if (gui.analysisControls['hints']! && !gui.analysisControls['policy']! && game.endResult == null) {
+  if (app.analysisControls['hints']! && !app.analysisControls['policy']! && game.endResult == null) {
     return cn.candidateMoves;
   }
-  if (gui.statusState.$2 == statusTeaching) {
+  if (app.statusState.$2 == statusTeaching) {
     // show score hint for teaching undo
     return [
       for (final m in cn.candidateMoves)
@@ -530,15 +530,15 @@ List<Map<String, dynamic>> hintMoves(KaTrainGui gui) {
 }
 
 /// The moves whose variations hovering shows: hints and the next moves (`active_pv_moves`).
-List<PvMove> activePvMoves(KaTrainGui gui) {
-  final cn = gui.game!.currentNode;
+List<PvMove> activePvMoves(AppController app) {
+  final cn = app.game!.currentNode;
   final result = <PvMove>[];
-  final lowVisits = (gui.config('trainer/low_visits', 25) as num).toInt();
+  final lowVisits = (app.config('trainer/low_visits', 25) as num).toInt();
   final childMoves = {
     for (final c in cn.children)
       if (c.move != null) c.move!.gtp(),
   };
-  for (final m in hintMoves(gui)) {
+  for (final m in hintMoves(app)) {
     final move = Move.fromGtp(m['move'] as String);
     if (move.coords == null) continue;
     final engineBestMove = (m['order'] ?? 99) == 0;
@@ -549,7 +549,7 @@ List<PvMove> activePvMoves(KaTrainGui gui) {
     if (scale <= 0) continue;
     if (m.containsKey('pv')) result.add((move.coords!, (m['pv'] as List).cast<String>(), cn));
   }
-  if (gui.analysisControls['show_children']!) {
+  if (app.analysisControls['show_children']!) {
     for (final child in cn.children) {
       final move = child.move;
       if (move != null && move.coords != null && child.analysisExists) {
@@ -571,20 +571,20 @@ String _formatLoss(Map<String, dynamic> tc, double x) {
 
 /// Hints, next moves, the ghost stone, the principal variation, the region of interest and the pass circle.
 class BoardHoverPainter extends CustomPainter {
-  final KaTrainGui gui;
+  final AppController app;
   final BoardImages images;
   final BoardGeometry geo;
 
   /// Where the pass button is, for a pass in a variation (asked while painting, after layout).
   final Rect? Function()? passButton;
-  BoardHoverPainter(this.gui, this.images, this.geo, this.passButton, Listenable repaint) : super(repaint: repaint);
+  BoardHoverPainter(this.app, this.images, this.geo, this.passButton, Listenable repaint) : super(repaint: repaint);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final game = gui.game;
+    final game = app.game;
     if (game == null || !geo.valid) return;
-    final tc = trainerConfig(gui);
-    final board = gui.board;
+    final tc = trainerConfig(app);
+    final board = app.board;
     final gameEnded = game.endResult;
     final currentNode = game.currentNode;
     final nextPlayer = currentNode.nextPlayer;
@@ -596,11 +596,11 @@ class BoardHoverPainter extends CustomPainter {
       for (final c in currentNode.children)
         if (c.move != null) c.move!.gtp(),
     };
-    final hints = hintMoves(gui);
+    final hints = hintMoves(app);
     if (hints.isNotEmpty) {
-      final lowVisitsThreshold = (gui.config('trainer/low_visits', 25) as num).toInt();
+      final lowVisitsThreshold = (app.config('trainer/low_visits', 25) as num).toInt();
       final topMovesShow = [
-        for (final opt in [gui.config('trainer/top_moves_show'), gui.config('trainer/top_moves_show_secondary')])
+        for (final opt in [app.config('trainer/top_moves_show'), app.config('trainer/top_moves_show_secondary')])
           if (topMoveOptions.contains(opt) && opt != topMoveNothing) opt as String,
       ];
       for (final moveDict in hints) {
@@ -621,7 +621,7 @@ class BoardHoverPainter extends CustomPainter {
         if (scale <= 0) continue; // if theme turns hints off, do not draw them
         final pos = geo.pos(c.$1, c.$2);
         final evalsize = geo.stoneSize * scale;
-        final evalcol = evalColor(gui, (moveDict['pointsLost'] as num).toDouble())!;
+        final evalcol = evalColor(app, (moveDict['pointsLost'] as num).toDouble())!;
         if (textOn && topMovesShow.isNotEmpty) {
           // remove grid lines using a board colored circle
           drawCircle(canvas, pos, geo.stoneSize * scale * 0.98, KTheme.approxBoardColor);
@@ -664,7 +664,7 @@ class BoardHoverPainter extends CustomPainter {
     }
 
     // children of current moves in undo / review
-    if (gui.analysisControls['show_children']!) {
+    if (app.analysisControls['show_children']!) {
       for (final child in currentNode.children) {
         final move = child.move;
         final c = move?.coords;
@@ -698,13 +698,13 @@ class BoardHoverPainter extends CustomPainter {
       // hover next move ghost stone
       final ghost = board.ghostStone;
       if (ghost != null) {
-        paintStone(canvas, images, geo, gui, ghost.$1, ghost.$2, nextPlayer, alpha: KTheme.ghostAlpha);
+        paintStone(canvas, images, geo, app, ghost.$1, ghost.$2, nextPlayer, alpha: KTheme.ghostAlpha);
       }
       final animating = board.pv;
       if (animating != null) {
         final upTo = board.animatePvIndex(
-          delay: ((gui.config('general/anim_pv_time', 0.5) as num?) ?? 0.5).toDouble(),
-          maxMoves: ((gui.config('general/anim_pv_moves') as num?) ?? 100).toInt(),
+          delay: ((app.config('general/anim_pv_time', 0.5) as num?) ?? 0.5).toDouble(),
+          maxMoves: ((app.config('general/anim_pv_moves') as num?) ?? 100).toInt(),
         );
         _drawPv(canvas, animating.moves, animating.node, upTo);
       }
@@ -735,7 +735,7 @@ class BoardHoverPainter extends CustomPainter {
 
   /// Marks added through the API (the playeriv65/katrain fork's api/overlay.py).
   void _drawApiMarks(Canvas canvas, GameNode currentNode) {
-    final marks = visibleMarks(gui.apiState.marks, currentNode);
+    final marks = visibleMarks(app.apiState.marks, currentNode);
     if (marks.isEmpty) return;
     final r = geo.stoneSize;
     const width = 2.0;
@@ -851,7 +851,7 @@ class BoardHoverPainter extends CustomPainter {
 
   void _drawPv(Canvas canvas, List<String> pv, GameNode node, double upToMove) {
     final nextLastPlayer = [node.nextPlayer, Move.opponentPlayer(node.nextPlayer)];
-    final cn = gui.game!.currentNode;
+    final cn = app.game!.currentNode;
     if (!identical(node, cn) && !identical(node.parent, cn)) {
       GameNode? hideNode = cn;
       while (hideNode != null && hideNode.move != null && !identical(hideNode, node)) {

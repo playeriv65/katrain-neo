@@ -1,4 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/gui/widgets/graph.py: ScoreGraph (score,
+// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/widgets/graph.py: ScoreGraph (score,
 // win rate and point loss lines with their scales, the dot at the current move, and pointing at a move to go there).
 
 import 'dart:math' as math;
@@ -6,19 +6,20 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:katrain_core/katrain_core.dart';
 
-import '../state/katrain_gui.dart';
+import '../state/app_controller.dart';
+import '../state/graph_model.dart';
 import '../theme.dart';
 import 'board/board_images.dart';
 
 class ScoreGraph extends StatefulWidget {
-  final KaTrainGui gui;
+  final AppController app;
   final BoardImages images;
   final bool showScore;
   final bool showWinrate;
   final bool showPointloss;
   const ScoreGraph({
     super.key,
-    required this.gui,
+    required this.app,
     required this.images,
     required this.showScore,
     required this.showWinrate,
@@ -124,7 +125,7 @@ class _ScoreGraphState extends State<ScoreGraph> {
   int? _navigateIndex;
 
   void _point(Offset p, Size size) {
-    final data = _graphData(widget.gui.graph, size);
+    final data = _graphData(widget.app.graph, size);
     if (data.score.isEmpty) return;
     var best = 0;
     for (var i = 1; i < data.score.length; i++) {
@@ -138,7 +139,7 @@ class _ScoreGraphState extends State<ScoreGraph> {
     return LayoutBuilder(
       builder: (context, c) {
         final size = c.biggest;
-        final data = _graphData(widget.gui.graph, size);
+        final data = _graphData(widget.app.graph, size);
         final markerSize = (0.1 * size.height).clamp(10.0, 13.0);
         Widget marker(String text, Color color, Alignment alignment) => Align(
           alignment: alignment,
@@ -155,8 +156,8 @@ class _ScoreGraphState extends State<ScoreGraph> {
           onPanUpdate: (d) => _point(d.localPosition, size),
           onPanEnd: (_) {
             final i = _navigateIndex;
-            final nodes = widget.gui.graph.nodes;
-            if (i != null && i < nodes.length && nodes[i] != null) widget.gui.setCurrentNode(nodes[i]!);
+            final nodes = widget.app.graph.nodes;
+            if (i != null && i < nodes.length && nodes[i] != null) widget.app.setCurrentNode(nodes[i]!);
             setState(() => _navigateIndex = null);
           },
           onPanCancel: () => setState(() => _navigateIndex = null),

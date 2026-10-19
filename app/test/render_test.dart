@@ -13,7 +13,8 @@ import 'package:katrain_core/api.dart';
 import 'package:katrain_core/katrain_core.dart';
 import 'package:katrain_neo/main.dart';
 import 'package:katrain_neo/src/state/api_host.dart';
-import 'package:katrain_neo/src/state/katrain_gui.dart';
+import 'package:katrain_neo/src/state/app_controller.dart';
+import 'package:katrain_neo/src/state/dialogs.dart';
 import 'package:katrain_neo/src/ui/board/board_images.dart';
 
 import 'fonts.dart';
@@ -29,17 +30,17 @@ void main() {
     addTearDown(tester.view.reset);
     final move = int.parse(env['NEO_RENDER_MOVE'] ?? '78');
     i18n.switchLang(env['NEO_RENDER_LANG'] ?? 'en');
-    late KaTrainGui gui;
+    late AppController app;
     late BoardImages images;
     await tester.runAsync(() async {
       await loadFonts();
       images = await BoardImages.load();
       final settings = defaultConfig();
-      gui = KaTrainGui(MemoryConfigStore(settings), resourceDir: '.');
-      final engine = KataGoEngine(gui.engineHost, (settings['engine'] as Map).cast<String, dynamic>());
-      await gui.start(sgfFile: sgf, engineWithoutIo: engine);
+      app = AppController(MemoryConfigStore(settings), resourceDir: '.');
+      final engine = KataGoEngine(app.engineHost, (settings['engine'] as Map).cast<String, dynamic>());
+      await app.start(sgfFile: sgf, engineWithoutIo: engine);
     });
-    gui.act('redo', [move]);
+    app.redo(move);
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
     for (final (key, value) in [
       ('show_children', true),
@@ -48,15 +49,15 @@ void main() {
       ('policy', false),
       ('ownership', false),
     ]) {
-      gui.analysisControls[key] = value;
+      app.analysisControls[key] = value;
     }
-    gui.panels['graph_panel']!.options.addAll({'score': true, 'winrate': true, 'points': false});
-    gui.panels['notes_panel']!.options.addAll({'info': true, 'info-details': true, 'notes': false});
+    app.panels['graph_panel']!.options.addAll({'score': true, 'winrate': true, 'points': false});
+    app.panels['notes_panel']!.options.addAll({'info': true, 'info-details': true, 'notes': false});
     final boundary = GlobalKey();
     await tester.pumpWidget(
       RepaintBoundary(
         key: boundary,
-        child: KaTrainNeoApp(gui: gui, images: images),
+        child: KaTrainNeoApp(app: app, images: images),
       ),
     );
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 500)));
@@ -79,43 +80,37 @@ void main() {
     }
 
     await save('main_analyze');
-    gui.analysisControls['ownership'] = true;
-    gui.refresh();
+    app.analysisControls['ownership'] = true;
+    app.refresh();
     await tester.pump();
     await save('main_ownership');
-    gui.analysisControls['ownership'] = false;
-    gui.analysisControls['policy'] = true;
-    gui.refresh();
+    app.analysisControls['ownership'] = false;
+    app.analysisControls['policy'] = true;
+    app.refresh();
     await tester.pump();
     await save('main_policy');
-    gui.analysisControls['policy'] = false;
-    gui.selectMode(modePlay);
+    app.analysisControls['policy'] = false;
+    app.selectMode(modePlay);
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pump();
     await save('main_play');
 
-    for (final (name, args) in <(String, List<Object?>)>[
-      ('new-game-popup', []),
-      ('timer-popup', []),
-      ('teacher-popup', []),
-      ('ai-popup', []),
-      ('config-popup', []),
-      ('analyze-sgf-popup', []),
-      ('game-analysis-popup', []),
-      ('report-popup', []),
-      ('tsumego-frame-popup', []),
-      ('engine-recovery-popup', ['KataGo exited with code 1', 1, 'local']),
+    final screen = app.screen!;
+    for (final (name, open) in <(String, void Function())>[
+      for (final dialog in AppDialog.values)
+        if (dialog != AppDialog.saveGameAs) (dialog.name, () => app.openDialog(dialog)), // a system dialog
+      ('engine_failure', () => screen.showEngineFailure(const EngineFailure('KataGo exited with code 1', 1, 'local'))),
     ]) {
-      gui.act(name, args);
+      open();
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
       for (var i = 0; i < 5; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
-      await save('popup_${name.replaceAll('-popup', '')}');
+      await save('popup_$name');
       tester.state<NavigatorState>(find.byType(Navigator).first).pop();
       await tester.pumpAndSettle();
     }
-    gui.dispose();
+    app.dispose();
   }, skip: sgf == null || out == null);
 
   testWidgets('render API overlays', (tester) async {
@@ -123,7 +118,7 @@ void main() {
     tester.view.devicePixelRatio = 1.75;
     addTearDown(tester.view.reset);
     i18n.switchLang('en');
-    late KaTrainGui gui;
+    late AppController app;
     late BoardImages images;
     final problems = Directory.systemTemp.createTempSync('neo_tsumego');
     File('${problems.path}/corner.sgf').writeAsStringSync(
@@ -133,11 +128,11 @@ void main() {
       await loadFonts();
       images = await BoardImages.load();
       final settings = defaultConfig();
-      gui = KaTrainGui(MemoryConfigStore(settings), resourceDir: '.');
-      final engine = KataGoEngine(gui.engineHost, (settings['engine'] as Map).cast<String, dynamic>());
-      await gui.start(engineWithoutIo: engine);
+      app = AppController(MemoryConfigStore(settings), resourceDir: '.');
+      final engine = KataGoEngine(app.engineHost, (settings['engine'] as Map).cast<String, dynamic>());
+      await app.start(engineWithoutIo: engine);
     });
-    final api = CommandHandler(GuiApiHost(gui), gui.apiState, dataFolder: problems.path);
+    final api = CommandHandler(AppApiHost(app), app.apiState, dataFolder: problems.path);
     Future<void> run(String command, Map<String, Object?> args) async {
       await tester.runAsync(() => api.dispatch(command, args));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
@@ -147,7 +142,7 @@ void main() {
     await tester.pumpWidget(
       RepaintBoundary(
         key: boundary,
-        child: KaTrainNeoApp(gui: gui, images: images),
+        child: KaTrainNeoApp(app: app, images: images),
       ),
     );
     Future<void> save(String name) async {
@@ -177,7 +172,7 @@ void main() {
     await save('api_tsumego_zoom');
     await run('view.set', {'zoom': 'off', 'hide_frame': false});
     await save('api_tsumego_full');
-    gui.dispose();
+    app.dispose();
     problems.deleteSync(recursive: true);
   }, skip: out == null);
 }

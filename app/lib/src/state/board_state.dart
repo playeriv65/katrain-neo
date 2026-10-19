@@ -1,4 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/gui/badukpan.py: the state of
+// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/badukpan.py: the state of
 // BadukPanWidget that is not drawing (rotation, coordinates, the ghost stone, the animated principal variation and
 // the region being selected).
 

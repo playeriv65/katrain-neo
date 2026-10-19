@@ -1,4 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/gui/popups.py BaseConfigPopup: finding
+// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/popups.py BaseConfigPopup: finding
 // KataGo models and programs on disk, and downloading them.
 
 import 'dart:convert';
@@ -10,7 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:katrain_core/io.dart';
 import 'package:katrain_core/katrain_core.dart';
 
-import '../../state/katrain_gui.dart';
+import '../../state/app_controller.dart';
 
 /// Where KaTrain's models and KataGo builds can be downloaded from (assets/katago/downloads.json).
 class EngineDownloads {
@@ -54,20 +54,20 @@ String _dirname(String path) {
 
 /// Finds models and KataGo programs in the folders KaTrain looks in, remembering folders where some were found.
 class EngineFileFinder {
-  final KaTrainGui gui;
+  final AppController app;
   final EngineDownloads downloads;
   final List<String> paths;
   final List<String> katagoPaths;
-  EngineFileFinder(this.gui, this.downloads)
+  EngineFileFinder(this.app, this.downloads)
     : paths = [
-        gui.config('engine/model') as String? ?? '',
-        gui.config('engine/humanlike_model') as String? ?? '',
+        app.config('engine/model') as String? ?? '',
+        app.config('engine/humanlike_model') as String? ?? '',
         'katrain/models',
         neoDataFolder,
       ],
-      katagoPaths = [gui.config('engine/katago') as String? ?? '', neoDataFolder];
+      katagoPaths = [app.config('engine/katago') as String? ?? '', neoDataFolder];
 
-  String get _package => gui.resourceDir.replaceAll('/', Platform.pathSeparator).replaceAll(RegExp(r'[/\\]+$'), '');
+  String get _package => app.resourceDir.replaceAll('/', Platform.pathSeparator).replaceAll(RegExp(r'[/\\]+$'), '');
 
   /// The folder of each of [candidates] (or the candidate itself when it is one), once each, with the files in it
   /// whose name matches [matches]; shown with the package folder as `katrain`.
@@ -103,7 +103,7 @@ class EngineFileFinder {
 
   /// `check_models`: all models, and the human-like ones among them, recommended and known ones first.
   (List<FoundFile>, List<FoundFile>) models(String modelPath, String humanlikeModelPath) {
-    final distModels = ((gui.config('dist_models') as Map?) ?? const {}).cast<String, dynamic>();
+    final distModels = ((app.config('dist_models') as Map?) ?? const {}).cast<String, dynamic>();
     final fileToDesc = <String, String>{
       for (final models in [downloads.models, downloads.modelDescriptions, distModels])
         for (final MapEntry(key: desc, value: url) in models.entries)
@@ -208,13 +208,13 @@ class Download extends ChangeNotifier {
 /// `_download_models`: asks katagotraining.org for its latest and strongest networks, then downloads every model
 /// not yet on disk to the data folder. Returns the started downloads.
 Future<List<Download>> downloadModels(
-  KaTrainGui gui,
+  AppController app,
   EngineDownloads downloads,
   Iterable<FoundFile> present,
   VoidCallback onComplete,
 ) async {
   final distModels = <String, String>{
-    for (final MapEntry(:key, :value) in ((gui.config('dist_models') as Map?) ?? const {}).entries)
+    for (final MapEntry(:key, :value) in ((app.config('dist_models') as Map?) ?? const {}).entries)
       if (downloads.modelEndpoints.containsKey(key)) key as String: value as String,
   };
   for (final MapEntry(key: name, value: url) in downloads.modelEndpoints.entries) {
@@ -227,13 +227,13 @@ Future<List<Download>> downloadModels(
       }
       distModels[name] = (jsonDecode(body) as Map)['model_file'] as String;
     } on Object catch (e) {
-      gui.log('Failed to retrieve info for model: $e', outputInfo);
+      app.log('Failed to retrieve info for model: $e', outputInfo);
     } finally {
       client.close(force: true);
     }
   }
-  gui.configStore.data['dist_models'] = distModels;
-  gui.saveConfig('dist_models');
+  app.configStore.data['dist_models'] = distModels;
+  app.saveConfig('dist_models');
 
   final names = {for (final f in present) _basename(f.description)};
   final started = <Download>[];
@@ -241,14 +241,14 @@ Future<List<Download>> downloadModels(
     final filename = url.split('/').last;
     if (names.contains(filename)) continue;
     final savePath = expandUser('$neoDataFolder/$filename');
-    gui.log('Downloading $name from $url to $savePath.part', outputInfo);
+    app.log('Downloading $name from $url to $savePath.part', outputInfo);
     final download = Download(name, url);
     started.add(download);
     download.run('$savePath.part', (part) async {
       part.renameSync(savePath);
-      gui.log('Download of $name complete -> $savePath', outputInfo);
+      app.log('Download of $name complete -> $savePath', outputInfo);
       onComplete();
-    }, gui.log);
+    }, app.log);
   }
   return started;
 }
@@ -256,7 +256,7 @@ Future<List<Download>> downloadModels(
 /// `download_katas`: downloads the KataGo builds for this platform not yet on disk, and unpacks the program (and
 /// its DLLs) next to the data folder. Null when there are none for this platform.
 List<Download>? downloadKatagos(
-  KaTrainGui gui,
+  AppController app,
   EngineDownloads downloads,
   Iterable<FoundFile> present,
   VoidCallback onComplete,
@@ -271,7 +271,7 @@ List<Download>? downloadKatagos(
     if (names.contains(exeName)) continue;
     final zipPath = expandUser('$neoDataFolder/$filename');
     final exePath = expandUser('$neoDataFolder/$exeName');
-    gui.log('Downloading binary $name from $url to $zipPath', outputInfo);
+    app.log('Downloading binary $name from $url to $zipPath', outputInfo);
     final download = Download(name, url);
     started.add(download);
     download.run(zipPath, (zip) async {
@@ -298,12 +298,12 @@ List<Download>? downloadKatagos(
           }
         }
         zip.deleteSync();
-        gui.log('Download of katago binary $name complete -> $exePath', outputInfo);
+        app.log('Download of katago binary $name complete -> $exePath', outputInfo);
       } on Object catch (e) {
-        gui.log('Download of katago binary $name complete, but could not move file: $e', outputError);
+        app.log('Download of katago binary $name complete, but could not move file: $e', outputError);
       }
       onComplete();
-    }, gui.log);
+    }, app.log);
   }
   return started;
 }

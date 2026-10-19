@@ -1,4 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/gui/theme.py: colours, sizes, textures,
+// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/theme.py: colours, sizes, textures,
 // sounds and keyboard shortcuts. KaTrain gives colours as RGBA lists of 0-1 values; [kc] converts them.
 
 import 'dart:ui';
@@ -30,7 +30,7 @@ abstract final class KTheme {
   static const descFontSize = 18.0; // sp
   static const notesFontSize = 16.0; // sp
 
-  // gui colors
+  // app colors
   static final backgroundColor = kc([36 / 255, 48 / 255, 62 / 255, 1]);
   static final boxBackgroundColor = kc([46 / 255, 65 / 255, 88 / 255, 1]);
   static final lighterBackgroundColor = kc([64 / 255, 85 / 255, 110 / 255, 1]);
@@ -64,7 +64,7 @@ abstract final class KTheme {
   static final statWorseColor = kc([0.8, 0.4, 0.2, 1]);
   static final statBetterColor = kc([0.2, 0.5, 0.1, 1]);
 
-  // gui spacing
+  // app spacing
   static const rightPanelAspectRatio = 0.4; // W/H
   static const controlsPanelAspectRatio = 13.5; // W/H
   static const controlsPanelMinHeight = 50.0;
@@ -96,7 +96,7 @@ abstract final class KTheme {
   static const mistakeSounds = <String>[];
 
   // eval dots
-  /// Grid spaces the lines run on past a cut side of the zoomed view (playeriv65/katrain fork, gui/zoomview.py).
+  /// Grid spaces the lines run on past a cut side of the zoomed view (playeriv65/katrain fork, app/zoomview.py).
   static const zoomLineRunOn = 0.5;
 
   static final evalColors = {

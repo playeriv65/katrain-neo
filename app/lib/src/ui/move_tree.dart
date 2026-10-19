@@ -1,11 +1,12 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/gui/widgets/movetree.py: the move tree
+// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/widgets/movetree.py: the move tree
 // (stones numbered by move, the current and selected nodes, the insertion path, collapsed branches), scrolling to the
 // current node, clicking to go to a node and the right click menu.
 
 import 'package:flutter/material.dart';
 import 'package:katrain_core/katrain_core.dart';
 
-import '../state/katrain_gui.dart';
+import '../state/app_controller.dart';
+import '../state/move_tree_layout.dart';
 import '../theme.dart';
 import 'board/board_painters.dart';
 
@@ -13,11 +14,11 @@ const _spacing = 5.0;
 const _movesVert = 3;
 
 class MoveTree extends StatefulWidget {
-  final KaTrainGui gui;
+  final AppController app;
 
   /// The height the tree has in play mode, which sizes its nodes (`min_height`).
   final double minHeight;
-  const MoveTree({super.key, required this.gui, required this.minHeight});
+  const MoveTree({super.key, required this.app, required this.minHeight});
 
   @override
   State<MoveTree> createState() => _MoveTreeState();
@@ -52,14 +53,14 @@ class _MoveTreeState extends State<MoveTree> {
   }
 
   Future<void> _contextMenu(Offset globalPosition, GameNode node) async {
-    final gui = widget.gui;
-    gui.moveTreeSelectedNode = node;
-    gui.refresh();
+    final app = widget.app;
+    app.moveTreeSelectedNode = node;
+    app.refresh();
     final items = <(String, IconData, String, VoidCallback)>[
-      ('Delete Node', Icons.delete_outline, 'Ctr+Del', gui.deleteSelectedNode),
-      ('Make Main Branch', Icons.call_split, 'PgUp', gui.makeSelectedNodeMainBranch),
-      ('Toggle Collapse Branch', Icons.unfold_less, 'c', gui.toggleSelectedNodeCollapse),
-      ('Prune Branch', Icons.content_cut, '', gui.pruneBranch),
+      ('Delete Node', Icons.delete_outline, 'Ctr+Del', app.deleteSelectedNode),
+      ('Make Main Branch', Icons.call_split, 'PgUp', app.makeSelectedNodeMainBranch),
+      ('Toggle Collapse Branch', Icons.unfold_less, 'c', app.toggleSelectedNodeCollapse),
+      ('Prune Branch', Icons.content_cut, '', app.pruneBranch),
     ];
     final choice = await showMenu<int>(
       context: context,
@@ -84,15 +85,15 @@ class _MoveTreeState extends State<MoveTree> {
     if (choice != null) {
       items[choice].$4();
     } else {
-      gui.moveTreeSelectedNode = null;
-      gui.refresh();
+      app.moveTreeSelectedNode = null;
+      app.refresh();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final gui = widget.gui;
-    final game = gui.game;
+    final app = widget.app;
+    final game = app.game;
     if (game == null) return const SizedBox.expand();
     final positions = moveTreeLayout(game.root);
     final width = _coordPos(positions.values.map((p) => p.$1 + 0.5).reduce((a, b) => a > b ? a : b));
@@ -132,8 +133,8 @@ class _MoveTreeState extends State<MoveTree> {
                 child: GestureDetector(
                   onTapUp: (d) {
                     final node = nodeAt(d.localPosition);
-                    gui.moveTreeSelectedNode = null;
-                    if (node != null) gui.setCurrentNode(node);
+                    app.moveTreeSelectedNode = null;
+                    if (node != null) app.setCurrentNode(node);
                   },
                   onSecondaryTapUp: (d) {
                     final node = nodeAt(d.localPosition);
@@ -141,7 +142,7 @@ class _MoveTreeState extends State<MoveTree> {
                   },
                   child: CustomPaint(
                     size: Size(width, height),
-                    painter: _MoveTreePainter(gui, positions, xy, moveSize),
+                    painter: _MoveTreePainter(app, positions, xy, moveSize),
                   ),
                 ),
               ),
@@ -154,11 +155,11 @@ class _MoveTreeState extends State<MoveTree> {
 }
 
 class _MoveTreePainter extends CustomPainter {
-  final KaTrainGui gui;
+  final AppController app;
   final Map<GameNode, (int, int)> positions;
   final Map<GameNode, Offset> xy;
   final double moveSize;
-  _MoveTreePainter(this.gui, this.positions, this.xy, this.moveSize);
+  _MoveTreePainter(this.app, this.positions, this.xy, this.moveSize);
 
   List<GameNode> _children(GameNode move) {
     final via = {for (final (m, v) in move.shortcutsTo) v: m}; // children that are shortcut
@@ -167,12 +168,12 @@ class _MoveTreePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final game = gui.game!;
+    final game = app.game!;
     final currentNode = game.currentNode;
     final special = <GameNode, Color>{currentNode: KTheme.moveTreeCurrent};
-    final selected = gui.moveTreeSelectedNode;
+    final selected = app.moveTreeSelectedNode;
     if (selected != null) special[selected] = KTheme.moveTreeSelected;
-    final insertNode = gui.insertNodeValue;
+    final insertNode = app.insertNodeValue;
     if (insertNode != null && insertNode.parent != null) {
       special[insertNode.parent!] = KTheme.moveTreeInsertNodeParent;
       GameNode insertPath = currentNode;

@@ -1,4 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/gui/popups.py: QuickConfigGui, which
+// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/popups.py: QuickConfigGui, which
 // popups use to read settings by path (`trainer/eval_thresholds::2` is an element of a list) and to write back the
 // changed ones.
 
@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:katrain_core/katrain_core.dart';
 
-import '../../state/katrain_gui.dart';
+import '../../state/app_controller.dart';
 
 class InputParseError implements Exception {
   final String message;
@@ -17,15 +17,15 @@ class InputParseError implements Exception {
 
 /// Values entered in a popup, by setting path, and how to store them (QuickConfigGui).
 class ConfigEditor {
-  final KaTrainGui gui;
+  final AppController app;
   final Map<String, Object? Function()> _fields = {};
-  ConfigEditor(this.gui);
+  ConfigEditor(this.app);
 
   /// `get_setting`: the value at [key], the map or list holding it, and the key or index in there. Missing
   /// sections are created; a missing value is created empty and logged, as KaTrain does.
   (Object?, Object, Object) getSetting(String key) {
     final keys = key.split('/');
-    Map<String, dynamic> config = gui.configStore.data;
+    Map<String, dynamic> config = app.configStore.data;
     for (final k in keys.sublist(0, keys.length - 1)) {
       config = (config.putIfAbsent(k, () => <String, dynamic>{}) as Map).cast<String, dynamic>();
     }
@@ -38,7 +38,7 @@ class ConfigEditor {
     }
     if (!config.containsKey(last)) {
       config[last] = '';
-      gui.log(
+      app.log(
         'Configuration setting ${pyRepr(key)} was missing, created it, but this likely indicates a broken config file.',
         outputError,
       );
@@ -61,7 +61,7 @@ class ConfigEditor {
     for (final MapEntry(key: multikey, :value) in collect().entries) {
       final (old, container, key) = getSetting(multikey);
       if (value != old) {
-        gui.log('Updating setting $multikey = ${pyStr(value)}', outputDebug);
+        app.log('Updating setting $multikey = ${pyStr(value)}', outputDebug);
         if (container is List) {
           container[key as int] = value;
         } else {
@@ -70,7 +70,7 @@ class ConfigEditor {
         updated.add(multikey);
       }
     }
-    if (saveToFile) gui.saveConfig();
+    if (saveToFile) app.saveConfig();
     return updated;
   }
 }

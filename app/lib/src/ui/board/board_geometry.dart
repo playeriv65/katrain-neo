@@ -1,4 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/gui/badukpan.py: draw_board's layout
+// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/badukpan.py: draw_board's layout
 // (grid size, margins and the pixel positions of the lines, rounded as KaTrain rounds them) and rotation.
 //
 // KaTrain works in Kivy coordinates (y up) and rotates by permuting its table of grid positions. Here a board point

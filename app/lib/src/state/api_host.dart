@@ -1,23 +1,23 @@
 // What the local API (katrain_core's api library, ported from the playeriv65/katrain fork) uses of the app: the
-// game, the engine, the board display and the controls, by way of KaTrainGui.
+// game, the engine, the board display and the controls, by way of AppController.
 
 import 'package:katrain_core/api.dart';
 import 'package:katrain_core/katrain_core.dart';
 
 import 'board_state.dart';
-import 'katrain_gui.dart';
+import 'app_controller.dart';
 
-class GuiApiHost implements ApiHost {
-  final KaTrainGui gui;
-  GuiApiHost(this.gui);
+class AppApiHost implements ApiHost {
+  final AppController app;
+  AppApiHost(this.app);
 
-  BoardState get _board => gui.board;
-
-  @override
-  Game? get game => gui.game;
+  BoardState get _board => app.board;
 
   @override
-  AnalysisEngine<GameNode>? get engine => gui.engine;
+  Game? get game => app.game;
+
+  @override
+  AnalysisEngine<GameNode>? get engine => app.engine;
 
   @override
   bool engineAlive(AnalysisEngine<GameNode> engine) => engine is! KataGoEngine || (engine.connection?.alive ?? false);
@@ -29,47 +29,47 @@ class GuiApiHost implements ApiHost {
   int engineQueriesRemaining(AnalysisEngine<GameNode> engine) => engine is KataGoEngine ? engine.queriesRemaining() : 0;
 
   @override
-  Map<String, Player> get playersInfo => gui.playersInfo;
+  Map<String, Player> get playersInfo => app.playersInfo;
 
   @override
-  Object? config(String setting, [Object? defaultValue]) => gui.config(setting, defaultValue);
+  Object? config(String setting, [Object? defaultValue]) => app.config(setting, defaultValue);
 
   @override
-  void saveConfig([String? key]) => gui.saveConfig(key);
+  void saveConfig([String? key]) => app.saveConfig(key);
 
   @override
-  void updateState({bool redrawBoard = false}) => gui.updateState(redrawBoard: redrawBoard);
+  void updateState({bool redrawBoard = false}) => app.updateState(redrawBoard: redrawBoard);
 
   @override
   void redrawOverlay() => _board.notifyHover();
 
   @override
-  void redrawMoveTree() => gui.redrawMoveTree();
+  void redrawMoveTree() => app.redrawMoveTree();
 
   @override
-  bool get pondering => gui.isPondering;
+  bool get pondering => app.isPondering;
 
   @override
-  void toggleContinuousAnalysis({bool quiet = false}) => gui.toggleContinuousAnalysis(quiet: quiet);
+  void toggleContinuousAnalysis({bool quiet = false}) => app.toggleContinuousAnalysis(quiet: quiet);
 
   @override
-  String get mode => gui.mode;
+  String get mode => app.mode;
 
   @override
-  void selectMode(String mode) => gui.selectMode(mode);
+  void selectMode(String mode) => app.selectMode(mode);
 
   @override
-  String get statusMessage => gui.statusText;
+  String get statusMessage => app.statusText;
 
   @override
-  void showStatus(String text) => gui.setStatus(text, statusInfo, checkLevel: false);
+  void showStatus(String text) => app.setStatus(text, statusInfo, checkLevel: false);
 
   @override
   void newGame(GameNode moveTree, {bool analyzeFast = false, String? sgfFilename}) =>
-      gui.doNewGame(moveTree: moveTree, analyzeFast: analyzeFast, sgfFilename: sgfFilename);
+      app.startGame(moveTree: moveTree, analyzeFast: analyzeFast, sgfFilename: sgfFilename);
 
   @override
-  void tsumegoFrame(bool ko, int margin) => gui.doTsumegoFrame(ko, margin);
+  void tsumegoFrame(bool ko, int margin) => app.applyTsumegoFrame(ko, margin);
 
   @override
   PvOverlay? get pv => _board.pv;
@@ -78,16 +78,16 @@ class GuiApiHost implements ApiHost {
   set pv(PvOverlay? value) => _board.pv = value;
 
   @override
-  bool analysisControl(String key) => gui.analysisControls[key] ?? false;
+  bool analysisControl(String key) => app.analysisControls[key] ?? false;
 
   @override
-  void setAnalysisControl(String key, bool value) => gui.setAnalysisControl(key, value);
+  void setAnalysisControl(String key, bool value) => app.setAnalysisControl(key, value);
 
   @override
-  bool get showMoveNumbers => gui.showMoveNum;
+  bool get showMoveNumbers => app.showMoveNum;
 
   @override
-  set showMoveNumbers(bool value) => gui.showMoveNum = value;
+  set showMoveNumbers(bool value) => app.showMoveNum = value;
 
   @override
   List<int>? get zoomRegion => _board.zoomRegion;

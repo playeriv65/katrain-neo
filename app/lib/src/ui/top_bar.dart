@@ -1,26 +1,27 @@
-// KaTrain's analysis controls bar (katrain/gui.kv AnalysisControls and AnalysisDropDown): the menu button, the
+// KaTrain's analysis controls bar (katrain/app.kv AnalysisControls and AnalysisDropDown): the menu button, the
 // five display toggles with their shortcut keys, and the analysis menu.
 
 import 'package:flutter/material.dart';
 import 'package:katrain_core/katrain_core.dart';
 
-import '../state/katrain_gui.dart';
+import '../state/app_controller.dart';
+import '../state/dialogs.dart';
 
 /// The analysis menu: label key, icon, shortcut text, action.
-List<(String, IconData, String, void Function(KaTrainGui))> analysisMenuItems() => [
-  ('analysis:extra', Icons.add_circle_outline, 'A', (g) => g.act('analyze-extra', ['extra'])),
-  ('analysis:equalize', Icons.balance, 'S', (g) => g.act('analyze-extra', ['equalize'])),
-  ('analysis:sweep', Icons.grid_on, 'D', (g) => g.act('analyze-extra', ['sweep'])),
-  ('analysis:alternatives', Icons.alt_route, 'F', (g) => g.act('analyze-extra', ['alternative'])),
-  ('analysis:region', Icons.crop_free, 'G', (g) => g.act('select-box')),
-  ('analysis:reset', Icons.restart_alt, 'Ctrl+H', (g) => g.act('reset-analysis')),
-  ('analysis:insert', Icons.playlist_add, 'I', (g) => g.act('insert-mode')),
-  ('analysis:playtoend', Icons.sports_score, 'L', (g) => g.act('selfplay-setup', ['end'])),
-  ('analysis:game', Icons.manage_search, 'F2', (g) => g.act('game-analysis-popup')),
-  ('analysis:report', Icons.analytics_outlined, 'F3', (g) => g.act('report-popup')),
-  ('analysis:tsumegoframe', Icons.filter_frames_outlined, 'F10', (g) => g.act('tsumego-frame-popup')),
-  ('analysis:continuous', Icons.all_inclusive, 'Space', (g) => g.toggleContinuousAnalysis()),
-  ('analysis:aimove', Icons.smart_toy_outlined, 'Enter', (g) => g.act('ai-move')),
+List<(String, IconData, String, void Function(AppController))> analysisMenuItems() => [
+  ('analysis:extra', Icons.add_circle_outline, 'A', (a) => a.analyzeExtra('extra')),
+  ('analysis:equalize', Icons.balance, 'S', (a) => a.analyzeExtra('equalize')),
+  ('analysis:sweep', Icons.grid_on, 'D', (a) => a.analyzeExtra('sweep')),
+  ('analysis:alternatives', Icons.alt_route, 'F', (a) => a.analyzeExtra('alternative')),
+  ('analysis:region', Icons.crop_free, 'G', (a) => a.selectRegion()),
+  ('analysis:reset', Icons.restart_alt, 'Ctrl+H', (a) => a.resetAnalysis()),
+  ('analysis:insert', Icons.playlist_add, 'I', (a) => a.insertMode()),
+  ('analysis:playtoend', Icons.sports_score, 'L', (a) => a.selfplay('end')),
+  ('analysis:game', Icons.manage_search, 'F2', (a) => a.openDialog(AppDialog.reanalyze)),
+  ('analysis:report', Icons.analytics_outlined, 'F3', (a) => a.openDialog(AppDialog.report)),
+  ('analysis:tsumegoframe', Icons.filter_frames_outlined, 'F10', (a) => a.openDialog(AppDialog.tsumegoFrame)),
+  ('analysis:continuous', Icons.all_inclusive, 'Space', (a) => a.toggleContinuousAnalysis()),
+  ('analysis:aimove', Icons.smart_toy_outlined, 'Enter', (a) => a.aiMove()),
 ];
 
 /// The display toggles: setting key, label key, shortcut, icon.
@@ -33,9 +34,9 @@ const displayToggles = [
 ];
 
 class TopBar extends StatelessWidget {
-  final KaTrainGui gui;
+  final AppController app;
   final VoidCallback onMenu;
-  const TopBar({super.key, required this.gui, required this.onMenu});
+  const TopBar({super.key, required this.app, required this.onMenu});
 
   @override
   Widget build(BuildContext context) {
@@ -58,14 +59,14 @@ class TopBar extends StatelessWidget {
                         child: FilterChip(
                           avatar: Icon(icon, size: 16),
                           label: Text(i18n.tr(label).replaceAll('\n', ' ')),
-                          selected: gui.analysisControls[key]!,
+                          selected: app.analysisControls[key]!,
                           showCheckmark: false,
-                          onSelected: key == 'hints' && gui.analysisControls['policy']!
+                          onSelected: key == 'hints' && app.analysisControls['policy']!
                               ? null
-                              : (v) => gui.setAnalysisControl(key, v),
+                              : (v) => app.setAnalysisControl(key, v),
                         ),
                       ),
-                    AnalysisMenu(gui: gui),
+                    AnalysisMenu(app: app),
                   ],
                 ),
               ),
@@ -78,8 +79,8 @@ class TopBar extends StatelessWidget {
 }
 
 class AnalysisMenu extends StatelessWidget {
-  final KaTrainGui gui;
-  const AnalysisMenu({super.key, required this.gui});
+  final AppController app;
+  const AnalysisMenu({super.key, required this.app});
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +90,7 @@ class AnalysisMenu extends StatelessWidget {
           MenuItemButton(
             leadingIcon: Icon(icon),
             trailingIcon: Text(shortcut, style: Theme.of(context).textTheme.labelMedium),
-            onPressed: () => action(gui),
+            onPressed: () => action(app),
             child: Text(i18n.tr(label)),
           ),
       ],

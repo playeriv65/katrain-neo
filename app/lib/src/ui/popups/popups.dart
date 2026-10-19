@@ -1,10 +1,10 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/__main__.py: the `_do_*_popup` handlers,
-// which open each popup by its message name.
+// Opens the app's dialogs over the main screen.
 
 import 'package:flutter/material.dart';
 import 'package:katrain_core/katrain_core.dart';
 
-import '../../state/katrain_gui.dart';
+import '../../state/app_controller.dart';
+import '../../state/dialogs.dart';
 import 'config_dialog.dart';
 import 'engine_files.dart';
 import 'files_report.dart';
@@ -12,70 +12,62 @@ import 'new_game.dart';
 import 'simple_popups.dart';
 import 'teacher_ai.dart';
 
-/// Opens KaTrain's popups as dialogs over [context].
+/// Opens dialogs over [context]; the AI does not move while one is open.
 class PopupPresenter {
-  final KaTrainGui gui;
+  final AppController app;
   final BuildContext Function() context;
   bool _recoveryOpen = false;
   int _open = 0;
   EngineDownloads? _downloads;
-  PopupPresenter(this.gui, this.context);
+  PopupPresenter(this.app, this.context);
 
-  Future<void> present(String name, List<Object?> args) async {
-    switch (name) {
-      case 'new-game-popup':
-        await _show(NewGameDialog(gui: gui));
-      case 'timer-popup':
-        await _show(TimerDialog(gui: gui));
-      case 'teacher-popup':
-        await _show(TeacherDialog(gui: gui));
-      case 'ai-popup':
-        await _show(AiDialog(gui: gui));
-      case 'config-popup':
+  Future<void> open(AppDialog dialog) async {
+    switch (dialog) {
+      case AppDialog.newGame:
+        await _show(NewGameDialog(app: app));
+      case AppDialog.timer:
+        await _show(TimerDialog(app: app));
+      case AppDialog.teacher:
+        await _show(TeacherDialog(app: app));
+      case AppDialog.ai:
+        await _show(AiDialog(app: app));
+      case AppDialog.settings:
         await _showConfig();
-      case 'analyze-sgf-popup':
-        await _show(LoadSgfDialog(gui: gui));
-      case 'save-game-as-popup':
+      case AppDialog.loadGame:
+        await _show(LoadSgfDialog(app: app));
+      case AppDialog.saveGameAs:
         _opened(1);
         try {
-          await saveGameAs(gui);
+          await saveGameAs(app);
         } finally {
           _opened(-1);
         }
-      case 'game-analysis-popup':
-        await _show(ReAnalyzeGameDialog(gui: gui));
-      case 'report-popup':
-        await _show(GameReportDialog(gui: gui));
-      case 'tsumego-frame-popup':
-        await _show(TsumegoFrameDialog(gui: gui));
-      case 'engine-recovery-popup':
-        final [message, code, engineType, ...] = [...args, null, null, null];
-        if (_recoveryOpen) {
-          gui.log('Not opening engine recovery popup with $message as one is already open', outputDebug);
-          return;
-        }
-        _recoveryOpen = true;
-        try {
-          await _show(
-            EngineRecoveryDialog(
-              gui: gui,
-              errorMessage: '$message',
-              code: code,
-              engineType: (engineType as String?) ?? 'local',
-              openSettings: () => gui.act('config-popup'),
-            ),
-          );
-        } finally {
-          _recoveryOpen = false;
-        }
-      default:
-        gui.log('Popup $name is not part of KaTrain Neo', outputError);
+      case AppDialog.reanalyze:
+        await _show(ReAnalyzeGameDialog(app: app));
+      case AppDialog.report:
+        await _show(GameReportDialog(app: app));
+      case AppDialog.tsumegoFrame:
+        await _show(TsumegoFrameDialog(app: app));
+    }
+  }
+
+  /// One engine failure at a time: a second one while the first is shown is only logged.
+  Future<void> showEngineFailure(EngineFailure failure) async {
+    if (_recoveryOpen) {
+      app.log('Not showing engine failure ${failure.message}: one is shown already', outputDebug);
+      return;
+    }
+    _recoveryOpen = true;
+    try {
+      await _show(EngineRecoveryDialog(app: app, failure: failure, openSettings: () => open(AppDialog.settings)));
+    } finally {
+      _recoveryOpen = false;
     }
   }
 
   Future<void> _showConfig() async {
     _downloads ??= await EngineDownloads.load();
-    await _show(ConfigDialog(gui: gui, downloads: _downloads!));
+    await _show(ConfigDialog(app: app, downloads: _downloads!));
   }
 
   /// Shows [dialog]; the AI does not move while a popup is open, and the state is refreshed after it closes.
@@ -87,12 +79,12 @@ class PopupPresenter {
       await showDialog<void>(context: ctx, builder: (_) => dialog);
     } finally {
       _opened(-1);
-      gui.updateState();
+      app.updateState();
     }
   }
 
   void _opened(int change) {
     _open += change;
-    gui.popupOpen = _open > 0;
+    app.popupOpen = _open > 0;
   }
 }

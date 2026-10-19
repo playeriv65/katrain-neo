@@ -10,7 +10,7 @@ import 'package:katrain_core/katrain_core.dart';
 
 import 'src/state/api_host.dart';
 import 'src/state/audio_sounds.dart';
-import 'src/state/katrain_gui.dart';
+import 'src/state/app_controller.dart';
 import 'src/ui/board/board_images.dart';
 import 'src/ui/keyboard.dart';
 import 'src/ui/main_screen.dart';
@@ -28,20 +28,20 @@ Future<void> main(List<String> args) async {
     },
   );
   final resourceDir = await prepareResources();
-  late final KaTrainGui gui;
-  gui = KaTrainGui(store, resourceDir: resourceDir, sounds: AudioSounds(() => gui.config('timer/sound') == true));
-  i18n.switchLang((gui.config('general/lang') ?? defaultLanguage) as String);
+  late final AppController app;
+  app = AppController(store, resourceDir: resourceDir, sounds: AudioSounds(() => app.config('timer/sound') == true));
+  i18n.switchLang((app.config('general/lang') ?? defaultLanguage) as String);
   final images = await BoardImages.load();
   final sgf = args.where((a) => const ['.sgf', '.ngf', '.gib'].any(a.toLowerCase().endsWith)).firstOrNull;
-  runApp(KaTrainNeoApp(gui: gui, images: images));
-  await setUpWindow(gui, appTitle);
-  await gui.start(sgfFile: sgf != null && File(sgf).existsSync() ? sgf : null);
+  runApp(KaTrainNeoApp(app: app, images: images));
+  await setUpWindow(app, appTitle);
+  await app.start(sgfFile: sgf != null && File(sgf).existsSync() ? sgf : null);
   // the local API for the katrain-neo command (and the agents driving it)
   final api = await startApiServer(
-    CommandHandler(GuiApiHost(gui), gui.apiState),
-    config: gui.config,
+    CommandHandler(AppApiHost(app), app.apiState),
+    config: app.config,
     version: coreVersion,
-    log: gui.log,
+    log: app.log,
   );
   onWindowClose(() async => api?.stop());
 }
@@ -59,9 +59,9 @@ Future<String> prepareResources() async {
 }
 
 class KaTrainNeoApp extends StatefulWidget {
-  final KaTrainGui gui;
+  final AppController app;
   final BoardImages images;
-  const KaTrainNeoApp({super.key, required this.gui, required this.images});
+  const KaTrainNeoApp({super.key, required this.app, required this.images});
 
   @override
   State<KaTrainNeoApp> createState() => _KaTrainNeoAppState();
@@ -72,16 +72,16 @@ class _KaTrainNeoAppState extends State<KaTrainNeoApp> {
 
   @override
   Widget build(BuildContext context) {
-    final gui = widget.gui;
+    final app = widget.app;
     return MaterialApp(
       title: appTitle,
       debugShowCheckedModeBanner: false,
       theme: appTheme(),
       navigatorKey: _navigator,
-      builder: (context, child) => KeyboardShortcuts(gui: gui, navigator: _navigator, child: child!),
+      builder: (context, child) => KeyboardShortcuts(app: app, navigator: _navigator, child: child!),
       home: ListenableBuilder(
-        listenable: gui,
-        builder: (context, _) => gui.game == null ? const Scaffold() : MainScreen(gui: gui, images: widget.images),
+        listenable: app,
+        builder: (context, _) => app.game == null ? const Scaffold() : MainScreen(app: app, images: widget.images),
       ),
     );
   }

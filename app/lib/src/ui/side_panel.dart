@@ -1,25 +1,25 @@
-// KaTrain's right column (katrain/gui.kv PlayAnalyzeSelect and ControlsPanel), as Material cards: the play/analysis
+// KaTrain's right column (katrain/app.kv PlayAnalyzeSelect and ControlsPanel), as Material cards: the play/analysis
 // switch, the players with their captures, the clock with undo and resign (play) or the move tree (analysis), and
 // the collapsable score graph, move statistics and info/notes panels with their toggles.
 
 import 'package:flutter/material.dart';
 import 'package:katrain_core/katrain_core.dart';
 
-import '../state/katrain_gui.dart';
+import '../state/app_controller.dart';
 import '../theme.dart';
 import 'board/board_images.dart';
 import 'move_tree.dart';
 import 'score_graph.dart';
 
 class SidePanel extends StatelessWidget {
-  final KaTrainGui gui;
+  final AppController app;
   final BoardImages images;
-  const SidePanel({super.key, required this.gui, required this.images});
+  const SidePanel({super.key, required this.app, required this.images});
 
   @override
   Widget build(BuildContext context) {
-    final graphPanel = gui.panels['graph_panel']!;
-    final statsPanel = gui.panels['stats_panel']!;
+    final graphPanel = app.panels['graph_panel']!;
+    final statsPanel = app.panels['stats_panel']!;
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 8, 12, 12),
       child: LayoutBuilder(
@@ -43,36 +43,36 @@ class SidePanel extends StatelessWidget {
                       label: Text(i18n.tr('btn:Analysis')),
                     ),
                   ],
-                  selected: {gui.mode},
-                  onSelectionChanged: (s) => gui.selectMode(s.first),
+                  selected: {app.mode},
+                  onSelectionChanged: (s) => app.selectMode(s.first),
                 ),
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
-                    child: PlayerCard(gui: gui, player: 'B'),
+                    child: PlayerCard(app: app, player: 'B'),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: PlayerCard(gui: gui, player: 'W'),
+                    child: PlayerCard(app: app, player: 'W'),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
-              if (gui.mode == modePlay)
-                _ClockCard(gui: gui)
+              if (app.mode == modePlay)
+                _ClockCard(app: app)
               else
                 SizedBox(
                   height: graphPanel.open ? 96 : 96 + graphHeight,
                   child: Card(
                     clipBehavior: Clip.antiAlias,
-                    child: MoveTree(gui: gui, minHeight: 96),
+                    child: MoveTree(app: app, minHeight: 96),
                   ),
                 ),
               const SizedBox(height: 8),
               _PanelCard(
-                gui: gui,
+                app: app,
                 id: 'graph_panel',
                 title: i18n.tr('closedlabel:scoregraph'),
                 options: const ['score', 'winrate', 'points'],
@@ -80,7 +80,7 @@ class SidePanel extends StatelessWidget {
                 child: SizedBox(
                   height: graphHeight,
                   child: ScoreGraph(
-                    gui: gui,
+                    app: app,
                     images: images,
                     showScore: graphPanel.options['score']!,
                     showWinrate: graphPanel.options['winrate']!,
@@ -90,23 +90,23 @@ class SidePanel extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               _PanelCard(
-                gui: gui,
+                app: app,
                 id: 'stats_panel',
                 title: i18n.tr('closedlabel:movestats'),
                 options: const ['score', 'winrate', 'points'],
                 colors: [KTheme.scoreColor, KTheme.winrateColor, KTheme.pointlossColor],
-                child: _Stats(gui: gui, options: statsPanel.options),
+                child: _Stats(app: app, options: statsPanel.options),
               ),
               const SizedBox(height: 8),
               Expanded(
                 child: _PanelCard(
-                  gui: gui,
+                  app: app,
                   id: 'notes_panel',
                   title: i18n.tr('closedlabel:info&notes'),
                   options: const ['info', 'info-details', 'notes'],
                   colors: [KTheme.infoTabFontColor, KTheme.infoTabFontColor, KTheme.notesTabFontColor],
                   expand: true,
-                  child: _InfoAndNotes(gui: gui),
+                  child: _InfoAndNotes(app: app),
                 ),
               ),
             ],
@@ -118,18 +118,18 @@ class SidePanel extends StatelessWidget {
 }
 
 class PlayerCard extends StatelessWidget {
-  final KaTrainGui gui;
+  final AppController app;
   final String player;
 
   /// The game report shows the players without captures or whose turn it is.
   final bool inGame;
-  const PlayerCard({super.key, required this.gui, required this.player, this.inGame = true});
+  const PlayerCard({super.key, required this.app, required this.player, this.inGame = true});
 
   @override
   Widget build(BuildContext context) {
-    final info = gui.playersInfo[player]!;
-    final active = inGame && gui.game?.currentNode.nextPlayer == player;
-    final captures = inGame ? '${gui.game?.prisonerCount[player] ?? 0}' : '';
+    final info = app.playersInfo[player]!;
+    final active = inGame && app.game?.currentNode.nextPlayer == player;
+    final captures = inGame ? '${app.game?.prisonerCount[player] ?? 0}' : '';
     // PlayerInfo.set_label: the name where we have one, otherwise what they are, and the rank
     final showName = info.name.isNotEmpty && info.playerType == playerHuman && info.playerSubtype == playingNormal;
     var subtitle = showName ? info.name : i18n.tr(info.playerSubtype);
@@ -183,8 +183,8 @@ class PlayerCard extends StatelessWidget {
 }
 
 class _ClockCard extends StatelessWidget {
-  final KaTrainGui gui;
-  const _ClockCard({required this.gui});
+  final AppController app;
+  const _ClockCard({required this.app});
 
   @override
   Widget build(BuildContext context) {
@@ -195,9 +195,9 @@ class _ClockCard extends StatelessWidget {
           children: [
             Expanded(
               child: ValueListenableBuilder(
-                valueListenable: gui.timerTicks,
+                valueListenable: app.clock.ticks,
                 builder: (context, _, _) {
-                  final t = gui.timer;
+                  final t = app.clock;
                   final secs = t.timeRemaining + 0.99;
                   final time =
                       '${(secs ~/ 60).toString().padLeft(2)}:${(secs % 60).toInt().toString().padLeft(2, '0')}';
@@ -222,7 +222,7 @@ class _ClockCard extends StatelessWidget {
                         isSelected: t.paused,
                         selectedIcon: Icon(Icons.play_arrow, color: KTheme.pauseActiveColor),
                         icon: const Icon(Icons.pause),
-                        onPressed: () => gui.setTimerPaused(!t.paused),
+                        onPressed: () => t.paused = !t.paused,
                       ),
                     ],
                   );
@@ -236,13 +236,13 @@ class _ClockCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   OutlinedButton.icon(
-                    onPressed: () => gui.act('undo', ['smart']),
+                    onPressed: app.undoSmart,
                     icon: const Icon(Icons.undo),
                     label: Text(i18n.tr('undo-button-text')),
                   ),
                   const SizedBox(height: 6),
                   OutlinedButton.icon(
-                    onPressed: () => gui.act('resign'),
+                    onPressed: app.resign,
                     icon: const Icon(Icons.flag_outlined),
                     label: Text(i18n.tr('resign')),
                   ),
@@ -258,7 +258,7 @@ class _ClockCard extends StatelessWidget {
 
 /// A collapsable panel (KaTrain's CollapsablePanel): toggles for its parts, and a button that folds it away.
 class _PanelCard extends StatelessWidget {
-  final KaTrainGui gui;
+  final AppController app;
   final String id;
   final String title;
   final List<String> options;
@@ -266,7 +266,7 @@ class _PanelCard extends StatelessWidget {
   final Widget child;
   final bool expand;
   const _PanelCard({
-    required this.gui,
+    required this.app,
     required this.id,
     required this.title,
     required this.options,
@@ -277,7 +277,7 @@ class _PanelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final panel = gui.panels[id]!;
+    final panel = app.panels[id]!;
     final header = Padding(
       padding: const EdgeInsets.fromLTRB(8, 4, 0, 4),
       child: Row(
@@ -296,7 +296,7 @@ class _PanelCard extends StatelessWidget {
                       selectedColor: colors[i].withValues(alpha: 0.25),
                       side: BorderSide(color: panel.options[option]! ? colors[i] : Colors.transparent),
                       labelStyle: TextStyle(color: panel.options[option]! ? colors[i] : null),
-                      onSelected: (v) => gui.setPanelState(id, options: {option: v}),
+                      onSelected: (v) => app.setPanelState(id, options: {option: v}),
                     ),
                 ],
               ),
@@ -305,7 +305,7 @@ class _PanelCard extends StatelessWidget {
             Expanded(child: Text(title, style: Theme.of(context).textTheme.titleSmall)),
           IconButton(
             icon: Icon(panel.open ? Icons.expand_less : Icons.expand_more),
-            onPressed: () => gui.setPanelState(id, state: panel.open ? 'close' : 'open'),
+            onPressed: () => app.setPanelState(id, state: panel.open ? 'close' : 'open'),
           ),
         ],
       ),
@@ -325,20 +325,20 @@ class _PanelCard extends StatelessWidget {
 }
 
 class _Stats extends StatelessWidget {
-  final KaTrainGui gui;
+  final AppController app;
   final Map<String, bool> options;
-  const _Stats({required this.gui, required this.options});
+  const _Stats({required this.app, required this.options});
 
   @override
   Widget build(BuildContext context) {
-    final lost = gui.statsPointsLost;
+    final lost = app.statsPointsLost;
     final rows = [
-      if (options['winrate']!) (i18n.tr('stats:winrate'), gui.statsWinrate, KTheme.winrateColor),
-      if (options['score']!) (i18n.tr('stats:score'), gui.statsScore, KTheme.scoreColor),
+      if (options['winrate']!) (i18n.tr('stats:winrate'), app.statsWinrate, KTheme.winrateColor),
+      if (options['score']!) (i18n.tr('stats:score'), app.statsScore, KTheme.scoreColor),
       if (options['points']!)
         (
           i18n.tr(lost == null || lost > 0 ? 'stats:pointslost' : 'stats:pointsgained'),
-          lost != null ? '${i18n.tr('short color ${gui.statsPlayer}')}: ${pyFixed(lost.abs(), 1)}' : '…',
+          lost != null ? '${i18n.tr('short color ${app.statsPlayer}')}: ${pyFixed(lost.abs(), 1)}' : '…',
           KTheme.pointlossColor,
         ),
     ];
@@ -368,8 +368,8 @@ class _Stats extends StatelessWidget {
 
 /// The status line, the comments of the move (with clickable variations), and the notes.
 class _InfoAndNotes extends StatefulWidget {
-  final KaTrainGui gui;
-  const _InfoAndNotes({required this.gui});
+  final AppController app;
+  const _InfoAndNotes({required this.app});
 
   @override
   State<_InfoAndNotes> createState() => _InfoAndNotesState();
@@ -388,32 +388,32 @@ class _InfoAndNotesState extends State<_InfoAndNotes> {
 
   @override
   Widget build(BuildContext context) {
-    final gui = widget.gui;
-    final options = gui.panels['notes_panel']!.options;
+    final app = widget.app;
+    final options = app.panels['notes_panel']!.options;
     final showInfo = options['info']! || options['info-details']!;
-    if (!_noteFocus.hasFocus && _note.text != gui.noteText) _note.text = gui.noteText;
+    if (!_noteFocus.hasFocus && _note.text != app.noteText) _note.text = app.noteText;
     final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (gui.statusText.isNotEmpty)
+        if (app.statusText.isNotEmpty)
           Container(
             margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: gui.statusIsError ? scheme.errorContainer : scheme.secondaryContainer,
+              color: app.statusIsError ? scheme.errorContainer : scheme.secondaryContainer,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              gui.statusText,
-              style: TextStyle(color: gui.statusIsError ? scheme.onErrorContainer : scheme.onSecondaryContainer),
+              app.statusText,
+              style: TextStyle(color: app.statusIsError ? scheme.onErrorContainer : scheme.onSecondaryContainer),
             ),
           ),
         if (showInfo)
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-              child: _InfoText(gui: gui),
+              child: _InfoText(app: app),
             ),
           ),
         if (options['notes']!)
@@ -427,7 +427,7 @@ class _InfoAndNotesState extends State<_InfoAndNotes> {
                 expands: true,
                 textAlignVertical: TextAlignVertical.top,
                 decoration: InputDecoration(hintText: i18n.tr('SGF Notes Hint'), border: const OutlineInputBorder()),
-                onChanged: gui.setNote,
+                onChanged: app.setNote,
                 onTapOutside: (_) => _noteFocus.unfocus(), // shortcuts work again once you click elsewhere
               ),
             ),
@@ -440,8 +440,8 @@ class _InfoAndNotesState extends State<_InfoAndNotes> {
 
 /// The comments, with KaTrain's variation links `[u][ref=...][color=...]` clickable and `[color=...]` coloured.
 class _InfoText extends StatelessWidget {
-  final KaTrainGui gui;
-  const _InfoText({required this.gui});
+  final AppController app;
+  const _InfoText({required this.app});
 
   @override
   Widget build(BuildContext context) {
@@ -451,7 +451,7 @@ class _InfoText extends StatelessWidget {
       dotAll: true,
     );
     var last = 0;
-    final text = gui.infoText;
+    final text = app.infoText;
     Color parse(String hex) =>
         Color(int.parse('FF${hex.replaceFirst('#', '').padRight(6, '0').substring(0, 6)}', radix: 16));
     for (final m in markup.allMatches(text)) {
@@ -466,8 +466,8 @@ class _InfoText extends StatelessWidget {
               cursor: SystemMouseCursors.click,
               child: GestureDetector(
                 onTap: () {
-                  final node = gui.activeCommentNode?.parent;
-                  if (node != null) gui.board.setHoverPv(pv.substring(1).split(' '), node, enabled: true);
+                  final node = app.activeCommentNode?.parent;
+                  if (node != null) app.board.setHoverPv(pv.substring(1).split(' '), node, enabled: true);
                 },
                 child: Text(
                   m[3]!,

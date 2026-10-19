@@ -1,10 +1,10 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/gui/popups.py and popups.kv:
+// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/popups.py and popups.kv:
 // ConfigTeacherPopup and ConfigAIPopup.
 
 import 'package:flutter/material.dart';
 import 'package:katrain_core/katrain_core.dart';
 
-import '../../state/katrain_gui.dart';
+import '../../state/app_controller.dart';
 import '../../theme.dart';
 import 'config_editor.dart';
 
@@ -37,16 +37,16 @@ Widget _choice(String value, List<String> refs, ValueChanged<String> onChanged) 
 /// Teaching settings: per point loss class, its threshold, undos offered, and whether to show and save its dots;
 /// and what the board shows.
 class TeacherDialog extends StatefulWidget {
-  final KaTrainGui gui;
-  const TeacherDialog({super.key, required this.gui});
+  final AppController app;
+  const TeacherDialog({super.key, required this.app});
 
   @override
   State<TeacherDialog> createState() => _TeacherDialogState();
 }
 
 class _TeacherDialogState extends State<TeacherDialog> {
-  late final gui = widget.gui;
-  late final editor = ConfigEditor(gui);
+  late final app = widget.app;
+  late final editor = ConfigEditor(app);
   late String theme = editor.value('trainer/theme') as String;
   final bools = <String, bool>{};
 
@@ -59,11 +59,11 @@ class _TeacherDialogState extends State<TeacherDialog> {
     try {
       editor.updateConfig();
     } on InputParseError catch (e) {
-      gui.setStatus('$e', statusError);
+      app.setStatus('$e', statusError);
       return;
     }
     // The keyboard shortcut can change this without changing the config.
-    gui.showMoveNum = gui.config('trainer/show_move_numbers') as bool;
+    app.showMoveNum = app.config('trainer/show_move_numbers') as bool;
     Navigator.of(context).pop();
   }
 
@@ -88,7 +88,7 @@ class _TeacherDialogState extends State<TeacherDialog> {
   @override
   Widget build(BuildContext context) {
     editor.field('trainer/theme', () => theme);
-    final thresholds = gui.config('trainer/eval_thresholds') as List;
+    final thresholds = app.config('trainer/eval_thresholds') as List;
     final colors = KTheme.evalColors[theme]!;
     final header = Theme.of(context).textTheme.labelMedium;
     return SettingsDialog(
@@ -183,18 +183,18 @@ class _TopMoveChoiceState extends State<_TopMoveChoice> {
 
 /// AI settings: a strategy, its options, and the strength they are estimated to give.
 class AiDialog extends StatefulWidget {
-  final KaTrainGui gui;
-  const AiDialog({super.key, required this.gui});
+  final AppController app;
+  const AiDialog({super.key, required this.app});
 
   @override
   State<AiDialog> createState() => _AiDialogState();
 }
 
 class _AiDialogState extends State<AiDialog> {
-  late final gui = widget.gui;
-  late var editor = ConfigEditor(widget.gui);
+  late final app = widget.app;
+  late var editor = ConfigEditor(widget.app);
   late String strategy = () {
-    final selected = {for (final p in gui.playersInfo.values) p.strategy}..remove(aiDefault);
+    final selected = {for (final p in app.playersInfo.values) p.strategy}..remove(aiDefault);
     return selected.isEmpty ? aiConfigDefault : selected.first;
   }();
   String estimatedRank = '';
@@ -226,7 +226,7 @@ class _AiDialogState extends State<AiDialog> {
   void _selectStrategy(String s) {
     setState(() {
       strategy = s;
-      editor = ConfigEditor(gui); // the options of the other strategy are not stored
+      editor = ConfigEditor(app); // the options of the other strategy are not stored
       bools.clear();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _estimateRank());
@@ -236,11 +236,11 @@ class _AiDialogState extends State<AiDialog> {
     try {
       editor.updateConfig();
     } on InputParseError catch (e) {
-      gui.setStatus('$e', statusError);
+      app.setStatus('$e', statusError);
       return;
     }
-    gui.updateCalculatedRanks();
-    gui.refresh();
+    app.updateCalculatedRanks();
+    app.refresh();
     Navigator.of(context).pop();
   }
 
@@ -291,7 +291,7 @@ class _AiDialogState extends State<AiDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final settings = (gui.config('ai/$strategy') as Map).cast<String, dynamic>();
+    final settings = (app.config('ai/$strategy') as Map).cast<String, dynamic>();
     final keys = settings.keys.toList()
       ..sort((a, b) {
         final ka = aiKeyProperties.contains(a) ? 0 : 1;

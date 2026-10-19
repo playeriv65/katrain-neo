@@ -1,4 +1,4 @@
-// KaTrain's hamburger menu (katrain/gui.kv HamburgerMenuContents, katrain/gui/widgets/panels.py PlayerSetupBlock):
+// KaTrain's hamburger menu (katrain/app.kv HamburgerMenuContents, katrain/app/widgets/panels.py PlayerSetupBlock):
 // who plays each colour, the game and settings actions with their shortcuts, the language, and links to KaTrain's
 // manual and support pages. Distributed training (contribute mode) is not part of KaTrain Neo.
 
@@ -7,7 +7,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:katrain_core/katrain_core.dart';
 
-import '../state/katrain_gui.dart';
+import '../state/app_controller.dart';
+import '../state/dialogs.dart';
 import '../theme.dart';
 
 /// KaTrain's languages, in its menu's order (Spanish is translated but not offered there).
@@ -24,16 +25,16 @@ const languages = [
   ('tr', 'Türkçe'),
 ];
 
-/// The menu's actions: label key, icon, shortcut, KaTrain message.
-const menuItems = [
-  ('menu:newgame', Icons.add_box_outlined, 'Ctrl+N', 'new-game-popup'),
-  ('menu:save', Icons.save_outlined, 'Ctrl+S', 'save-game'),
-  ('menu:save-as', Icons.save_as_outlined, 'Ctrl+D', 'save-game-as-popup'),
-  ('menu:load', Icons.folder_open_outlined, 'Ctrl+L', 'analyze-sgf-popup'),
-  ('menu:clocksettings', Icons.timer_outlined, 'F5', 'timer-popup'),
-  ('menu:teachsettings', Icons.school_outlined, 'F6', 'teacher-popup'),
-  ('menu:aisettings', Icons.smart_toy_outlined, 'F7', 'ai-popup'),
-  ('menu:settings', Icons.settings_outlined, 'F8', 'config-popup'),
+/// The menu's actions: label key, icon, shortcut, action.
+final List<(String, IconData, String, void Function(AppController))> menuItems = [
+  ('menu:newgame', Icons.add_box_outlined, 'Ctrl+N', (a) => a.openDialog(AppDialog.newGame)),
+  ('menu:save', Icons.save_outlined, 'Ctrl+S', (a) => a.saveGame()),
+  ('menu:save-as', Icons.save_as_outlined, 'Ctrl+D', (a) => a.openDialog(AppDialog.saveGameAs)),
+  ('menu:load', Icons.folder_open_outlined, 'Ctrl+L', (a) => a.openDialog(AppDialog.loadGame)),
+  ('menu:clocksettings', Icons.timer_outlined, 'F5', (a) => a.openDialog(AppDialog.timer)),
+  ('menu:teachsettings', Icons.school_outlined, 'F6', (a) => a.openDialog(AppDialog.teacher)),
+  ('menu:aisettings', Icons.smart_toy_outlined, 'F7', (a) => a.openDialog(AppDialog.ai)),
+  ('menu:settings', Icons.settings_outlined, 'F8', (a) => a.openDialog(AppDialog.settings)),
 ];
 
 void openUrl(String url) {
@@ -47,9 +48,9 @@ void openUrl(String url) {
 }
 
 class MenuDrawer extends StatelessWidget {
-  final KaTrainGui gui;
+  final AppController app;
   final ValueChanged<String> onLanguage;
-  const MenuDrawer({super.key, required this.gui, required this.onLanguage});
+  const MenuDrawer({super.key, required this.app, required this.onLanguage});
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +59,7 @@ class MenuDrawer extends StatelessWidget {
       width: 420,
       backgroundColor: KTheme.boxBackgroundColor,
       child: ListenableBuilder(
-        listenable: gui,
+        listenable: app,
         builder: (context, _) => ListView(
           padding: const EdgeInsets.symmetric(vertical: 16),
           children: [
@@ -68,18 +69,18 @@ class MenuDrawer extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             PlayerSetupBlock(
-              gui: gui,
-              onChanged: (bw, type, subtype) => gui.updatePlayer(bw, playerType: type, playerSubtype: subtype),
+              app: app,
+              onChanged: (bw, type, subtype) => app.updatePlayer(bw, playerType: type, playerSubtype: subtype),
             ),
             const Divider(height: 32),
-            for (final (label, icon, shortcut, message) in menuItems)
+            for (final (label, icon, shortcut, action) in menuItems)
               ListTile(
                 leading: Icon(icon),
                 title: Text(i18n.tr(label)),
                 trailing: Text(shortcut, style: text.labelMedium),
                 onTap: () {
                   Navigator.of(context).pop();
-                  gui.act(message);
+                  action(app);
                 },
               ),
             const Divider(height: 32),
@@ -112,17 +113,17 @@ class MenuDrawer extends StatelessWidget {
 
 /// The black and white player setup side by side, with a button to swap them (also in the new game popup).
 class PlayerSetupBlock extends StatelessWidget {
-  final KaTrainGui gui;
+  final AppController app;
   final void Function(String bw, String playerType, String playerSubtype) onChanged;
 
   /// The players to show; the global ones when null.
   final Map<String, (String, String)>? players;
-  const PlayerSetupBlock({super.key, required this.gui, required this.onChanged, this.players});
+  const PlayerSetupBlock({super.key, required this.app, required this.onChanged, this.players});
 
   (String, String) _player(String bw) {
     final p = players?[bw];
     if (p != null) return p;
-    final info = gui.playersInfo[bw]!;
+    final info = app.playersInfo[bw]!;
     return (info.playerType, info.playerSubtype);
   }
 

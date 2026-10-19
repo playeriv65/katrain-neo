@@ -1,4 +1,4 @@
-// The sounds of KaTrain (katrain/gui/sound.py plays them; theme.py names them).
+// The sounds of KaTrain (katrain/app/sound.py plays them; theme.py names them).
 
 import 'dart:math' as math;
 

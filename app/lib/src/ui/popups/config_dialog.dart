@@ -1,4 +1,4 @@
-// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/gui/popups.py and popups.kv: ConfigPopup
+// Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/app/popups.py and popups.kv: ConfigPopup
 // (general and engine settings).
 
 import 'dart:io';
@@ -8,25 +8,25 @@ import 'package:flutter/material.dart';
 import 'package:katrain_core/io.dart';
 import 'package:katrain_core/katrain_core.dart';
 
-import '../../state/katrain_gui.dart';
+import '../../state/app_controller.dart';
 import 'config_editor.dart';
 import 'engine_files.dart';
 
 /// General settings, and which KataGo to use (a local program, a remote server or a custom command) with its
 /// analysis settings.
 class ConfigDialog extends StatefulWidget {
-  final KaTrainGui gui;
+  final AppController app;
   final EngineDownloads downloads;
-  const ConfigDialog({super.key, required this.gui, required this.downloads});
+  const ConfigDialog({super.key, required this.app, required this.downloads});
 
   @override
   State<ConfigDialog> createState() => _ConfigDialogState();
 }
 
 class _ConfigDialogState extends State<ConfigDialog> {
-  late final gui = widget.gui;
-  late final editor = ConfigEditor(gui);
-  late final finder = EngineFileFinder(gui, widget.downloads);
+  late final app = widget.app;
+  late final editor = ConfigEditor(app);
+  late final finder = EngineFileFinder(app, widget.downloads);
   late String backend = resolveEngineBackend(_engineConfig);
   late final paths = {
     for (final key in const ['engine/katago', 'engine/model', 'engine/humanlike_model', 'engine/config'])
@@ -43,7 +43,7 @@ class _ConfigDialogState extends State<ConfigDialog> {
   List<Download>? katagoDownloads = [];
   DateTime _lastModelDownload = DateTime(0);
 
-  Map<String, dynamic> get _engineConfig => (gui.config('engine') as Map).cast<String, dynamic>();
+  Map<String, dynamic> get _engineConfig => (app.config('engine') as Map).cast<String, dynamic>();
 
   @override
   void initState() {
@@ -82,11 +82,11 @@ class _ConfigDialogState extends State<ConfigDialog> {
     if (mounted) setState(_scanFiles);
   }
 
-  bool _exists(String path) => path.isNotEmpty && File(findResource(path, gui.resourceDir)).existsSync();
+  bool _exists(String path) => path.isNotEmpty && File(findResource(path, app.resourceDir)).existsSync();
 
   Future<void> _browse(String key) async {
     final current = paths[key]!.text.trim();
-    final dir = current.isEmpty ? null : File(findResource(current, gui.resourceDir)).parent.path;
+    final dir = current.isEmpty ? null : File(findResource(current, app.resourceDir)).parent.path;
     final file = await openFile(initialDirectory: dir != null && Directory(dir).existsSync() ? dir : null);
     if (file != null) paths[key]!.text = file.path;
   }
@@ -99,7 +99,7 @@ class _ConfigDialogState extends State<ConfigDialog> {
       d.cancel();
     }
     setState(() => modelDownloads = []);
-    downloadModels(gui, widget.downloads, [...models, ...humanlikeModels], _checkFiles).then((started) {
+    downloadModels(app, widget.downloads, [...models, ...humanlikeModels], _checkFiles).then((started) {
       if (!mounted) return;
       setState(
         () =>
@@ -112,21 +112,21 @@ class _ConfigDialogState extends State<ConfigDialog> {
     for (final d in [...?katagoDownloads]) {
       d.cancel();
     }
-    setState(() => katagoDownloads = downloadKatagos(gui, widget.downloads, katagos, _checkFiles));
+    setState(() => katagoDownloads = downloadKatagos(app, widget.downloads, katagos, _checkFiles));
   }
 
   void _update() {
-    final oldBackend = gui.config('engine/backend', '');
+    final oldBackend = app.config('engine/backend', '');
     final Set<String> updated;
     try {
-      (gui.configStore.data['engine'] as Map)['backend'] = backend;
+      (app.configStore.data['engine'] as Map)['backend'] = backend;
       updated = editor.updateConfig();
     } on InputParseError catch (e) {
-      gui.setStatus('$e', statusError);
+      app.setStatus('$e', statusError);
       return;
     }
     if (backend != oldBackend) updated.add('engine/backend');
-    gui.debugLevel = gui.config('general/debug_level', outputInfo) as int;
+    app.debugLevel = app.config('general/debug_level', outputInfo) as int;
     Navigator.of(context).pop();
 
     const ignore = {'max_visits', 'fast_visits', 'max_time', 'enable_ownership', 'wide_root_noise'};
@@ -135,10 +135,10 @@ class _ConfigDialogState extends State<ConfigDialog> {
         if (key.contains('engine') && !ignore.any(key.contains)) key,
     ];
     if (detectedRestart.isNotEmpty) {
-      gui.log('Restarting Engine after ${pyStr(detectedRestart)} settings change');
-      gui.restartEngine();
+      app.log('Restarting Engine after ${pyStr(detectedRestart)} settings change');
+      app.restartEngine();
     } else {
-      gui.updateState();
+      app.updateState();
     }
   }
 
@@ -281,7 +281,7 @@ class _ConfigDialogState extends State<ConfigDialog> {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
-    final configFile = gui.configStore is JsonConfigStore ? (gui.configStore as JsonConfigStore).filename : '';
+    final configFile = app.configStore is JsonConfigStore ? (app.configStore as JsonConfigStore).filename : '';
     final engineSection = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

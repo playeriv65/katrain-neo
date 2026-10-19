@@ -1,5 +1,5 @@
 // Ported from KaTrain (https://github.com/sanderland/katrain, MIT), katrain/__main__.py (_do_analyze_sgf_popup,
-// _do_save_game_as_popup) and katrain/gui/popups.py: LoadSGFPopup, SaveSGFPopup and GameReportPopup. The system file
+// _do_save_game_as_popup) and katrain/app/popups.py: LoadSGFPopup, SaveSGFPopup and GameReportPopup. The system file
 // dialogs take the place of KaTrain's file browser.
 
 import 'dart:async';
@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:katrain_core/io.dart';
 import 'package:katrain_core/katrain_core.dart';
 
-import '../../state/katrain_gui.dart';
+import '../../state/app_controller.dart';
 import '../../theme.dart';
 import '../side_panel.dart' show PlayerCard;
 import 'config_editor.dart';
@@ -32,37 +32,37 @@ String? _existingDir(Object? setting) {
 
 /// Picks an SGF (or NGF, GIB) file to analyse, with whether to analyse it fast and to start at its first move.
 class LoadSgfDialog extends StatefulWidget {
-  final KaTrainGui gui;
-  const LoadSgfDialog({super.key, required this.gui});
+  final AppController app;
+  const LoadSgfDialog({super.key, required this.app});
 
   @override
   State<LoadSgfDialog> createState() => _LoadSgfDialogState();
 }
 
 class _LoadSgfDialogState extends State<LoadSgfDialog> {
-  late final gui = widget.gui;
-  late final editor = ConfigEditor(gui);
+  late final app = widget.app;
+  late final editor = ConfigEditor(app);
   late bool fast = editor.value('general/load_fast_analysis') == true;
   late bool rewind = editor.value('general/load_sgf_rewind') == true;
 
   Future<void> _choose() async {
     final file = await openFile(
       acceptedTypeGroups: _sgfTypes,
-      initialDirectory: _existingDir(gui.config('general/sgf_load')),
+      initialDirectory: _existingDir(app.config('general/sgf_load')),
     );
     if (file == null || !mounted) return;
     Navigator.of(context).pop();
     final (path, _) = _split(file.path);
-    if (path != gui.config('general/sgf_load')) {
-      gui.log('Updating sgf load path default to $path', outputDebug);
-      (gui.configStore.data['general'] as Map)['sgf_load'] = path;
+    if (path != app.config('general/sgf_load')) {
+      app.log('Updating sgf load path default to $path', outputDebug);
+      (app.configStore.data['general'] as Map)['sgf_load'] = path;
     }
     editor
       ..field('general/load_fast_analysis', () => fast)
       ..field('general/load_sgf_rewind', () => rewind)
       ..updateConfig(saveToFile: false);
-    gui.saveConfig('general');
-    gui.loadSgfFile(file.path, fast: fast, rewind: rewind);
+    app.saveConfig('general');
+    app.loadSgfFile(file.path, fast: fast, rewind: rewind);
   }
 
   @override
@@ -93,31 +93,31 @@ class _LoadSgfDialogState extends State<LoadSgfDialog> {
 }
 
 /// Asks where to save the game, suggesting a name from its players and date in the last save folder.
-Future<void> saveGameAs(KaTrainGui gui) async {
+Future<void> saveGameAs(AppController app) async {
   final location = await getSaveLocation(
     acceptedTypeGroups: const [
       XTypeGroup(label: 'SGF', extensions: ['sgf']),
     ],
-    initialDirectory: _existingDir(gui.config('general/sgf_save')),
-    suggestedName: gui.game!.generateFilename(),
+    initialDirectory: _existingDir(app.config('general/sgf_save')),
+    suggestedName: app.game!.generateFilename(),
   );
   if (location == null) return;
   var filename = location.path.trim();
   if (!filename.toLowerCase().endsWith('.sgf')) filename += '.sgf';
   final (path, file) = _split(filename);
-  if (path != gui.config('general/sgf_save')) {
-    gui.log('Updating sgf save path default to $path', outputDebug);
-    (gui.configStore.data['general'] as Map)['sgf_save'] = path;
-    gui.saveConfig('general');
+  if (path != app.config('general/sgf_save')) {
+    app.log('Updating sgf save path default to $path', outputDebug);
+    (app.configStore.data['general'] as Map)['sgf_save'] = path;
+    app.saveConfig('general');
   }
-  gui.act('save-game', ['$path${Platform.pathSeparator}$file']);
+  app.saveGame('$path${Platform.pathSeparator}$file');
 }
 
 /// The game report: accuracy, point loss and agreement with the AI for both players, and how many moves fell in
 /// each point loss class; for the whole game or its opening, middle game or endgame.
 class GameReportDialog extends StatefulWidget {
-  final KaTrainGui gui;
-  const GameReportDialog({super.key, required this.gui});
+  final AppController app;
+  const GameReportDialog({super.key, required this.app});
 
   @override
   State<GameReportDialog> createState() => _GameReportDialogState();
@@ -132,7 +132,7 @@ class _GameReportDialogState extends State<GameReportDialog> {
     super.initState();
     // While the engine is still analysing, the report fills in.
     _refresh = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!(widget.gui.engine?.isIdle() ?? true)) setState(() {});
+      if (!(widget.app.engine?.isIdle() ?? true)) setState(() {});
     });
   }
 
@@ -144,14 +144,14 @@ class _GameReportDialogState extends State<GameReportDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final gui = widget.gui;
-    final thresholds = (gui.config('trainer/eval_thresholds') as List).cast<num>();
-    final (sumStats, histogram, playerPtloss) = gameReport(gui.game!, thresholds, depthFilter: depthFilter);
+    final app = widget.app;
+    final thresholds = (app.config('trainer/eval_thresholds') as List).cast<num>();
+    final (sumStats, histogram, playerPtloss) = gameReport(app.game!, thresholds, depthFilter: depthFilter);
     final labels = [
       for (final pt in thresholds) pt > 0 ? '≥ ${pyStr(pt)}' : '< ${pyStr(thresholds[thresholds.length - 2])}',
     ];
     final colors = [
-      for (final c in KTheme.evalColors[gui.config('trainer/theme')]!)
+      for (final c in KTheme.evalColors[app.config('trainer/theme')]!)
         Color.from(alpha: 1, red: c.r * 0.75, green: c.g * 0.75, blue: c.b * 0.75),
     ];
     final text = Theme.of(context).textTheme;
@@ -250,7 +250,7 @@ class _GameReportDialogState extends State<GameReportDialog> {
                 children: [
                   for (final bw in const ['B', 'W'])
                     Expanded(
-                      child: PlayerCard(gui: gui, player: bw, inGame: false),
+                      child: PlayerCard(app: app, player: bw, inGame: false),
                     ),
                 ],
               ),
