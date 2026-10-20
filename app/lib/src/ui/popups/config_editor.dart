@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:katrain_core/katrain_core.dart';
 
 import '../../state/app_controller.dart';
+import '../app_theme.dart' show oneLine;
 
 class InputParseError implements Exception {
   final String message;
@@ -128,7 +129,7 @@ class _NumberFieldState extends State<NumberField> {
       controller: _controller,
       keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
       decoration: InputDecoration(
-        helperText: widget.helper?.replaceAll(lineBreak, ' '),
+        helperText: widget.helper == null ? null : oneLine(widget.helper!),
         helperMaxLines: 3,
         isDense: true,
       ),
@@ -136,9 +137,6 @@ class _NumberFieldState extends State<NumberField> {
     ),
   );
 }
-
-/// A line break and the spaces around it: translations break lines for narrower layouts than these.
-final lineBreak = RegExp(r'\s*\n\s*');
 
 /// A field with its label above it, so a long label wraps instead of covering the value.
 class FieldLabel extends StatelessWidget {
@@ -156,10 +154,7 @@ class FieldLabel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // the text wraps where it needs to
-          Text(
-            label.replaceAll(lineBreak, ' '),
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
+          Text(oneLine(label), style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
           child,
         ],
       ),

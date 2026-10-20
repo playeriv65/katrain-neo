@@ -35,6 +35,16 @@ List<String> fontFallback(String lang) => [
     if (e.key != lang) ...e.value,
 ];
 
+final _lineBreak = RegExp(r'(\S?)\s*\n\s*(\S?)');
+final _cjk = RegExp(r'[⺀-鿿가-힯豈-﫿＀-￯]');
+
+/// [text] on one line. Translations break lines for narrower layouts than this app's, where the text wraps by
+/// itself: a break between Chinese, Japanese or Korean characters goes away, any other becomes a space.
+String oneLine(String text) => text.replaceAllMapped(_lineBreak, (m) {
+  final (before, after) = (m[1]!, m[2]!);
+  return _cjk.hasMatch(before) || _cjk.hasMatch(after) ? '$before$after' : '$before $after';
+});
+
 /// The colour the scheme is derived from: a slate blue.
 const _seed = Color(0xFF2E4158);
 

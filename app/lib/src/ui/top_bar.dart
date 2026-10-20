@@ -6,6 +6,7 @@ import 'package:katrain_core/katrain_core.dart';
 
 import '../state/app_controller.dart';
 import '../state/dialogs.dart';
+import 'app_theme.dart' show oneLine;
 
 /// The analysis menu: label key, icon, shortcut text, action.
 List<(String, IconData, String, void Function(AppController))> analysisMenuItems() => [
@@ -56,7 +57,7 @@ class TopBar extends StatelessWidget {
       textDirection: TextDirection.ltr,
       textScaler: scaler,
     )..layout()).width;
-    final labels = [for (final (_, label, _, _) in displayToggles) i18n.tr(label).replaceAll('\n', ' ')];
+    final labels = [for (final (_, label, _, _) in displayToggles) oneLine(i18n.tr(label))];
     final menuLabel = i18n.tr('btn:Analyze');
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),

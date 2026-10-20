@@ -3,7 +3,7 @@
 //
 //   cd app && dart tool/dev_run.dart [-d windows|macos|linux] [extra flutter run arguments]
 //
-// Keys (then Enter): r hot reload, R hot restart (loses the game in memory), q quit. A change that hot reload cannot
+// Keys (then Enter): r hot reload, R hot restart (loses the game in memory), q or Ctrl-C quit. A change that hot reload cannot
 // take (e.g. to main(), a global or a new dependency) is reported, and waits for R.
 
 import 'dart:async';
@@ -52,6 +52,9 @@ Future<void> main(List<String> args) async {
         runner.stop();
     }
   });
+
+  // Ctrl-C stops the app too, instead of leaving it and flutter's processes running
+  ProcessSignal.sigint.watch().listen((_) => runner.stop());
 
   say('starting the app; it hot reloads when a file in ${watched.join(', ')} changes');
   final code = await process.exitCode;

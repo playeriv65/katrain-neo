@@ -9,6 +9,7 @@ import 'package:katrain_core/io.dart';
 import 'package:katrain_core/katrain_core.dart';
 
 import '../../state/app_controller.dart';
+import '../app_theme.dart' show oneLine;
 import 'config_editor.dart';
 import 'engine_files.dart';
 
@@ -164,7 +165,7 @@ class _ConfigDialogState extends State<ConfigDialog> {
     final controller = paths[key]!;
     final text = controller.text.trim();
     final missing = !(allowEmpty && text.isEmpty) && !_exists(text);
-    final helper = [?foundLabel, if (hint != null) i18n.tr(hint).replaceAll(lineBreak, ' ')].join('\n');
+    final helper = [?foundLabel, if (hint != null) oneLine(i18n.tr(hint))].join('\n');
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: FieldLabel(
