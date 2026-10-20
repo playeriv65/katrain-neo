@@ -43,6 +43,15 @@ void main() {
     });
   }
 
+  test('translations on one line: CJK lines join, others get a space', () {
+    expect(oneLine('显示\n选点'), '显示选点');
+    expect(oneLine('拡大して\n外枠'), '拡大して外枠');
+    expect(oneLine('Show\nDots'), 'Show Dots');
+    expect(oneLine('Chemin d\'accès de \nl\'exécutable'), 'Chemin d\'accès de l\'exécutable');
+    expect(oneLine('KataGo\n分析'), 'KataGo分析');
+    expect(oneLine('no break'), 'no break');
+  });
+
   test('text on a colour is black or white, whichever reads', () {
     for (final background in [Colors.yellow, Colors.white, Colors.black, Colors.indigo, const Color(0xFF8B1A1A)]) {
       expect(contrast(textOn(background), background), greaterThanOrEqualTo(4.5), reason: '$background');
