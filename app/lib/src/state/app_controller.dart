@@ -10,7 +10,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:katrain_core/api.dart' show ApiState;
+import 'package:katrain_core/api.dart' show ApiState, viewRegion;
 import 'package:katrain_core/io.dart';
 import 'package:katrain_core/katrain_core.dart';
 
@@ -467,14 +467,18 @@ class AppController extends HostBase with ChangeNotifier {
     board.selectingRegionOfInterest = true;
   }
 
-  Future<void> tsumegoFrame(bool ko, int margin) => _enqueue('tsumego frame', (_) => applyTsumegoFrame(ko, margin));
+  Future<void> tsumegoFrame(bool ko, int margin, {bool zoom = true}) =>
+      _enqueue('tsumego frame', (_) => applyTsumegoFrame(ko, margin, zoom: zoom));
 
-  /// Fills the board around the problem on it and analyses only the problem's area.
-  void applyTsumegoFrame(bool ko, int margin) {
+  /// Fills the board around the problem on it and analyses only the problem's area; with [zoom] the board then shows
+  /// only the problem, the frame stones hidden (KataGo still sees them).
+  void applyTsumegoFrame(bool ko, int margin, {bool zoom = false}) {
     final g = game!;
     if (g.stones.isEmpty) return;
+    final problem = [for (final s in g.stones) s.coords!];
     final (node, region) = tsumegoFrameForGame(g, g.komi, nextPlayerInfo.player == 'B', ko, margin);
     g.setCurrentNode(node);
+    if (zoom) board.setZoom(viewRegion(problem, g.boardSize), {for (final m in node.placements) m.coords!});
     if (mode == modePlay) switchUiMode();
     if (region != null) {
       g.setRegionOfInterest([region.$1.$2, region.$1.$1, region.$2.$2, region.$2.$1]);

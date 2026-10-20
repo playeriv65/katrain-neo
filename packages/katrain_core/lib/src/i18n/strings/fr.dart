@@ -295,6 +295,7 @@ const Map<String, String> stringsFr = {
   'top_move_winrate': 'Pronostic',
   'tromp-taylor': 'Tromp-Taylor',
   'tsumego:ko': 'Permettre les kos',
+  'tsumego:zoom': 'Zoomer et masquer le cadre',
   'tsumego:walldistance': 'Distance du mur :',
   'undo-button-text': 'Annuler',
   'update ai settings': 'Mettre à jour',

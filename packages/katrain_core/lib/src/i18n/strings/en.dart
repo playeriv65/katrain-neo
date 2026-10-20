@@ -287,6 +287,7 @@ const Map<String, String> stringsEn = {
   'top_move_winrate': 'Win rate',
   'tromp-taylor': 'Tromp-Taylor',
   'tsumego:ko': 'Ko allowed?',
+  'tsumego:zoom': 'Zoom in and hide frame',
   'tsumego:walldistance': 'Distance of wall',
   'undo-button-text': 'Undo',
   'update ai settings': 'Update AI Settings',

@@ -290,6 +290,7 @@ const Map<String, String> stringsTw = {
   'top_move_winrate': '勝率',
   'tromp-taylor': 'Tromp-Taylor',
   'tsumego:ko': '允許打劫？',
+  'tsumego:zoom': '放大局部並隱藏外框',
   'tsumego:walldistance': '邊界距離',
   'undo-button-text': '悔棋',
   'update ai settings': '更新AI設定',

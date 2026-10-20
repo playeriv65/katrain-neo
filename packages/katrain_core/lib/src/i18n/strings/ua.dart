@@ -290,6 +290,7 @@ const Map<String, String> stringsUa = {
   'top_move_winrate': 'Шанс на перемогу',
   'tromp-taylor': 'Tromp-Taylor',
   'tsumego:ko': 'Дозволити ко?',
+  'tsumego:zoom': 'Збільшити та сховати рамку',
   'tsumego:walldistance': 'Відстань до стінки',
   'undo-button-text': 'Відміна',
   'update ai settings': 'Зберегти налаштування AI',

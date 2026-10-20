@@ -272,6 +272,7 @@ const Map<String, String> stringsEs = {
   'top_move_winrate': 'Win rate',
   'tromp-taylor': 'Tromp-Taylor',
   'tsumego:ko': 'Ko allowed?',
+  'tsumego:zoom': 'Ampliar y ocultar el marco',
   'tsumego:walldistance': 'Distance of wall',
   'undo-button-text': 'Deshacer',
   'update ai settings': 'Actualizar conf IA',

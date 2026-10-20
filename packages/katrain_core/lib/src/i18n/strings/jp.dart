@@ -288,6 +288,7 @@ const Map<String, String> stringsJp = {
   'top_move_winrate': '勝率',
   'tromp-taylor': 'Tromp-Taylor',
   'tsumego:ko': '劫でもOK',
+  'tsumego:zoom': '拡大して外枠を隠す',
   'tsumego:walldistance': '壁までの距離',
   'undo-button-text': '待った',
   'update ai settings': 'AI設定を更新',

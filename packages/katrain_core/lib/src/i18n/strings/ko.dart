@@ -290,6 +290,7 @@ const Map<String, String> stringsKo = {
   'top_move_winrate': '승률',
   'tromp-taylor': 'Tromp-Taylor',
   'tsumego:ko': '패로 충분?',
+  'tsumego:zoom': '확대하고 틀 숨기기',
   'tsumego:walldistance': '벽까지의 거리',
   'undo-button-text': '무르기',
   'update ai settings': '인공지능 설정 갱신',

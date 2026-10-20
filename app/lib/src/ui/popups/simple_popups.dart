@@ -79,6 +79,9 @@ class _TsumegoFrameDialogState extends State<TsumegoFrameDialog> {
   int margin = 4;
   bool ko = false;
 
+  /// Show only the problem, the frame stones hidden: what a problem looks like in a book.
+  bool zoom = true;
+
   @override
   Widget build(BuildContext context) {
     return SettingsDialog(
@@ -87,7 +90,7 @@ class _TsumegoFrameDialogState extends State<TsumegoFrameDialog> {
       width: 420,
       onAction: () {
         Navigator.of(context).pop();
-        widget.app.tsumegoFrame(ko, margin);
+        widget.app.tsumegoFrame(ko, margin, zoom: zoom);
       },
       child: Column(
         children: [
@@ -104,6 +107,12 @@ class _TsumegoFrameDialogState extends State<TsumegoFrameDialog> {
             title: Text(i18n.tr('tsumego:ko')),
             value: ko,
             onChanged: (v) => setState(() => ko = v),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(i18n.tr('tsumego:zoom')),
+            value: zoom,
+            onChanged: (v) => setState(() => zoom = v),
           ),
         ],
       ),

@@ -51,11 +51,14 @@ class _GraphData {
   );
 }
 
+/// Room kept between the lines and the graph's edges, so the dot at the current move is whole even at an end.
+const _plotInset = 5.0;
+
 /// The lines and scales to draw, in widget coordinates (y down).
 _GraphData _graphData(GraphModel model, Size size) {
   final nodes = model.nodes;
-  final w = size.width;
-  final h = size.height;
+  final w = size.width - 2 * _plotInset;
+  final h = size.height - 2 * _plotInset;
   final scoreValues = [for (final n in nodes) (n?.score != null && n!.score != 0) ? n.score! : double.nan];
   final scoreNn = [
     for (final n in nodes)
@@ -88,16 +91,18 @@ _GraphData _graphData(GraphModel model, Size size) {
       math.max((math.max(-minOr0(winrateNn), maxOr0(winrateNn)) / winrateGranularity).ceil(), 1) * winrateGranularity;
   final pointlossScale = math.max((maxOr0(pointlossNn) / pointlossGranularity).ceil(), 1) * pointlossGranularity;
   final xscale = w / math.max(scoreValues.length - 1, 15);
-  double up(double y) => h - y;
+  double up(double y) => _plotInset + h - y;
   final score = [
-    for (var i = 0; i < scoreValues.length; i++) Offset(i * xscale, up(h / 2 + h / 2 * (scoreValues[i] / scoreScale))),
+    for (var i = 0; i < scoreValues.length; i++)
+      Offset(_plotInset + i * xscale, up(h / 2 + h / 2 * (scoreValues[i] / scoreScale))),
   ];
   final winrate = [
     for (var i = 0; i < winrateValues.length; i++)
-      Offset(i * xscale, up(h / 2 + h / 2 * (winrateValues[i] / winrateScale))),
+      Offset(_plotInset + i * xscale, up(h / 2 + h / 2 * (winrateValues[i] / winrateScale))),
   ];
   final pointloss = [
-    for (var i = 0; i < pointlossValues.length; i++) Offset(i * xscale, up(h * (pointlossValues[i] / pointlossScale))),
+    for (var i = 0; i < pointlossValues.length; i++)
+      Offset(_plotInset + i * xscale, up(h * (pointlossValues[i] / pointlossScale))),
   ];
   final hi = math.min(model.highlightedIndex, math.max(0, scoreValues.length - 1));
   Offset dot(List<Offset> line, double fallback) {
@@ -142,22 +147,33 @@ class _ScoreGraphState extends State<ScoreGraph> {
         final colors = EvalColors.of(context);
         final scheme = Theme.of(context).colorScheme;
         // the scale's labels sit on a backing, so the lines and the current move's dot do not run through them
-        Widget marker(String text, Color color, Alignment alignment) => Align(
-          alignment: alignment,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainer.withValues(alpha: 0.75),
-              borderRadius: BorderRadius.circular(3),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: Text(
-                text,
-                style: TextStyle(fontSize: markerSize, color: color, height: 1.15),
-              ),
+        Widget marker((String, Color) label) => DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainer.withValues(alpha: 0.75),
+            borderRadius: BorderRadius.circular(3),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: Text(
+              label.$1,
+              style: TextStyle(fontSize: markerSize, color: label.$2, height: 1.15),
             ),
           ),
         );
+        // labels at the same place are stacked, away from the edges
+        Widget corner(Alignment alignment, List<(String, Color)> labels) => Align(
+          alignment: alignment,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: alignment.x < 0 ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+              spacing: 2,
+              children: [for (final l in labels) marker(l)],
+            ),
+          ),
+        );
+        final winrate = widget.showWinrate, points = widget.showPointloss, score = widget.showScore;
         return GestureDetector(
           onPanDown: (d) => _point(d.localPosition, size),
           onPanUpdate: (d) => _point(d.localPosition, size),
@@ -184,18 +200,20 @@ class _ScoreGraphState extends State<ScoreGraph> {
                   ),
                 ),
               ),
-              if (widget.showScore) ...[
-                marker('${i18n.tr('short color B')}+${data.scoreScale}', colors.score, Alignment.topRight),
-                marker(i18n.tr('Jigo'), colors.score, Alignment.centerRight),
-                marker('${i18n.tr('short color W')}+${data.scoreScale}', colors.score, Alignment.bottomRight),
+              if (score) ...[
+                corner(Alignment.topRight, [('${i18n.tr('short color B')}+${data.scoreScale}', colors.score)]),
+                corner(Alignment.centerRight, [(i18n.tr('Jigo'), colors.score)]),
+                corner(Alignment.bottomRight, [('${i18n.tr('short color W')}+${data.scoreScale}', colors.score)]),
               ],
-              if (widget.showWinrate) ...[
-                marker('${50 + data.winrateScale}%', colors.winrate, Alignment.topLeft),
-                marker('${50 - data.winrateScale}%', colors.winrate, Alignment.bottomLeft),
-              ],
-              if (widget.showPointloss) ...[
-                marker('-${data.pointlossScale}', colors.pointloss, Alignment.topLeft),
-                marker('0', colors.pointloss, Alignment.bottomLeft),
+              if (winrate || points) ...[
+                corner(Alignment.topLeft, [
+                  if (winrate) ('${50 + data.winrateScale}%', colors.winrate),
+                  if (points) ('-${data.pointlossScale}', colors.pointloss),
+                ]),
+                corner(Alignment.bottomLeft, [
+                  if (points) ('0', colors.pointloss),
+                  if (winrate) ('${50 - data.winrateScale}%', colors.winrate),
+                ]),
               ],
             ],
           ),
@@ -264,9 +282,10 @@ class _GraphPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // the card behind is the background
-    _dashed(canvas, size.height / 2, size.width, dash: 6, gap: 4);
-    _dashed(canvas, size.height / 4, size.width, dash: 2, gap: 3);
-    _dashed(canvas, size.height * 3 / 4, size.width, dash: 2, gap: 3);
+    double at(double fraction) => _plotInset + (size.height - 2 * _plotInset) * fraction;
+    _dashed(canvas, at(1 / 2), size.width, dash: 6, gap: 4);
+    _dashed(canvas, at(1 / 4), size.width, dash: 2, gap: 3);
+    _dashed(canvas, at(3 / 4), size.width, dash: 2, gap: 3);
     if (showScore) _line(canvas, data.score, colors.score);
     if (showWinrate) _line(canvas, data.winrate, colors.winrate);
     if (showPointloss) _line(canvas, data.pointloss, colors.pointloss);

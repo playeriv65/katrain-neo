@@ -290,6 +290,7 @@ const Map<String, String> stringsTr = {
   'top_move_winrate': 'Kazanma oranı',
   'tromp-taylor': 'Tromp-Taylor',
   'tsumego:ko': 'Ko\'ya izin veriliyor mu?',
+  'tsumego:zoom': 'Yakınlaştır, çerçeveyi gizle',
   'tsumego:walldistance': 'Duvar mesafesi',
   'undo-button-text': 'Geri Al',
   'update ai settings': 'AI Ayarlarını Güncelle',

@@ -289,6 +289,7 @@ const Map<String, String> stringsRu = {
   'top_move_winrate': 'Процент побед',
   'tromp-taylor': 'Тромп-Тейлор',
   'tsumego:ko': 'Разрешить ко?',
+  'tsumego:zoom': 'Увеличить и скрыть рамку',
   'tsumego:walldistance': 'Расстояние до стены',
   'undo-button-text': 'Отмена',
   'update ai settings': 'Сохранить настройки ИИ',

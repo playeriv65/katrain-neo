@@ -70,6 +70,9 @@ class _Runner {
   _Runner(this.process);
 
   String? _appId;
+
+  /// Set once the app runs: reloads asked for while it is still building wait for it.
+  bool _started = false;
   int _nextId = 1;
   bool _busy = false;
   ({bool full, String reason})? _queued;
@@ -98,6 +101,7 @@ class _Runner {
         case 'app.start':
           _appId = params['appId'] as String?;
         case 'app.started':
+          _started = true;
           say('the app is running');
           _runQueued();
         case 'app.log':
@@ -126,7 +130,7 @@ class _Runner {
 
   /// A hot reload, or with [full] a hot restart; one at a time, the last one asked for waits.
   Future<void> restart({required bool full, required String reason}) async {
-    if (_appId == null || _busy) {
+    if (!_started || _busy) {
       _queued = (full: full || (_queued?.full ?? false), reason: reason);
       return;
     }
@@ -138,6 +142,9 @@ class _Runner {
     final message = '${result?['message'] ?? reply['error'] ?? ''}'.trim();
     if (code == 0) {
       say(message.isEmpty ? 'done' : message);
+    } else if (message.contains('synchronization failed')) {
+      // the compiler's errors are printed above; the next saved change tries again
+      say('not applied: the code does not compile yet');
     } else {
       say('not applied: $message');
       if (!full) say('this change needs a hot restart, which loses the game in memory: save it, then type R');
@@ -148,7 +155,7 @@ class _Runner {
 
   void _runQueued() {
     final next = _queued;
-    if (next == null || _appId == null) return;
+    if (next == null || !_started) return;
     _queued = null;
     restart(full: next.full, reason: next.reason);
   }

@@ -353,12 +353,15 @@ const viewMargin = 2; // lines of empty board shown around the problem stones
 const viewMinSpan = 7;
 
 /// Rectangle around the problem's own stones (not the frame) for the zoomed diagram view.
-List<int> problemViewRegion(GameNode problemRoot) {
-  final (szx, szy) = problemRoot.boardSize;
-  final coords = [
-    for (final m in problemRoot.placements)
-      if (m.coords != null) m.coords!,
-  ];
+List<int> problemViewRegion(GameNode problemRoot) => viewRegion([
+  for (final m in problemRoot.placements)
+    if (m.coords != null) m.coords!,
+], problemRoot.boardSize);
+
+/// `[xmin, xmax, ymin, ymax]` to show for a problem with stones at [coords]: their bounding box plus a margin,
+/// widened towards the board's center to at least [viewMinSpan] lines.
+List<int> viewRegion(List<(int, int)> coords, (int, int) boardSize) {
+  final (szx, szy) = boardSize;
   if (coords.isEmpty) return [0, szx - 1, 0, szy - 1];
 
   (int, int) span(int lo, int hi, int size) {

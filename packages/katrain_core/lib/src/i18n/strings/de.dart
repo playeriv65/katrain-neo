@@ -293,6 +293,7 @@ const Map<String, String> stringsDe = {
   'top_move_winrate': 'Gewinnrate',
   'tromp-taylor': 'Tromp-Taylor',
   'tsumego:ko': 'Ko erlaubt?',
+  'tsumego:zoom': 'Vergrößern, Rahmen ausblenden',
   'tsumego:walldistance': 'Abstand zur Mauer',
   'undo-button-text': 'Undo',
   'update ai settings': 'AI-Einstellungen aktualisieren',
