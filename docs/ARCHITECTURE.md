@@ -117,6 +117,9 @@ The app serves an HTTP API on 127.0.0.1 with a token per run, on port 8765 or th
 
 ## Roadmap
 
+- **Renderer on Windows:** the app runs on Skia (`windows/runner/main.cpp`), because Impeller's OpenGL ES backend
+  (Flutter 3.47) drew the stones without mipmaps and round edges jagged. Compare again with each Flutter release
+  (A/B screenshots of the stones and the round buttons) and switch back once Impeller draws as smoothly.
 - **Training:** key moments of your reviewed games become exercises with spaced repetition; re-choose your own
   mistakes with the answer hidden; tsumego mined from your games.
 - **Rank:** read your rank from your moves per game phase with KataGo's human network, and practise the weakest phase.
