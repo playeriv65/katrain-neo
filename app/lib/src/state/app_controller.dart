@@ -75,6 +75,9 @@ class AppController extends HostBase with ChangeNotifier {
 
   /// What the local API keeps: marks, snapshots, sandboxes, the tsumego problem.
   final ApiState apiState = ApiState();
+
+  /// A tsumego problem is being solved against the AI: nothing on screen may give its answer away.
+  bool get solvingTsumego => apiState.tsumego != null && mode == modePlay;
   GameNode? moveTreeSelectedNode;
 
   Future<void> _queue = Future.value();
@@ -620,7 +623,7 @@ class AppController extends HostBase with ChangeNotifier {
       commentNode = currentNode.parent!;
     }
     activeCommentNode = commentNode;
-    final lockAi = (config('trainer/lock_ai') ?? false) == true && mode == modePlay;
+    final lockAi = ((config('trainer/lock_ai') ?? false) == true && mode == modePlay) || solvingTsumego;
     final details = panels['notes_panel']!.options['info-details']! && !lockAi;
     infoParts = currentNode.move != null || currentNode.isRoot
         ? commentNode.commentParts(teach: playersInfo[commentNode.player]!.beingTaught, details: details)

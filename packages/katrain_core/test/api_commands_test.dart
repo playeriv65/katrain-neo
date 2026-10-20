@@ -505,6 +505,13 @@ void main() {
       expect(loaded['has_reference_solution'], isTrue);
       expect(host.zoomRegion, isNotNull);
       expect(host.hiddenCoords, isNotEmpty);
+      // played against KataGo at full strength, with nothing on the board that gives the answer away
+      expect(host.mode, modePlay);
+      expect((host.playersInfo['B']!.playerType, host.playersInfo['W']!.playerType), (playerHuman, playerAi));
+      expect(host.playersInfo['W']!.playerSubtype, aiDefault);
+      for (final key in spoilers) {
+        expect(host.controls[key], isFalse, reason: key);
+      }
       final eval = await run('tsumego.eval', {'visits': 40});
       expect(eval['solver'], 'B');
       expect(eval['target']['status'], isNotNull);

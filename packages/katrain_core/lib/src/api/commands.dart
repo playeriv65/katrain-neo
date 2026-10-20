@@ -76,6 +76,9 @@ abstract interface class ApiHost {
   String get mode;
   void selectMode(String mode);
 
+  /// Who plays [bw]: [type] `player:human` or `player:ai`, [subtype] the way they play or the AI strategy.
+  void setPlayer(String bw, String type, String subtype);
+
   /// The status bar text, and showing a text there.
   String get statusMessage;
   void showStatus(String text);

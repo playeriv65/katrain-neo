@@ -59,6 +59,7 @@ class TestHost extends FakeHost implements ApiHost {
     if (g.stones.isEmpty) return;
     final (node, region) = tsumegoFrameForGame(g, g.komi, g.currentNode.nextPlayer == 'B', ko, margin);
     g.setCurrentNode(node);
+    if (mode == modePlay) mode = modeAnalyze; // as the app does
     if (region != null) {
       g.setRegionOfInterest([region.$1.$2, region.$1.$1, region.$2.$2, region.$2.$1]);
       g.regionRoot = true;

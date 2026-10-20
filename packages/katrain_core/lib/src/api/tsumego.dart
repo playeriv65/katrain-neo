@@ -8,6 +8,7 @@ import 'package:collection/collection.dart';
 import 'dart:convert';
 import 'dart:io';
 
+import '../constants.dart';
 import '../engine/io/local_katago.dart' show expandUser;
 import '../game/game_node.dart';
 import '../game/tsumego_frame.dart' show nearToEdge;
@@ -602,6 +603,9 @@ Object? _list(CommandHandler h, ApiArgs a) {
   };
 }
 
+/// The display toggles that would show the answer: hints, policy, territory, evaluation dots, next moves.
+const spoilers = ['hints', 'policy', 'ownership', 'eval', 'show_children'];
+
 Object? _load(CommandHandler h, ApiArgs a) {
   final problems = _problems(a);
   final index = a.integer('index', orElse: 0, min: 0)!;
@@ -645,6 +649,16 @@ Object? _load(CommandHandler h, ApiArgs a) {
   );
   h.state.tsumego = ts;
   ts.group = _defaultGroup(ts, ts.start);
+  // The solver plays the side to move, against KataGo at full strength, which answers inside the problem's region;
+  // in play mode, without the engine's answer on the board. This comes last: loading a game and framing it change
+  // the mode, and a mode brings back its own toggles.
+  final solver = ts.start.nextPlayer;
+  h.host.setPlayer(solver, playerHuman, playingNormal);
+  h.host.setPlayer(solver == 'B' ? 'W' : 'B', playerAi, aiDefault);
+  h.host.selectMode(modePlay);
+  for (final key in spoilers) {
+    h.host.setAnalysisControl(key, false);
+  }
   if (a.flag('zoom', orElse: true)) h.host.setZoom(ts.viewRegion, ts.frameCoords);
   h.refresh();
   return {...ts.summary(), 'previous_game_backup': backup};

@@ -59,6 +59,10 @@ class AppApiHost implements ApiHost {
   void selectMode(String mode) => app.selectMode(mode);
 
   @override
+  void setPlayer(String bw, String type, String subtype) =>
+      app.updatePlayer(bw, playerType: type, playerSubtype: subtype);
+
+  @override
   String get statusMessage => app.statusText;
 
   @override

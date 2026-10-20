@@ -88,32 +88,35 @@ class SidePanel extends StatelessWidget {
                   ),
                 ),
               const SizedBox(height: 8),
-              _PanelCard(
-                app: app,
-                id: 'graph_panel',
-                title: i18n.tr('closedlabel:scoregraph'),
-                options: const ['score', 'winrate', 'points'],
-                colors: EvalColors.of(context).all,
-                child: SizedBox(
-                  height: graphHeight,
-                  child: ScoreGraph(
-                    app: app,
-                    showScore: graphPanel.options['score']!,
-                    showWinrate: graphPanel.options['winrate']!,
-                    showPointloss: graphPanel.options['points']!,
+              // the evaluation would give a tsumego problem's answer away
+              if (!app.solvingTsumego) ...[
+                _PanelCard(
+                  app: app,
+                  id: 'graph_panel',
+                  title: i18n.tr('closedlabel:scoregraph'),
+                  options: const ['score', 'winrate', 'points'],
+                  colors: EvalColors.of(context).all,
+                  child: SizedBox(
+                    height: graphHeight,
+                    child: ScoreGraph(
+                      app: app,
+                      showScore: graphPanel.options['score']!,
+                      showWinrate: graphPanel.options['winrate']!,
+                      showPointloss: graphPanel.options['points']!,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              _PanelCard(
-                app: app,
-                id: 'stats_panel',
-                title: i18n.tr('closedlabel:movestats'),
-                options: const ['score', 'winrate', 'points'],
-                colors: EvalColors.of(context).all,
-                child: _Stats(app: app, options: statsPanel.options),
-              ),
-              const SizedBox(height: 8),
+                const SizedBox(height: 8),
+                _PanelCard(
+                  app: app,
+                  id: 'stats_panel',
+                  title: i18n.tr('closedlabel:movestats'),
+                  options: const ['score', 'winrate', 'points'],
+                  colors: EvalColors.of(context).all,
+                  child: _Stats(app: app, options: statsPanel.options),
+                ),
+                const SizedBox(height: 8),
+              ],
             ],
           );
           // The notes fill the room left; when that is less than they need, the whole column scrolls.
