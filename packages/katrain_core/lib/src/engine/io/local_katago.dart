@@ -33,6 +33,11 @@ class LocalKataGo implements EngineConnection {
   final KataGoEngine engine;
   final String resourceDir;
   final String dataFolder;
+
+  /// The board size the neural net's buffers are made for, or null for KataGo's default (up to 19x19). KataGo
+  /// otherwise evaluates a small board padded to 19x19: a 9x9 position then costs as much as a 19x19 one. Only boards
+  /// of exactly this size can be analysed (`requireMaxBoardSize`), which also spares it the padding masks.
+  final (int, int)? boardSize;
   late final List<String> command;
   bool shell = false;
   Process? _process;
@@ -40,7 +45,17 @@ class LocalKataGo implements EngineConnection {
   bool _stopping = false;
   final List<StreamSubscription> _subscriptions = [];
 
-  LocalKataGo(this.engine, {required this.resourceDir, this.dataFolder = defaultDataFolder});
+  LocalKataGo(this.engine, {required this.resourceDir, this.dataFolder = defaultDataFolder, this.boardSize});
+
+  /// The `-override-config` value: KataGo's data folder, and the board size when there is one.
+  String get overrideConfig => [
+    'homeDataDir=${expandUser(dataFolder)}',
+    if (boardSize case (final x, final y)) ...[
+      'maxBoardXSizeForNNBuffer=$x',
+      'maxBoardYSizeForNNBuffer=$y',
+      'requireMaxBoardSize=true',
+    ],
+  ].join(',');
 
   Map<String, dynamic> get config => engine.config;
 
@@ -64,7 +79,7 @@ class LocalKataGo implements EngineConnection {
           engine.host.log('Human model not found at $humanPath', outputError);
         }
       }
-      command.addAll(['-config', cfg, '-override-config', 'homeDataDir=${expandUser(dataFolder)}']);
+      command.addAll(['-config', cfg, '-override-config', overrideConfig]);
     }
     return _startProcess();
   }

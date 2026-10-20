@@ -116,9 +116,7 @@ class AppController extends HostBase with ChangeNotifier {
     if (engineWithoutIo != null) {
       engine = engineWithoutIo;
     } else {
-      final (newEngine, io) = await makeEngine(_engineHost, _engineConfig, resourceDir: resourceDir);
-      engine = newEngine;
-      _engineIo = io;
+      await _makeEngine(GameNode(properties: {'SZ': config('game/size')}).boardSize); // a loaded game may differ
     }
     if (sgfFile != null) {
       loadSgfFile(sgfFile, fast: true, rewind: true);
@@ -147,14 +145,29 @@ class AppController extends HostBase with ChangeNotifier {
     if (io is RemoteKataGo) await io.shutdown();
   }
 
-  /// Rebuilds the engine from the current settings and analyses again (settings changed, or Retry).
+  /// The board size a local KataGo was started for; null when the engine takes any (remote, custom command, tests).
+  (int, int)? _engineBoardSize;
+
+  Future<void> _makeEngine((int, int) boardSize) async {
+    final (newEngine, io) = await makeEngine(
+      _engineHost,
+      _engineConfig,
+      resourceDir: resourceDir,
+      boardSize: boardSize,
+    );
+    engine = newEngine;
+    _engineIo = io;
+    _engineBoardSize = io is LocalKataGo ? io.boardSize : null;
+  }
+
+  /// Rebuilds the engine from the current settings, for the current game's board, and analyses again (settings
+  /// changed, a board of another size, or Retry).
   Future<void> restartEngine() async {
     log('Restarting engine', outputInfo);
     setStatus(i18n.tr('restarting engine'), statusInfo);
     await _stopEngine();
-    final (newEngine, io) = await makeEngine(_engineHost, _engineConfig, resourceDir: resourceDir);
-    engine = newEngine;
-    _engineIo = io;
+    await _makeEngine(game!.boardSize);
+    final newEngine = engine!;
     game!.engines
       ..['B'] = newEngine
       ..['W'] = newEngine;
@@ -280,6 +293,12 @@ class AppController extends HostBase with ChangeNotifier {
     }
     graph.initializeFromGame(game!.root);
     updateState(redrawBoard: true);
+    // a local KataGo only takes the board size it was started for
+    final size = game!.boardSize;
+    if (_engineBoardSize != null && _engineBoardSize != size) {
+      log('The board is ${size.$1}x${size.$2}: restarting KataGo for it', outputInfo);
+      unawaited(restartEngine());
+    }
   }
 
   Future<void> newGame({GameNode? moveTree, bool analyzeFast = false}) =>

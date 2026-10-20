@@ -47,6 +47,7 @@ void main() {
       host,
       engineConfig({'katago': env['KATAGO_EXE'], 'model': env['KATAGO_MODEL'], 'config': env['KATAGO_CONFIG']}),
       resourceDir: '.',
+      boardSize: (9, 9),
     );
     final local = connection as LocalKataGo;
     expect(local.alive, isTrue, reason: host.errors.join('\n'));
@@ -65,10 +66,23 @@ void main() {
     expect((result['moveInfos'] as List), isNotEmpty);
     await Future<void>.delayed(const Duration(milliseconds: 300));
     expect(node.analysisExists, isTrue);
+    // the neural net works on 9x9, not on a 9x9 board padded to 19x19
+    expect(host.logs.where((l) => l.contains('neural net buffer')), everyElement(contains('9 * 9')));
+    expect(host.logs.where((l) => l.contains('neural net buffer')), isNotEmpty);
     await local.shutdown();
     expect(local.alive, isFalse);
     expect(host.errors, isEmpty);
   }, skip: haveKataGo ? false : 'set KATAGO_EXE, KATAGO_MODEL and KATAGO_CONFIG to run');
+
+  test('a local KataGo for one board size makes its buffers that size, and only takes that size', () {
+    final engine = KataGoEngine(TestHost(), engineConfig({}));
+    final sized = LocalKataGo(engine, resourceDir: '.', dataFolder: '/data', boardSize: (9, 13));
+    expect(
+      sized.overrideConfig,
+      'homeDataDir=/data,maxBoardXSizeForNNBuffer=9,maxBoardYSizeForNNBuffer=13,requireMaxBoardSize=true',
+    );
+    expect(LocalKataGo(engine, resourceDir: '.', dataFolder: '/data').overrideConfig, 'homeDataDir=/data');
+  });
 
   test('a missing KataGo executable is reported', () async {
     final host = TestHost();

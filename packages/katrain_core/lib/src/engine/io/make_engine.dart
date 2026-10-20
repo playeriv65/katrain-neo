@@ -6,12 +6,14 @@ import 'local_katago.dart';
 import 'remote_katago.dart';
 
 /// An engine for the configured backend (see [resolveEngineBackend]), started; [resourceDir] resolves
-/// `katrain/...` paths and [dataFolder] is KataGo's homeDataDir.
+/// `katrain/...` paths and [dataFolder] is KataGo's homeDataDir. A local KataGo is made for boards of [boardSize]
+/// only (see [LocalKataGo.boardSize]); a remote server or a custom command is as it is.
 Future<(KataGoEngine, Object)> makeEngine(
   EngineHost host,
   Map<String, dynamic> config, {
   required String resourceDir,
   String dataFolder = defaultDataFolder,
+  (int, int)? boardSize,
 }) async {
   if (resolveEngineBackend(config) == 'remote') {
     final engine = KataGoEngine(host, config, engineType: 'remote');
@@ -20,7 +22,13 @@ Future<(KataGoEngine, Object)> makeEngine(
     return (engine, remote);
   }
   final engine = KataGoEngine(host, config);
-  final local = LocalKataGo(engine, resourceDir: resourceDir, dataFolder: dataFolder);
+  final custom = resolveEngineBackend(config) == 'custom';
+  final local = LocalKataGo(
+    engine,
+    resourceDir: resourceDir,
+    dataFolder: dataFolder,
+    boardSize: custom ? null : boardSize,
+  );
   await local.start();
   return (engine, local);
 }

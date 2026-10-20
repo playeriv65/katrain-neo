@@ -40,7 +40,9 @@ installer/windows/         Inno Setup script
   interest as `avoidMoves`, priorities, report intervals, pondering) and matches results by id; generations drop the
   results of queries made before a restart or a new game. Transports: a local `katago analysis` process (JSON lines
   over stdin and stdout, stderr to the log) or a remote KataGo over WebSocket that resumes outstanding queries after a
-  reconnect.
+  reconnect. A local KataGo is started for the current game's board size (`maxBoardX/YSizeForNNBuffer`,
+  `requireMaxBoardSize`), and restarted when a game on another size begins: by default KataGo pads every board to
+  19x19, so a 9x9 position would cost as much as a 19x19 one (3.6x slower on a Radeon 780M with b10c384).
 - **AI.** Each strategy (`ai.dart`) waits for the analyses it needs and returns a move with its reasoning. The
   calibrated strategies (rank, weighted, pick, local, tenuki, influence, territory) pick from the policy; their rank
   estimates come from the same formulas.
