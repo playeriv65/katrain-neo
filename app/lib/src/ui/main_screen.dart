@@ -14,6 +14,7 @@ import 'menu_drawer.dart';
 import 'popups/popups.dart';
 import 'side_panel.dart';
 import 'top_bar.dart';
+import 'wheel_steps.dart';
 
 class MainScreen extends StatefulWidget {
   final AppController app;
@@ -107,20 +108,28 @@ class _MainScreenState extends State<MainScreen> implements AppScreen {
                             child: TopBar(app: app, onMenu: () => _scaffoldKey.currentState?.openDrawer()),
                           ),
                         Expanded(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(vertical: bars ? 0 : 8),
-                            child: BoardView(
-                              key: _boardKey,
-                              app: app,
-                              images: widget.images,
-                              passButtonRect: _passButtonRect,
+                          child: WheelSteps(
+                            app: app,
+                            overBoard: true,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(vertical: bars ? 0 : 8),
+                              child: BoardView(
+                                key: _boardKey,
+                                app: app,
+                                images: widget.images,
+                                passButtonRect: _passButtonRect,
+                              ),
                             ),
                           ),
                         ),
                         if (bars)
-                          SizedBox(
-                            height: 56,
-                            child: BottomBar(app: app, passButtonKey: _passButtonKey),
+                          WheelSteps(
+                            app: app,
+                            overBoard: true,
+                            child: SizedBox(
+                              height: 56,
+                              child: BottomBar(app: app, passButtonKey: _passButtonKey),
+                            ),
                           ),
                       ],
                     ),

@@ -84,13 +84,13 @@ cd packages/katrain_core && dart test          # core tests
 cd packages/katrain_cli && dart test           # CLI tests
 cd app && flutter analyze && flutter test      # app checks
 cd app && flutter run -d windows               # run (or macos / linux)
-cd app && dart tool/dev_run.dart               # run, and hot reload on every saved change
+cd app && dart tool/dev_run.dart               # run, and hot restart on every saved change
 ```
 
-`tool/dev_run.dart` runs the app in debug mode and hot reloads it whenever a Dart file of the app or the core changes,
-so you can keep playing while the code is edited: the game, the clock and the window stay. Type `r` and Enter to
-reload, `R` to restart (this loses the game in memory, so save it first), `q` to quit. A change that hot reload cannot
-take (to `main()`, a global, a new dependency) is reported and waits for `R`.
+`tool/dev_run.dart` runs the app in debug mode and hot restarts it whenever a Dart file of the app or the core
+changes, so every edit shows within a second or two in the same window. A hot restart reruns `main()`, so the game in
+memory starts over, but unlike a hot reload it never keeps state from before the edit. Type `R` and Enter to restart,
+`r` for a hot reload that keeps the game (for an edit known to be safe), `q` to quit.
 
 ## Support
 

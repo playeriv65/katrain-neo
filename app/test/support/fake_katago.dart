@@ -10,8 +10,8 @@ import 'package:katrain_neo/src/state/app_controller.dart';
 typedef ScoreFor = double Function(List<String> moves, Map<String, dynamic> query);
 
 /// The connection to a pretend KataGo: queries are kept until [answerPending] answers them. Every answer has the
-/// first three points never played on as candidates, best first, each a point worse for the player to move; after
-/// [passAfter] moves passing is best. Captures are not looked at, so long games would get illegal suggestions.
+/// first three legal points (top row first) as candidates, best first, each a point worse for the player to move;
+/// after [passAfter] moves passing is best.
 class FakeKataGo implements EngineConnection {
   final List<Map<String, dynamic>> pending = [];
   final List<Map<String, dynamic>> sent = [];
@@ -62,16 +62,11 @@ class FakeKataGo implements EngineConnection {
     final sizeY = query['boardYSize'] as int;
     final moves = [for (final m in query['moves'] as List) (m as List)[1] as String];
     final occupied = {for (final m in query['initialStones'] as List) (m as List)[1] as String, ...moves};
-    final empty = [
-      if (moves.length >= passAfter) 'pass',
-      for (var y = sizeY - 1; y >= 0; y--)
-        for (var x = 0; x < sizeX; x++)
-          if (!occupied.contains(Move(coords: (x, y)).gtp())) Move(coords: (x, y)).gtp(),
-    ];
-    final lead = scoreFor(moves, query);
     final blackToMove = moves.isEmpty
         ? query['initialPlayer'] == 'B'
         : ((query['moves'] as List).last as List)[0] == 'W';
+    final empty = [if (moves.length >= passAfter) 'pass', ..._legalPoints(query, blackToMove ? 'B' : 'W', 3)];
+    final lead = scoreFor(moves, query);
     final sign = blackToMove ? 1 : -1;
     final visits = query['maxVisits'] as int;
     return {
@@ -100,6 +95,42 @@ class FakeKataGo implements EngineConnection {
           0.0,
         ],
     };
+  }
+
+  /// The first [count] points, top row first, where [player] may play in [query]'s position (by the real rules:
+  /// not occupied, not suicide, not retaking a ko).
+  static List<String> _legalPoints(Map<String, dynamic> query, String player, int count) {
+    final sizeX = query['boardXSize'] as int;
+    final sizeY = query['boardYSize'] as int;
+    final size = (sizeX, sizeY);
+    final initial = [
+      for (final m in query['initialStones'] as List) Move.fromGtp((m as List)[1] as String, player: m[0] as String),
+    ];
+    final game = BaseGame<GameNode>(
+      GameNode(
+        properties: {
+          'SZ': sizeX == sizeY ? '$sizeX' : '$sizeX:$sizeY',
+          for (final p in const ['B', 'W']) 'A$p': [for (final m in initial.where((m) => m.player == p)) m.sgf(size)],
+        },
+      ),
+    );
+    for (final m in query['moves'] as List) {
+      game.play(Move.fromGtp((m as List)[1] as String, player: m[0] as String));
+    }
+    final position = game.currentNode;
+    final legal = <String>[];
+    for (var y = sizeY - 1; y >= 0 && legal.length < count; y--) {
+      for (var x = 0; x < sizeX && legal.length < count; x++) {
+        try {
+          legal.add(game.play(Move(coords: (x, y), player: player))!.move!.gtp());
+        } on IllegalMoveException {
+          // not a candidate
+        } finally {
+          game.setCurrentNode(position);
+        }
+      }
+    }
+    return legal;
   }
 
   /// Answers queries and lets the app react until it is idle and asks for nothing more.

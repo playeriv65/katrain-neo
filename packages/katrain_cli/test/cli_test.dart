@@ -475,6 +475,12 @@ const List<(List<String>, String, Map<String, Object?>, int)> _requests = [
     60,
   ),
   (
+    ['tsumego', 'list', 'probs', '--level', '2-4'],
+    'tsumego.list',
+    {'source': '/abs/probs', 'level': '2-4', 'limit': 200},
+    60,
+  ),
+  (
     ['tsumego', 'load', 'probs'],
     'tsumego.load',
     {'source': '/abs/probs', 'index': 0, 'margin': 4, 'ko': false, 'zoom': true},

@@ -33,6 +33,9 @@ class _BoardViewState extends State<BoardView> {
   DateTime _lastTap = DateTime.fromMillisecondsSinceEpoch(0);
   Offset _lastTapPos = Offset.zero;
 
+  /// The buttons of the press being released: only the left button (or a touch) plays and clicks old moves.
+  int _pressedButtons = 0;
+
   AppController get app => widget.app;
 
   @override
@@ -75,8 +78,6 @@ class _BoardViewState extends State<BoardView> {
     );
   }
 
-  bool get _animEnabled => ((app.config('general/anim_pv_moves') ?? 0) as num) != 0;
-
   void _checkNextMoveGhost(Offset p) {
     final geo = _geo;
     if (geo == null) return;
@@ -106,6 +107,7 @@ class _BoardViewState extends State<BoardView> {
   }
 
   void _onPointerDown(PointerDownEvent e) {
+    _pressedButtons = e.buttons;
     final animating = app.board.pv;
     if (e.buttons & kPrimaryButton != 0) {
       if (app.board.selectingRegionOfInterest) {
@@ -141,7 +143,7 @@ class _BoardViewState extends State<BoardView> {
 
   void _onPointerUp(PointerUpEvent e) {
     final geo = _geo;
-    if (geo == null) return;
+    if (geo == null || _pressedButtons & kPrimaryButton == 0) return;
     final board = app.board;
     final game = app.game!;
     final now = DateTime.now();
@@ -191,7 +193,7 @@ class _BoardViewState extends State<BoardView> {
             board.setHoverPv(
               (node.parent!.candidateMoves[0]['pv'] as List).cast<String>(),
               node.parent,
-              enabled: _animEnabled,
+              enabled: app.showPvs,
             );
           }
           app.refresh();
@@ -215,32 +217,17 @@ class _BoardViewState extends State<BoardView> {
             (pv, node),
       ];
       if (near.isNotEmpty) {
-        board.setHoverPv(near[0].$1, near[0].$2, enabled: _animEnabled);
+        board.setHoverPv(near[0].$1, near[0].$2, enabled: app.showPvs);
       } else if (board.pv != null) {
-        board.setHoverPv(null, null, enabled: _animEnabled);
+        board.setHoverPv(null, null, enabled: app.showPvs);
       }
     }
     final animating = board.pv;
     if (animating != null && !animating.pinned) {
       final dSq = (p.dx - animating.origin.$1) * (p.dx - animating.origin.$1) + (p.dy - animating.origin.$2);
-      if (dSq > 2 * geo.stoneSize * geo.stoneSize) board.setHoverPv(null, null, enabled: _animEnabled);
+      if (dSq > 2 * geo.stoneSize * geo.stoneSize) board.setHoverPv(null, null, enabled: app.showPvs);
     }
     board.lastMousePos = (p.dx, p.dy);
-  }
-
-  void _onScroll(PointerSignalEvent e) {
-    if (e is! PointerScrollEvent) return;
-    final up = e.scrollDelta.dy < 0;
-    final board = app.board;
-    if (board.pv != null) {
-      board.adjustAnimatePvIndex(
-        up ? 1 : -1,
-        delay: ((app.config('general/anim_pv_time', 0.5) as num?) ?? 0.5).toDouble(),
-        maxMoves: ((app.config('general/anim_pv_moves') as num?) ?? 100).toInt(),
-      );
-    } else {
-      up ? app.redo() : app.undo(); // scroll through moves
-    }
   }
 
   @override
@@ -255,7 +242,6 @@ class _BoardViewState extends State<BoardView> {
           onPointerDown: _onPointerDown,
           onPointerMove: _onPointerMove,
           onPointerUp: _onPointerUp,
-          onPointerSignal: _onScroll,
           child: MouseRegion(
             onHover: _onHover,
             child: Stack(

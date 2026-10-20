@@ -15,6 +15,7 @@ import 'board/board_images.dart';
 import 'move_tree.dart';
 import 'score_graph.dart';
 import 'stone_avatar.dart';
+import 'wheel_steps.dart';
 
 class SidePanel extends StatelessWidget {
   /// The info and notes panel is never squeezed below this.
@@ -33,13 +34,12 @@ class SidePanel extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, c) {
           final graphHeight = (c.maxHeight * 0.2).clamp(110.0, 260.0);
-          final notesPanel = app.panels['notes_panel']!;
-          final notes = _PanelCard(
+          Widget notes(double fillHeight) => _PanelCard(
             app: app,
             id: 'notes_panel',
             title: i18n.tr('closedlabel:info&notes'),
             options: const ['info', 'info-details', 'notes'],
-            expand: true,
+            fillHeight: fillHeight,
             child: _InfoAndNotes(app: app),
           );
           final top = Column(
@@ -80,8 +80,12 @@ class SidePanel extends StatelessWidget {
               if (app.mode == modePlay)
                 _ClockCard(app: app)
               else
-                SizedBox(
-                  height: graphPanel.open ? 96 : 96 + graphHeight,
+                // takes the graph's room while the graph folds, in step with it
+                TweenAnimationBuilder<double>(
+                  tween: Tween(end: graphPanel.open ? 96 : 96 + graphHeight),
+                  duration: _foldDuration,
+                  curve: _foldCurve,
+                  builder: (context, height, child) => SizedBox(height: height, child: child),
                   child: Card(
                     clipBehavior: Clip.antiAlias,
                     child: MoveTree(app: app, minHeight: 96),
@@ -117,23 +121,22 @@ class SidePanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
               ],
+              // above the notes, so it shows also when they are folded away
+              if (app.statusText.isNotEmpty) ...[_StatusLine(app: app), const SizedBox(height: 8)],
             ],
           );
           // The notes fill the room left; when that is less than they need, the whole column scrolls.
           return CustomScrollView(
             slivers: [
-              SliverToBoxAdapter(child: top),
+              // the wheel steps through the game over everything but the notes
+              SliverToBoxAdapter(
+                child: WheelSteps(app: app, child: top),
+              ),
               SliverLayoutBuilder(
                 builder: (context, constraints) => SliverToBoxAdapter(
-                  child: notesPanel.open
-                      ? SizedBox(
-                          height: math.max(
-                            constraints.viewportMainAxisExtent - constraints.precedingScrollExtent,
-                            _minNotesHeight,
-                          ),
-                          child: notes,
-                        )
-                      : notes,
+                  child: notes(
+                    math.max(constraints.viewportMainAxisExtent - constraints.precedingScrollExtent, _minNotesHeight),
+                  ),
                 ),
               ),
             ],
@@ -284,8 +287,16 @@ class _ClockCard extends StatelessWidget {
   }
 }
 
-/// A collapsable panel: toggles for its parts, and a button that folds it away.
-class _PanelCard extends StatelessWidget {
+/// How long a panel takes to fold or unfold.
+const _foldDuration = Duration(milliseconds: 220);
+const _foldCurve = Curves.easeInOutCubic;
+
+/// A collapsable panel: toggles for its parts, and a button that folds it away. Its contents slide shut and open.
+class _PanelCard extends StatefulWidget {
+  /// The header is one line (its toggles shrink a little when they do not fit), so a filling panel knows the room
+  /// left for its contents.
+  static const headerHeight = 56.0;
+
   final AppController app;
   final String id;
   final String title;
@@ -294,7 +305,9 @@ class _PanelCard extends StatelessWidget {
   /// The colours of the options that stand for an evaluation (score, win rate, point loss); others look plain.
   final List<Color>? colors;
   final Widget child;
-  final bool expand;
+
+  /// The panel's height when open, header included; null sizes it to its contents.
+  final double? fillHeight;
   const _PanelCard({
     required this.app,
     required this.id,
@@ -302,57 +315,104 @@ class _PanelCard extends StatelessWidget {
     required this.options,
     this.colors,
     required this.child,
-    this.expand = false,
+    this.fillHeight,
   });
 
   @override
+  State<_PanelCard> createState() => _PanelCardState();
+}
+
+class _PanelCardState extends State<_PanelCard> with SingleTickerProviderStateMixin {
+  late final _fold = AnimationController(vsync: this, duration: _foldDuration, value: _open ? 1 : 0)
+    ..addStatusListener((_) => setState(() {})); // drop the contents once folded away
+  late final _size = CurvedAnimation(parent: _fold, curve: _foldCurve);
+
+  bool get _open => widget.app.panels[widget.id]!.open;
+
+  @override
+  void didUpdateWidget(_PanelCard old) {
+    super.didUpdateWidget(old);
+    _open ? _fold.forward() : _fold.reverse();
+  }
+
+  @override
+  void dispose() {
+    _size.dispose();
+    _fold.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final app = widget.app;
+    final id = widget.id;
+    final colors = widget.colors;
     final panel = app.panels[id]!;
-    final header = Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 0, 4),
+    final toggles = FittedBox(
+      key: const ValueKey('toggles'),
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
       child: Row(
         children: [
-          if (panel.open)
-            Expanded(
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: [
-                  for (final (i, option) in options.indexed)
-                    FilterChip(
-                      visualDensity: VisualDensity.compact,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      labelPadding: const EdgeInsets.symmetric(horizontal: 2),
-                      label: Text(i18n.tr('tab:$option')),
-                      selected: panel.options[option]!,
-                      showCheckmark: false,
-                      selectedColor: colors?[i].withValues(alpha: 0.25),
-                      side: colors == null
-                          ? null
-                          : BorderSide(color: panel.options[option]! ? colors![i] : Colors.transparent),
-                      labelStyle: colors == null ? null : TextStyle(color: panel.options[option]! ? colors![i] : null),
-                      onSelected: (v) => app.setPanelState(id, options: {option: v}),
-                    ),
-                ],
-              ),
-            )
-          else
-            Expanded(child: Text(title, style: Theme.of(context).textTheme.titleSmall)),
-          IconButton(
-            icon: Icon(panel.open ? Icons.expand_less : Icons.expand_more),
-            onPressed: () => app.setPanelState(id, state: panel.open ? 'close' : 'open'),
-          ),
+          for (final (i, option) in widget.options.indexed) ...[
+            if (i > 0) const SizedBox(width: 6),
+            FilterChip(
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              labelPadding: const EdgeInsets.symmetric(horizontal: 2),
+              label: Text(i18n.tr('tab:$option')),
+              selected: panel.options[option]!,
+              showCheckmark: false,
+              selectedColor: colors?[i].withValues(alpha: 0.25),
+              side: colors == null ? null : BorderSide(color: panel.options[option]! ? colors[i] : Colors.transparent),
+              labelStyle: colors == null ? null : TextStyle(color: panel.options[option]! ? colors[i] : null),
+              onSelected: (v) => app.setPanelState(id, options: {option: v}),
+            ),
+          ],
         ],
       ),
     );
+    final header = SizedBox(
+      height: _PanelCard.headerHeight,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: _foldDuration,
+                layoutBuilder: (current, previous) =>
+                    Stack(alignment: Alignment.centerLeft, children: [...previous, ?current]),
+                child: panel.open
+                    ? toggles
+                    : Text(widget.title, key: const ValueKey('title'), style: Theme.of(context).textTheme.titleSmall),
+              ),
+            ),
+            IconButton(
+              icon: AnimatedRotation(
+                turns: panel.open ? 0.5 : 0,
+                duration: _foldDuration,
+                curve: _foldCurve,
+                child: const Icon(Icons.expand_more),
+              ),
+              onPressed: () => app.setPanelState(id, state: panel.open ? 'close' : 'open'),
+            ),
+          ],
+        ),
+      ),
+    );
+    final fill = widget.fillHeight;
+    final body = fill == null
+        ? widget.child
+        : SizedBox(height: math.max(0, fill - _PanelCard.headerHeight), child: widget.child);
     return Card(
       clipBehavior: Clip.antiAlias,
       child: Column(
-        mainAxisSize: expand && panel.open ? MainAxisSize.max : MainAxisSize.min,
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           header,
-          if (panel.open) expand ? Expanded(child: child) : child,
+          if (!_fold.isDismissed) SizeTransition(sizeFactor: _size, alignment: Alignment.topCenter, child: body),
         ],
       ),
     );
@@ -428,23 +488,9 @@ class _InfoAndNotesState extends State<_InfoAndNotes> {
     final options = app.panels['notes_panel']!.options;
     final showInfo = options['info']! || options['info-details']!;
     if (!_noteFocus.hasFocus && _note.text != app.noteText) _note.text = app.noteText;
-    final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (app.statusText.isNotEmpty)
-          Container(
-            margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: app.statusIsError ? scheme.errorContainer : scheme.secondaryContainer,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              app.statusText,
-              style: TextStyle(color: app.statusIsError ? scheme.onErrorContainer : scheme.onSecondaryContainer),
-            ),
-          ),
         if (showInfo)
           Expanded(
             child: SingleChildScrollView(
@@ -470,6 +516,29 @@ class _InfoAndNotesState extends State<_InfoAndNotes> {
           ),
         if (!showInfo && !options['notes']!) const Spacer(),
       ],
+    );
+  }
+}
+
+/// The status line: what just happened or what the engine is doing, red for errors.
+class _StatusLine extends StatelessWidget {
+  final AppController app;
+  const _StatusLine({required this.app});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final error = app.statusIsError;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: error ? scheme.errorContainer : scheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        app.statusText,
+        style: TextStyle(color: error ? scheme.onErrorContainer : scheme.onSecondaryContainer),
+      ),
     );
   }
 }
@@ -521,7 +590,7 @@ class _InfoTextState extends State<_InfoText> {
             mouseCursor: SystemMouseCursors.click,
             recognizer: _link(() {
               final node = app.activeCommentNode?.parent;
-              if (node != null) app.board.setHoverPv(moves, node, enabled: true);
+              if (node != null) app.board.setHoverPv(moves, node, enabled: app.showPvs);
             }),
           ),
         },

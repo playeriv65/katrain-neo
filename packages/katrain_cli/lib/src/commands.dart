@@ -613,7 +613,12 @@ List<Command<int>> _displayCommands() => [
 Command<int> _tsumegoCommands() {
   void filters(ArgParser p) => p
     ..addOption('set', valueHelp: 'TEXT', help: 'only problems whose collection/folder contains this text')
-    ..addOption('difficulty', valueHelp: 'LABEL', help: 'only problems with this difficulty label');
+    ..addOption('difficulty', valueHelp: 'LABEL', help: 'only problems with this difficulty label')
+    ..addOption(
+      'level',
+      valueHelp: 'N|LO-HI',
+      help: "only problems of this level in the set's index.json, e.g. 3 or 2-4",
+    );
   int engineTimeout(Args a) => a.timeout ?? analysisTimeout;
 
   return CommandGroup('tsumego', 'life-and-death problems', [
@@ -624,6 +629,7 @@ Command<int> _tsumegoCommands() {
         'source': a.env.absolute(a.string('source')!),
         'set': a.string('set'),
         'difficulty': a.string('difficulty'),
+        'level': a.string('level'),
         'limit': a.integer('limit'),
       }),
       params: const [Param('source', help: 'SGF file or folder (searched recursively)')],
@@ -640,6 +646,7 @@ Command<int> _tsumegoCommands() {
         'index': a.integer('index'),
         'set': a.string('set'),
         'difficulty': a.string('difficulty'),
+        'level': a.string('level'),
         'frame': a.onOff('frame'),
         'margin': a.integer('margin'),
         'ko': a.flag('ko'),

@@ -208,7 +208,8 @@ String _withoutExtension(String path) {
   return dot > slash + 1 ? path.substring(0, dot) : path;
 }
 
-/// A problem found in a file: the file, which game tree in it, and what its name and comments say.
+/// A problem found in a file: the file, which game tree in it, and what its name and comments say; and what the
+/// problem set's `index.json` says of it, when the set has one.
 class TsumegoProblem {
   final String file;
   final int treeIndex;
@@ -216,6 +217,11 @@ class TsumegoProblem {
   final String name;
   final String? difficulty;
   final String? toPlay;
+
+  /// From the set's index: the title, the level (its scale, e.g. 3 for about 10 kyu) and the kind of problem.
+  final String? title;
+  final int? level;
+  final String? category;
   const TsumegoProblem({
     required this.file,
     required this.treeIndex,
@@ -223,7 +229,31 @@ class TsumegoProblem {
     required this.name,
     this.difficulty,
     this.toPlay,
+    this.title,
+    this.level,
+    this.category,
   });
+
+  /// `live` or `kill` when the index's category says so.
+  String? get goal => switch (category) {
+    'living' => 'live',
+    'killing' => 'kill',
+    _ => null,
+  };
+
+  TsumegoProblem _withIndex(Map<String, Object?>? entry) => entry == null
+      ? this
+      : TsumegoProblem(
+          file: file,
+          treeIndex: treeIndex,
+          set: set,
+          name: name,
+          difficulty: difficulty,
+          toPlay: (entry['toPlay'] as String?) ?? toPlay,
+          title: entry['title'] as String?,
+          level: (entry['level'] as num?)?.toInt(),
+          category: entry['category'] as String?,
+        );
 
   Map<String, Object?> toJson() => {
     'file': file,
@@ -231,7 +261,56 @@ class TsumegoProblem {
     'name': name,
     'difficulty': difficulty,
     'to_play': toPlay,
+    if (title != null) 'title': title,
+    if (level != null) 'level': level,
+    if (category != null) 'category': category,
   };
+}
+
+/// The problem set index next to [dir] or above it (`index.json` with `collections` and `problems`, as frank_go
+/// writes them), as entries by `file#tree`; and the index's level scale. Empty when there is none.
+(Map<String, Map<String, Object?>>, String?) _readIndex(String dir) {
+  final sep = Platform.pathSeparator;
+  for (var d = Directory(dir); ; d = d.parent) {
+    final file = File('${d.path}${sep}index.json');
+    if (file.existsSync()) {
+      final Object? json;
+      try {
+        json = jsonDecode(file.readAsStringSync());
+      } on FormatException {
+        return (const {}, null);
+      }
+      if (json is! Map || json['collections'] is! Map || json['problems'] is! List) return (const {}, null);
+      final collections = (json['collections'] as Map).cast<String, Object?>();
+      final byKey = <String, Map<String, Object?>>{};
+      final folders = <String, List<String>>{};
+      for (final entry in (json['problems'] as List).whereType<Map>()) {
+        final e = entry.cast<String, Object?>();
+        final where = (collections[e['collection']] as Map?)?['file'] as String?;
+        final n = (e['n'] as num?)?.toInt();
+        if (where == null || n == null || n < 1) continue;
+        final path = '${d.path}$sep${where.replaceAll('/', sep)}';
+        if (where.toLowerCase().endsWith('.sgf')) {
+          byKey['${File(path).absolute.path}#${n - 1}'] = e; // the n-th tree of a collection file
+        } else {
+          // the n-th file of a folder of problems
+          final files = folders.putIfAbsent(path, () {
+            final dir = Directory(path);
+            if (!dir.existsSync()) return const [];
+            final found = [
+              for (final f in dir.listSync())
+                if (f is File && f.path.toLowerCase().endsWith('.sgf')) f.absolute.path,
+            ];
+            stableSortBy(found, (f) => _SortKey(_naturalKey(f)));
+            return found;
+          });
+          if (n <= files.length) byKey['${files[n - 1]}#0'] = e;
+        }
+      }
+      return (byKey, json['levelScale'] as String?);
+    }
+    if (d.parent.path == d.path) return (const {}, null);
+  }
 }
 
 /// All problems in a file or folder (in a stable order).
@@ -253,6 +332,7 @@ List<TsumegoProblem> scanProblems(String source) {
   } else {
     throw ApiError('not_found', '$src does not exist');
   }
+  final (index, _) = _readIndex(Directory(src).existsSync() ? src : base);
   final problems = <TsumegoProblem>[];
   for (final path in files) {
     final text = _read(path);
@@ -279,7 +359,7 @@ List<TsumegoProblem> scanProblems(String source) {
           name: name == null || name.isEmpty ? stem : name,
           difficulty: _difficulty(tree, rel, header),
           toPlay: pl != null && pl.isNotEmpty ? pl : _firstMoveColor(tree),
-        ),
+        )._withIndex(index['${File(path).absolute.path}#$j']),
       );
     }
   }
@@ -293,12 +373,29 @@ class _SortKey implements Comparable<_SortKey> {
   int compareTo(_SortKey other) => _compareKeys(key, other.key);
 }
 
-List<TsumegoProblem> filterProblems(List<TsumegoProblem> problems, {String? set, String? difficulty}) => [
+/// The problems in [set] (a part of the set or name), of [difficulty], and with a [level] in `lo-hi` (or one level),
+/// as the set's index gives it.
+List<TsumegoProblem> filterProblems(
+  List<TsumegoProblem> problems, {
+  String? set,
+  String? difficulty,
+  (int, int)? level,
+}) => [
   for (final p in problems)
     if ((set == null || '${p.set}/${p.name}'.toLowerCase().contains(set.toLowerCase())) &&
-        (difficulty == null || p.difficulty?.toLowerCase() == difficulty.toLowerCase()))
+        (difficulty == null || p.difficulty?.toLowerCase() == difficulty.toLowerCase()) &&
+        (level == null || (p.level != null && p.level! >= level.$1 && p.level! <= level.$2)))
       p,
 ];
+
+/// A level filter, `3` or `2-4`.
+(int, int)? parseLevel(String? text) {
+  if (text == null || text.trim().isEmpty) return null;
+  final m = RegExp(r'^\s*(\d+)\s*(?:-\s*(\d+))?\s*$').firstMatch(text);
+  if (m == null) throw ApiError('bad_argument', 'level must be a number or a range like 2-4, not $text');
+  final lo = int.parse(m[1]!);
+  return (lo, m[2] == null ? lo : int.parse(m[2]!));
+}
 
 String? _goalFromText(String? text) {
   final t = (text ?? '').toLowerCase();
@@ -462,9 +559,11 @@ class TsumegoState {
     : toPlay = problemRoot.initialPlayer,
       frameCoords = identical(start, problemRoot) ? {} : {for (final m in start.placements) m.coords!},
       viewRegion = problemViewRegion(problemRoot),
-      goal = _goalFromText(
-        [_comment(solutionRoot), ...?solutionRoot.properties['GC'], ...?solutionRoot.properties['GN']].join(' '),
-      );
+      goal =
+          problem.goal ??
+          _goalFromText(
+            [_comment(solutionRoot), ...?solutionRoot.properties['GC'], ...?solutionRoot.properties['GN']].join(' '),
+          );
 
   Map<String, Object?> summary() => {
     'problem': {...problem.toJson(), 'index': index, 'source': source},
@@ -583,20 +682,25 @@ List<TsumegoProblem> _problems(ApiArgs a) => filterProblems(
   scanProblems(a.text('source', orElse: '')!),
   set: a.text('set'),
   difficulty: a.text('difficulty'),
+  level: parseLevel(a.text('level')),
 );
 
 Object? _list(CommandHandler h, ApiArgs a) {
   final problems = _problems(a);
-  final sets = <String, int>{}, levels = <String, int>{};
+  final sets = <String, int>{}, difficulties = <String, int>{}, levels = <String, int>{};
   for (final p in problems) {
     sets[p.set] = (sets[p.set] ?? 0) + 1;
-    final level = p.difficulty ?? 'unknown';
-    levels[level] = (levels[level] ?? 0) + 1;
+    final difficulty = p.difficulty ?? 'unknown';
+    difficulties[difficulty] = (difficulties[difficulty] ?? 0) + 1;
+    if (p.level != null) levels['${p.level}'] = (levels['${p.level}'] ?? 0) + 1;
   }
+  final source = absPath(a.text('source', orElse: '')!);
   return {
     'total': problems.length,
     'sets': sets,
-    'difficulties': levels,
+    'difficulties': difficulties,
+    if (levels.isNotEmpty) 'levels': levels,
+    'level_scale': ?_readIndex(Directory(source).existsSync() ? source : File(source).parent.path).$2,
     'problems': [
       for (final (i, p) in problems.take(a.integer('limit', orElse: 200, min: 1)!).indexed) {'index': i, ...p.toJson()},
     ],

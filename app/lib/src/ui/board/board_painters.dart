@@ -117,7 +117,8 @@ class BoardBackgroundPainter extends CustomPainter {
       }
     }
     if (geo.coordinates) {
-      final coordOffset = geo.gridSize * 1.5 / 2;
+      // centred between an edge stone's rim and the board's edge, so stones on the first line never cover them
+      final coordOffset = geo.gridSize * (KTheme.stoneSize + geo.marginX[0]) / 2;
       final color = kc([0.25, 0.25, 0.25, 1]);
       for (var i = 0; i < geo.displayX; i++) {
         drawText(

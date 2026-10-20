@@ -144,7 +144,7 @@ katrain-neo open "katrain://pv?from=45&moves=D4,C3&step=1"
 ## Life-and-death problems
 
 ```
-katrain-neo tsumego list ~/problems [--set cho --difficulty elementary]
+katrain-neo tsumego list ~/problems [--set cho --difficulty elementary --level 2-4]
 katrain-neo tsumego load ~/problems --index 3          # hides the SGF answer, adds a tsumego frame + region
 katrain-neo tsumego target --goal kill --group C2      # goal for the player to move; group = any stone of the target
 katrain-neo tsumego try B2                             # any legal move; KataGo evaluates and answers locally
@@ -165,7 +165,14 @@ show it with `pv show --from <node> ...`). Judge by `verdict` or `score_lost`, n
 leave one side far ahead, and then winrates stay near 0% or 100% even after a losing move.
 
 Collections stored as many problems in one SGF (one problem per variation of the root, or several game trees)
-are split into single problems; such a file is listed as a set of its own (`--set cho-1`).
+are split into single problems; such a file is listed as a set of its own (`--set cho-1`). An `index.json` in the
+folder or above it (as frank_go ships) adds each problem's title, level (`--level 3` or `2-4`; `level_scale` in the
+list says what the numbers mean) and category, whose living/killing gives the goal. Nothing else guesses a goal: a
+problem whose source does not state one has `goal: null` until `tsumego target --goal` sets it.
+
+Loading a problem makes the player to move a human against the strongest AI, switches to play mode and turns off
+everything that would give the answer away (hints, policy, ownership, evaluation, children); the score graph and
+move statistics are hidden while it is solved. Going back stops at the problem's start.
 
 ## Good habits
 

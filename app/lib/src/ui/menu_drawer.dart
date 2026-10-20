@@ -125,6 +125,13 @@ class PlayerSetupBlock extends StatelessWidget {
     return (info.playerType, info.playerSubtype);
   }
 
+  void _swap() {
+    final b = _player('B');
+    final w = _player('W');
+    onChanged('B', w.$1, w.$2);
+    onChanged('W', b.$1, b.$2);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -138,20 +145,14 @@ class PlayerSetupBlock extends StatelessWidget {
                 bw: bw,
                 type: _player(bw).$1,
                 subtype: _player(bw).$2,
+                lastSubtype: (type) => app.lastSubtype(bw, type),
                 onChanged: (type, subtype) => onChanged(bw, type, subtype),
+                onSwap: _swap,
               ),
             ),
           Align(
             alignment: Alignment.centerRight,
-            child: IconButton(
-              icon: const Icon(Icons.swap_vert),
-              onPressed: () {
-                final b = _player('B');
-                final w = _player('W');
-                onChanged('B', w.$1, w.$2);
-                onChanged('W', b.$1, b.$2);
-              },
-            ),
+            child: IconButton(tooltip: i18n.tr('player:swap'), icon: const Icon(Icons.swap_vert), onPressed: _swap),
           ),
         ],
       ),
@@ -163,15 +164,35 @@ class _PlayerSetup extends StatelessWidget {
   final String bw;
   final String type;
   final String subtype;
+
+  /// The strategy or game type to come back to when switching to a player type.
+  final String Function(String type) lastSubtype;
   final void Function(String type, String subtype) onChanged;
-  const _PlayerSetup({required this.bw, required this.type, required this.subtype, required this.onChanged});
+
+  /// Clicking a player's stone swaps the colours, as in KaTrain.
+  final VoidCallback onSwap;
+  const _PlayerSetup({
+    required this.bw,
+    required this.type,
+    required this.subtype,
+    required this.lastSubtype,
+    required this.onChanged,
+    required this.onSwap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final subtypes = type == playerAi ? aiStrategiesRecommendedOrder : gameTypes;
     return Row(
       children: [
-        StoneAvatar(player: bw, radius: 14),
+        Tooltip(
+          message: i18n.tr('player:swap'),
+          child: InkResponse(
+            onTap: onSwap,
+            radius: 20,
+            child: StoneAvatar(player: bw, radius: 14),
+          ),
+        ),
         const SizedBox(width: 12),
         Expanded(
           flex: 2,
@@ -189,7 +210,7 @@ class _PlayerSetup extends StatelessWidget {
             ],
             onChanged: (t) {
               if (t == null || t == type) return;
-              onChanged(t, t == playerAi ? aiStrategiesRecommendedOrder.first : gameTypes.first);
+              onChanged(t, lastSubtype(t));
             },
           ),
         ),

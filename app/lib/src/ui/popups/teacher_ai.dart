@@ -193,10 +193,13 @@ class AiDialog extends StatefulWidget {
 class _AiDialogState extends State<AiDialog> {
   late final app = widget.app;
   late var editor = ConfigEditor(widget.app);
-  late String strategy = () {
-    final selected = {for (final p in app.playersInfo.values) p.strategy}..remove(aiDefault);
-    return selected.isEmpty ? aiConfigDefault : selected.first;
-  }();
+  // the strategy shown last time (KaTrain builds the popup once), else one the players use
+  late String strategy =
+      app.aiDialogStrategy ??
+      () {
+        final selected = {for (final p in app.playersInfo.values) p.strategy}..remove(aiDefault);
+        return selected.isEmpty ? aiConfigDefault : selected.first;
+      }();
   String estimatedRank = '';
   final bools = <String, bool>{};
 
@@ -225,7 +228,7 @@ class _AiDialogState extends State<AiDialog> {
 
   void _selectStrategy(String s) {
     setState(() {
-      strategy = s;
+      strategy = app.aiDialogStrategy = s;
       editor = ConfigEditor(app); // the options of the other strategy are not stored
       bools.clear();
     });

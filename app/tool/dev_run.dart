@@ -1,19 +1,19 @@
-// Runs the app in debug mode and hot reloads it whenever a Dart file of the app or the core changes, so it can be
-// played while its code is being edited: the game, the clock and the window stay as they are.
+// Runs the app in debug mode and hot restarts it whenever a Dart file of the app or the core changes, so every edit
+// shows within a second or two in the window that stays open. A hot restart reruns main() (the game in memory starts
+// over); unlike a hot reload it never leaves old state behind, such as a translation table loaded before the edit.
 //
 //   cd app && dart tool/dev_run.dart [-d windows|macos|linux] [extra flutter run arguments]
 //
-// Keys (then Enter): r hot reload, R hot restart (loses the game in memory), q or Ctrl-C quit. A change that hot reload cannot
-// take (e.g. to main(), a global or a new dependency) is reported, and waits for R.
+// Keys (then Enter): R hot restart, r hot reload (keeps the state, for an edit known to be safe), q or Ctrl-C quit.
 
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-/// The folders whose Dart files trigger a reload, relative to the app folder.
+/// The folders whose Dart files trigger a restart, relative to the app folder.
 const watched = ['lib', '../packages/katrain_core/lib'];
 
-/// Changes closer together than this are reloaded at once.
+/// Changes closer together than this are applied at once.
 const debounce = Duration(milliseconds: 400);
 
 void say(String message) => stdout.writeln('[dev_run] $message');
@@ -38,7 +38,7 @@ Future<void> main(List<String> args) async {
     if (!dir.existsSync()) continue;
     dir.watch(recursive: true).where((e) => e.path.endsWith('.dart')).listen((e) {
       pending?.cancel();
-      pending = Timer(debounce, () => runner.restart(full: false, reason: 'changed ${_short(e.path, appDir)}'));
+      pending = Timer(debounce, () => runner.restart(full: true, reason: 'changed ${_short(e.path, appDir)}'));
     });
   }
 
@@ -56,7 +56,7 @@ Future<void> main(List<String> args) async {
   // Ctrl-C stops the app too, instead of leaving it and flutter's processes running
   ProcessSignal.sigint.watch().listen((_) => runner.stop());
 
-  say('starting the app; it hot reloads when a file in ${watched.join(', ')} changes');
+  say('starting the app; it hot restarts when a file in ${watched.join(', ')} changes');
   final code = await process.exitCode;
   say('the app ended ($code)');
   exit(code);
@@ -74,7 +74,7 @@ class _Runner {
 
   String? _appId;
 
-  /// Set once the app runs: reloads asked for while it is still building wait for it.
+  /// Set once the app runs: restarts asked for while it is still building wait for it.
   bool _started = false;
   int _nextId = 1;
   bool _busy = false;
@@ -150,7 +150,7 @@ class _Runner {
       say('not applied: the code does not compile yet');
     } else {
       say('not applied: $message');
-      if (!full) say('this change needs a hot restart, which loses the game in memory: save it, then type R');
+      if (!full) say('a hot reload cannot take this change: type R');
     }
     _busy = false;
     _runQueued();

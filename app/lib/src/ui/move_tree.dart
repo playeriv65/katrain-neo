@@ -1,6 +1,10 @@
 // The move tree: stones numbered by move, the current and selected nodes, the insertion path, collapsed branches;
-// scrolling to the current node, clicking to go to a node, and the right click menu.
+// scrolling to the current node, clicking to go to a node, dragging to pan, the wheel to step through the game, and
+// the right click menu.
 
+import 'dart:math' as math;
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:katrain_core/katrain_core.dart';
 
@@ -8,6 +12,7 @@ import '../state/app_controller.dart';
 import '../state/move_tree_layout.dart';
 import '../theme.dart';
 import 'board/board_painters.dart';
+import 'wheel_steps.dart';
 
 const _spacing = 5.0;
 const _movesVert = 3;
@@ -123,25 +128,30 @@ class _MoveTreeState extends State<MoveTree> {
         if (current != null) _scrollTo(current, c.biggest);
         return SizedBox.expand(
           child: ScrollConfiguration(
-            behavior: const ScrollBehavior().copyWith(scrollbars: false),
+            // dragged with the mouse too, since the wheel steps through the game here
+            behavior: const ScrollBehavior().copyWith(scrollbars: false, dragDevices: PointerDeviceKind.values.toSet()),
             child: SingleChildScrollView(
               controller: _horizontal,
               scrollDirection: Axis.horizontal,
               child: SingleChildScrollView(
                 controller: _vertical,
-                child: GestureDetector(
-                  onTapUp: (d) {
-                    final node = nodeAt(d.localPosition);
-                    app.moveTreeSelectedNode = null;
-                    if (node != null) app.setCurrentNode(node);
-                  },
-                  onSecondaryTapUp: (d) {
-                    final node = nodeAt(d.localPosition);
-                    if (node != null && !node.isRoot) _contextMenu(d.globalPosition, node);
-                  },
-                  child: CustomPaint(
-                    size: Size(width, height),
-                    painter: _MoveTreePainter(app, positions, xy, moveSize, Theme.of(context).colorScheme),
+                child: WheelSteps(
+                  app: app,
+                  child: GestureDetector(
+                    onTapUp: (d) {
+                      final node = nodeAt(d.localPosition);
+                      app.moveTreeSelectedNode = null;
+                      if (node != null) app.setCurrentNode(node);
+                    },
+                    onSecondaryTapUp: (d) {
+                      final node = nodeAt(d.localPosition);
+                      if (node != null && !node.isRoot) _contextMenu(d.globalPosition, node);
+                    },
+                    child: CustomPaint(
+                      // at least the panel's size, so the wheel steps through moves anywhere in it
+                      size: Size(math.max(width, c.maxWidth), math.max(height, c.maxHeight)),
+                      painter: _MoveTreePainter(app, positions, xy, moveSize, Theme.of(context).colorScheme),
+                    ),
                   ),
                 ),
               ),

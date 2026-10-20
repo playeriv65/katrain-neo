@@ -82,6 +82,9 @@ class AppController extends HostBase with ChangeNotifier {
 
   Future<void> _queue = Future.value();
   int _queued = 0;
+
+  /// The position a human move just led to, which the AI answers even if the line goes on from there.
+  GameNode? _answerDue;
   Timer? _clockTimer;
 
   /// Whether no action is queued or running.
@@ -223,6 +226,13 @@ class AppController extends HostBase with ChangeNotifier {
   Future<void> _react({bool redrawBoard = false}) async {
     final g = game;
     if (g == null) return;
+    // a tsumego problem starts at its frame: going back past it would lose the frame and the local search
+    final start = apiState.tsumego?.start;
+    if (start != null &&
+        !identical(g.currentNode, start) &&
+        start.nodesFromRoot.any((n) => identical(n, g.currentNode))) {
+      g.setCurrentNode(start);
+    }
     final cn = g.currentNode;
     final lastPlayer = playersInfo[cn.player]!;
     final nextPlayer = playersInfo[cn.nextPlayer]!;
@@ -242,11 +252,14 @@ class AppController extends HostBase with ChangeNotifier {
           g.endResult == null) {
         g.analyzeUndo(cn);
       }
+      // The AI moves at the end of a line, and after a human move even where the line goes on from an earlier try
+      // (an undo, then the same move again); not where browsing the game stops.
       if (cn.analysisComplete &&
           nextPlayer.ai &&
-          cn.children.isEmpty &&
+          (cn.children.isEmpty || identical(cn, _answerDue)) &&
           g.endResult == null &&
           !(teachingUndo && cn.autoUndo == null)) {
+        _answerDue = null;
         await _aiMove(g, cn); // only for this position: an undo in between stops it
         Timer(const Duration(milliseconds: 250), _playStoneSound);
       }
@@ -353,8 +366,23 @@ class AppController extends HostBase with ChangeNotifier {
     }
   });
 
+  /// The new game popup's mode (newgame, setupposition, editgame) when it was last closed.
+  String newGameMode = 'newgame';
+
+  /// The strategy the AI settings popup last showed; null shows the players' strategy.
+  String? aiDialogStrategy;
+
+  /// The last AI strategy and human game type chosen for each colour, restored when switching back between human
+  /// and AI (KaTrain keeps a menu for each).
+  final _lastSubtypes = <String, String>{};
+
+  String lastSubtype(String bw, String playerType) =>
+      _lastSubtypes['$bw/$playerType'] ??
+      (playerType == playerAi ? aiStrategiesRecommendedOrder.first : gameTypes.first);
+
   @override
   void updatePlayer(String bw, {String playerType = playerHuman, String playerSubtype = playingNormal}) {
+    _lastSubtypes['$bw/$playerType'] = playerSubtype;
     super.updatePlayer(bw, playerType: playerType, playerSubtype: playerSubtype);
     final g = game;
     if (g != null) {
@@ -372,15 +400,33 @@ class AppController extends HostBase with ChangeNotifier {
     try {
       final captured = g.prisonerCount['W']! + g.prisonerCount['B']!;
       g.play(Move(coords: coords, player: nextPlayerInfo.player));
+      _answerDue = g.currentNode;
       if (captured < g.prisonerCount['W']! + g.prisonerCount['B']!) {
         sounds.play(KThemeSounds.capturing);
       } else if (!g.currentNode.isPass) {
         _playStoneSound();
       }
     } on IllegalMoveException catch (e) {
-      setStatus('Illegal Move: $e', statusError);
+      setStatus(i18n.tr('illegal:${e.reason.name}'), statusError);
     }
   });
+
+  /// Whether variations are shown at all, on hover or from a comment's link (`general/anim_pv_moves` above 0).
+  bool get showPvs => ((config('general/anim_pv_moves') as num?) ?? 0) != 0;
+
+  /// A mouse wheel step: over the board or the bar below it ([overBoard]) it steps through the variation being
+  /// shown; otherwise, and over the side panel, through the game (up is forward), as in KaTrain.
+  void wheel({required bool up, bool overBoard = false}) {
+    if (overBoard && board.pv != null) {
+      board.adjustAnimatePvIndex(
+        up ? 1 : -1,
+        delay: ((config('general/anim_pv_time') as num?) ?? 0.5).toDouble(),
+        maxMoves: ((config('general/anim_pv_moves') as num?) ?? 100).toInt(),
+      );
+    } else {
+      up ? redo() : undo();
+    }
+  }
 
   Future<void> aiMove() => _enqueue('AI move', (g) => _aiMove(g, null));
 
@@ -642,6 +688,7 @@ class AppController extends HostBase with ChangeNotifier {
   void tickClock() {
     final g = game;
     if (g == null) return;
+    if (g.endResult != null && !clock.paused) clock.paused = true; // a finished game's clock stops, as in KaTrain
     clock.tick(
       g,
       nextPlayerInfo,

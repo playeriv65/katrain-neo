@@ -19,7 +19,7 @@ class NewGameDialog extends StatefulWidget {
 class _NewGameDialogState extends State<NewGameDialog> {
   late final app = widget.app;
   late final editor = ConfigEditor(app);
-  String mode = 'newgame';
+  late String mode = app.newGameMode;
   late final players = {
     for (final MapEntry(:key, :value) in app.playersInfo.entries) key: (value.playerType, value.playerSubtype),
   };
@@ -38,6 +38,7 @@ class _NewGameDialogState extends State<NewGameDialog> {
     editor.field('game/size', () => size.text);
     editor.field('game/handicap', () => _parse(handicap, 'game/handicap', (t) => int.parse(t.isEmpty ? '0' : t)));
     editor.field('game/clear_cache', () => clearCache);
+    _fillNames();
   }
 
   @override
@@ -64,9 +65,14 @@ class _NewGameDialogState extends State<NewGameDialog> {
     return null;
   }
 
-  /// The current names when editing the game, and empty fields otherwise.
+  /// The popup opens again in the mode it was left in, as KaTrain's (built once) does.
   void _setMode(String newMode) {
-    setState(() => mode = newMode);
+    setState(() => mode = app.newGameMode = newMode);
+    _fillNames();
+  }
+
+  /// The current names when editing the game, and empty fields otherwise.
+  void _fillNames() {
     for (final bw in const ['B', 'W']) {
       final name = app.game!.root.getProperty('P$bw');
       if (name != null && name.isNotEmpty && !name.contains(sgfInternalCommentsMarker)) {

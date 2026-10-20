@@ -5,9 +5,15 @@ import '../sgf/go_node.dart';
 import '../sgf/move.dart';
 import 'rulesets.dart';
 
+/// Why a move cannot be played; the app shows a translation (`illegal:<name>`).
+enum IllegalReason { occupied, ko, suicide, outside }
+
 class IllegalMoveException implements Exception {
+  final IllegalReason reason;
+
+  /// In English, for logs and the API.
   final String message;
-  IllegalMoveException(this.message);
+  IllegalMoveException(this.reason, this.message);
 
   @override
   String toString() => message;
@@ -132,7 +138,7 @@ class BaseGame<N extends BaseGoNode<N>> {
     if (move.isPass) return;
     final (mx, my) = move.coords!;
     if (board[my][mx] != -1) {
-      throw IllegalMoveException('Space occupied');
+      throw IllegalMoveException(IllegalReason.occupied, 'Space occupied');
     }
 
     // merge chains connected by this move, or create a new one
@@ -175,7 +181,7 @@ class BaseGame<N extends BaseGoNode<N>> {
       }
     }
     if (koOrSnapback && lastCapture.length == 1 && !ignoreKo) {
-      throw IllegalMoveException('Ko');
+      throw IllegalMoveException(IllegalReason.ko, 'Ko');
     }
     prisoners.addAll(lastCapture);
 
@@ -184,7 +190,7 @@ class BaseGame<N extends BaseGoNode<N>> {
       final r = rules;
       if (chains[thisChain].length == 1) {
         // even in new zealand rules, single stone suicide is not allowed
-        throw IllegalMoveException('Single stone suicide');
+        throw IllegalMoveException(IllegalReason.suicide, 'Single stone suicide');
       } else if ((r is String && (r == 'tromp-taylor' || r == 'new zealand')) || (r is Map && r['suicide'] == true)) {
         lastCapture.addAll(chains[thisChain]);
         for (final om in chains[thisChain]) {
@@ -195,7 +201,7 @@ class BaseGame<N extends BaseGoNode<N>> {
         prisoners.addAll(lastCapture);
       } else {
         // suicide not allowed by rules
-        throw IllegalMoveException('Suicide');
+        throw IllegalMoveException(IllegalReason.suicide, 'Suicide');
       }
     }
   }
@@ -206,7 +212,7 @@ class BaseGame<N extends BaseGoNode<N>> {
     final (sizeX, sizeY) = boardSize;
     final c = move.coords;
     if (c != null && !(0 <= c.$1 && c.$1 < sizeX && 0 <= c.$2 && c.$2 < sizeY)) {
-      throw IllegalMoveException('Move $move outside of board coordinates');
+      throw IllegalMoveException(IllegalReason.outside, 'Move $move outside of board coordinates');
     }
     if (expectedNode != null && !identical(currentNode, expectedNode)) return null;
     try {

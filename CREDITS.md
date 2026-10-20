@@ -14,7 +14,8 @@ KaTrain credits, among others:
 The full list of KaTrain contributors and translators is in KaTrain's
 [CONTRIBUTIONS.md](https://github.com/sanderland/katrain/blob/master/CONTRIBUTIONS.md).
 
-From KaTrain (MIT): the board, stone and evaluation dot textures and the sounds in `app/assets`, the
+From KaTrain (MIT): the board, stone and evaluation dot textures and the sounds in `app/assets`, the app icon
+(`app/windows/runner/resources/app_icon.ico` and the macOS `AppIcon.appiconset`, from KaTrain's `icon.icns`), the
 translations, and the test game records in `packages/katrain_core/test/data`. The SGF parser started from
 **[pysgf](https://github.com/sanderland/pysgf)** (MIT, © 2020 Sander Land). The agent API and CLI started from
 [playeriv65/katrain](https://github.com/playeriv65/katrain), a fork of KaTrain.

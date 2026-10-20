@@ -26,7 +26,7 @@ class BottomBar extends StatelessWidget {
       icon: Icon(icon, color: color),
     );
     return LayoutBuilder(
-      // a narrow bar leaves out the 10-move steps and rotation; their keys still work
+      // a narrow bar leaves out the 10-move steps, which Shift+arrows still take
       builder: (context, constraints) => _bar(context, nav, next, full: constraints.maxWidth >= 620),
     );
   }
@@ -42,46 +42,62 @@ class BottomBar extends StatelessWidget {
       child: Row(
         children: [
           _PassButton(app: app, passButtonKey: passButtonKey),
-          const Spacer(),
-          nav(
-            Icons.keyboard_double_arrow_left,
-            'Shift+N',
-            () => app.findMistake(backwards: true),
-            color: Theme.of(context).colorScheme.error,
-          ),
-          nav(Icons.first_page, 'Home', () => app.undo(9999)),
-          if (full) nav(Icons.fast_rewind, 'Shift+←', () => app.undo(10)),
-          nav(Icons.chevron_left, '←', () => app.undo()),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Tooltip(
-              message: i18n.tr('short color $next'),
-              child: Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: KTheme.stoneColors[next],
-                  border: Border.all(color: KTheme.stoneColors[next == 'B' ? 'W' : 'B']!),
+          // the buttons in the middle shrink a little rather than overflow when a long pass label leaves less room
+          Expanded(
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: _navigation(context, nav, next, full: full),
                 ),
               ),
             ),
           ),
-          nav(Icons.chevron_right, '→', () => app.redo()),
-          if (full) nav(Icons.fast_forward, 'Shift+→', () => app.redo(10)),
-          nav(Icons.last_page, 'End', () => app.redo(9999)),
-          nav(
-            Icons.keyboard_double_arrow_right,
-            'N',
-            () => app.findMistake(),
-            color: Theme.of(context).colorScheme.error,
-          ),
-          if (full) ...[const SizedBox(width: 8), nav(Icons.rotate_right, i18n.tr('Rotate'), app.rotate)],
-          const Spacer(),
           _EngineStatus(app: app),
         ],
       ),
     );
+  }
+
+  List<Widget> _navigation(
+    BuildContext context,
+    Widget Function(IconData, String, VoidCallback, {Color? color}) nav,
+    String next, {
+    required bool full,
+  }) {
+    return [
+      nav(
+        Icons.keyboard_double_arrow_left,
+        'Shift+N',
+        () => app.findMistake(backwards: true),
+        color: Theme.of(context).colorScheme.error,
+      ),
+      nav(Icons.first_page, 'Home', () => app.undo(9999)),
+      if (full) nav(Icons.fast_rewind, 'Shift+←', () => app.undo(10)),
+      nav(Icons.chevron_left, '←', () => app.undo()),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Tooltip(
+          message: i18n.tr('short color $next'),
+          child: Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: KTheme.stoneColors[next],
+              border: Border.all(color: KTheme.stoneColors[next == 'B' ? 'W' : 'B']!),
+            ),
+          ),
+        ),
+      ),
+      nav(Icons.chevron_right, '→', () => app.redo()),
+      if (full) nav(Icons.fast_forward, 'Shift+→', () => app.redo(10)),
+      nav(Icons.last_page, 'End', () => app.redo(9999)),
+      nav(Icons.keyboard_double_arrow_right, 'N', () => app.findMistake(), color: Theme.of(context).colorScheme.error),
+      const SizedBox(width: 8),
+      nav(Icons.rotate_right, i18n.tr('Rotate'), app.rotate),
+    ];
   }
 }
 
@@ -122,21 +138,32 @@ class _EngineStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final engine = app.engine;
+    final remaining = engine?.queriesRemaining() ?? 0;
     final Color color;
     final String state;
-    if (engine == null) {
+    if (engine == null || !(engine.connection?.alive ?? false)) {
       color = KTheme.engineDownColor;
-      state = 'KataGo: off';
+      state = i18n.tr('engine:light:off');
     } else if (engine.isIdle()) {
       color = KTheme.engineReadyColor;
-      state = 'KataGo: ready';
+      state = i18n.tr('engine:light:ready');
     } else {
       color = KTheme.engineBusyColor;
-      state = 'KataGo: busy';
+      state = fillTemplate(i18n.tr('engine:light:busy'), {'n': remaining});
     }
-    final remaining = engine?.queriesRemaining() ?? 0;
+    final where = engine?.engineType == 'remote'
+        ? fillTemplate(i18n.tr('engine:light:remote'), {'url': app.config('engine/remote_url') ?? ''})
+        : i18n.tr('engine:light:local');
     return Tooltip(
-      message: state,
+      // where KataGo runs, what the light means right now, and what each colour means
+      message: [
+        where,
+        state,
+        if (app.isPondering) i18n.tr('engine:light:pondering'),
+        '',
+        i18n.tr('ai-ponder'),
+      ].join('\n'),
+      constraints: const BoxConstraints(maxWidth: 360),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () => app.setStatus(i18n.tr('ai-ponder'), statusInfo),

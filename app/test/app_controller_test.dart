@@ -4,7 +4,9 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:katrain_core/api.dart';
 import 'package:katrain_core/katrain_core.dart';
+import 'package:katrain_neo/src/state/api_host.dart';
 import 'package:katrain_neo/src/state/app_controller.dart';
 import 'package:katrain_neo/src/state/dialogs.dart';
 
@@ -113,7 +115,7 @@ void main() {
       await app.play(at('E5'));
       expect(line(), ['E5']);
       expect(app.statusIsError, isTrue);
-      expect(app.statusText, contains('Illegal'));
+      expect(app.statusText, i18n.tr('illegal:occupied')); // in the user's language, not the rules' English
     });
 
     test('a pass is a move', () async {
@@ -351,6 +353,40 @@ void main() {
       expect(screen.failures.single.message, contains('out of memory'));
       expect(screen.failures.single.engineType, 'local');
       expect(app.statusIsError, isTrue);
+    });
+  });
+
+  group('a tsumego problem', () {
+    late Directory tmp;
+    late CommandHandler api;
+    setUp(() async {
+      await begin(size: 19);
+      tmp = Directory.systemTemp.createTempSync('neo_tsumego_');
+      File('${tmp.path}${Platform.pathSeparator}corner.sgf')
+          .writeAsStringSync('(;GM[1]FF[4]SZ[19]PL[B]AB[pr][qq][rq][sq][or][nr]AW[qr][rr][pq][oq][nq][mr];B[sr])');
+      api = CommandHandler(AppApiHost(app), app.apiState, dataFolder: tmp.path);
+    });
+    tearDown(() => tmp.deleteSync(recursive: true));
+
+    test('is played against the AI with nothing given away, and going back stops at its start', () async {
+      app.setAnalysisControl('hints', true);
+      final loaded = await api.dispatch('tsumego.load', {'source': tmp.path}) as Map;
+      expect(loaded['to_play'], 'B', reason: '$loaded');
+      await kata.settle(app);
+      expect(app.mode, modePlay);
+      expect(app.solvingTsumego, isTrue);
+      expect((app.playersInfo['B']!.ai, app.playersInfo['W']!.ai), (false, true));
+      expect(app.analysisControls['hints'], isFalse);
+      final start = app.apiState.tsumego!.start;
+      expect(app.game!.currentNode, same(start));
+
+      await app.play(at('S1'));
+      await kata.settle(app);
+      expect(app.game!.currentNode.parent!.parent, same(start)); // the AI answered
+
+      await app.undo(9999);
+      await kata.settle(app);
+      expect(app.game!.currentNode, same(start)); // not back to the board without the frame
     });
   });
 

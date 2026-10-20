@@ -8,7 +8,6 @@ import 'package:katrain_core/katrain_core.dart';
 
 import '../state/app_controller.dart';
 import '../state/graph_model.dart';
-import '../theme.dart';
 import 'app_theme.dart';
 
 class ScoreGraph extends StatefulWidget {
@@ -197,6 +196,7 @@ class _ScoreGraphState extends State<ScoreGraph> {
                     colors,
                     scheme.outlineVariant,
                     scheme.outline,
+                    Theme.of(context).cardTheme.color ?? scheme.surfaceContainerLow,
                   ),
                 ),
               ),
@@ -237,6 +237,9 @@ class _GraphPainter extends CustomPainter {
 
   /// The colour of the line at the move being pointed at.
   final Color pointer;
+
+  /// The card's colour, ringing the dots at the current move.
+  final Color ring;
   _GraphPainter(
     this.data,
     this.showScore,
@@ -246,6 +249,7 @@ class _GraphPainter extends CustomPainter {
     this.colors,
     this.grid,
     this.pointer,
+    this.ring,
   );
 
   void _dashed(Canvas canvas, double y, double width, {required double dash, required double gap}) {
@@ -294,17 +298,20 @@ class _GraphPainter extends CustomPainter {
       final x = data.score[nav].dx;
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), Paint()..color = pointer);
     }
-    const highlight = 6.0;
-    final dotPaint = Paint()..color = KTheme.graphDotColor;
-    void dot(bool show, List<Offset> line, Offset fallback) {
+    // each line's dot in its own colour, ringed by the card's so it stands out where lines cross
+    const radius = 3.5;
+    final ringPaint = Paint()..color = ring;
+    void dot(bool show, List<Offset> line, Offset fallback, Color color) {
       if (!show || line.isEmpty) return;
       final p = nav != null && nav < line.length ? line[nav] : fallback;
-      if (!p.dy.isNaN) canvas.drawCircle(p, highlight / 2, dotPaint);
+      if (p.dy.isNaN) return;
+      canvas.drawCircle(p, radius + 1.5, ringPaint);
+      canvas.drawCircle(p, radius, Paint()..color = color);
     }
 
-    dot(showScore, data.score, data.scoreDot);
-    dot(showWinrate, data.winrate, data.winrateDot);
-    dot(showPointloss, data.pointloss, data.pointlossDot);
+    dot(showScore, data.score, data.scoreDot, colors.score);
+    dot(showWinrate, data.winrate, data.winrateDot, colors.winrate);
+    dot(showPointloss, data.pointloss, data.pointlossDot, colors.pointloss);
   }
 
   @override

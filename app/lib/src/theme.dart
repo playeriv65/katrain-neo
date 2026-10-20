@@ -112,9 +112,6 @@ abstract final class KTheme {
   static final engineReadyColor = evalColors['theme:normal']!.last;
   static final enginePonderingColor = yellow;
 
-  // graph
-  static final graphDotColor = kc([0.85, 0.3, 0.3, 1]);
-
   // move tree: insert mode, collapsed branches and setup nodes, stone outlines
   static final moveTreeInsertNodeParent = green;
   static final moveTreeInsertCurrent = orange;

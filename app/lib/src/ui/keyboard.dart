@@ -62,16 +62,22 @@ class KeyboardShortcuts extends StatefulWidget {
 class _KeyboardShortcutsState extends State<KeyboardShortcuts> {
   LogicalKeyboardKey? _lastKeyDown;
 
+  /// When the window last gained or lost focus: Alt or Tab released right after is Alt-Tab, not a shortcut.
+  DateTime _lastFocusChange = DateTime.fromMillisecondsSinceEpoch(0);
+  late final AppLifecycleListener _lifecycle;
+
   AppController get app => widget.app;
 
   @override
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_popupKey);
+    _lifecycle = AppLifecycleListener(onStateChange: (_) => _lastFocusChange = DateTime.now());
   }
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     HardwareKeyboard.instance.removeHandler(_popupKey);
     super.dispose();
   }
@@ -184,7 +190,14 @@ class _KeyboardShortcutsState extends State<KeyboardShortcuts> {
   /// Alt alone opens or closes the menu, Tab alone switches between play and analysis.
   void _singleKeyAction(LogicalKeyboardKey key, LogicalKeyboardKey? lastKeyDown) {
     final normalized = _isAlt(key) ? _K.alt : key;
-    if (!mounted || _textFocused() || app.popupOpen || normalized != lastKeyDown || normalized != _lastKeyDown) return;
+    if (!mounted ||
+        _textFocused() ||
+        app.popupOpen ||
+        normalized != lastKeyDown ||
+        normalized != _lastKeyDown ||
+        DateTime.now().difference(_lastFocusChange) < const Duration(milliseconds: 200)) {
+      return;
+    }
     if (normalized == _K.alt) {
       app.toggleMenu();
     } else if (normalized == _K.tab) {
