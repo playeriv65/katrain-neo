@@ -227,9 +227,27 @@ class AppController extends HostBase with ChangeNotifier {
 
   void toggleMenu() => screen?.toggleMenu();
 
+  /// The update queued and not run yet (null when none is); [_redrawQueued]: it redraws the board too.
+  Object? _pendingUpdate;
+  bool _redrawQueued = false;
+
+  /// Reacts to what changed, once for all the updates asked for meanwhile: KataGo reports after every line it
+  /// sends, hundreds in a row when a game is analysed, and each would otherwise rerun the reaction and rebuild the
+  /// screen (KaTrain schedules its redraw once per frame the same way).
   @override
-  void updateState({bool redrawBoard = false}) =>
-      _enqueue('update', (_) => _react(redrawBoard: redrawBoard), react: false);
+  void updateState({bool redrawBoard = false}) {
+    _redrawQueued |= redrawBoard;
+    if (_pendingUpdate != null || game == null) return;
+    final pending = _pendingUpdate = Object();
+    _enqueue('update', (_) {
+      _pendingUpdate = null; // updates asked for from here on queue another one
+      final redraw = _redrawQueued;
+      _redrawQueued = false;
+      return _react(redrawBoard: redraw);
+    }, react: false).whenComplete(() {
+      if (identical(_pendingUpdate, pending)) _pendingUpdate = null; // dropped: the game was replaced
+    });
+  }
 
   List<num> get _evalThresholds => (config('trainer/eval_thresholds') as List).cast<num>();
 

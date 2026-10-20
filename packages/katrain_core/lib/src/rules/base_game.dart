@@ -149,11 +149,11 @@ class BaseGame<N extends BaseGoNode<N>> {
     final int thisChain;
     if (nbChains.isNotEmpty) {
       thisChain = nbChains[0];
-      final merged = nbChains.toSet();
-      board = [
-        for (final line in board) [for (final sq in line) merged.contains(sq) ? thisChain : sq],
-      ];
+      // only the merged chains' own points change (not a copy of the whole board per move)
       for (final oc in nbChains.skip(1)) {
+        for (final m in chains[oc]) {
+          board[m.coords!.$2][m.coords!.$1] = thisChain;
+        }
         chains[thisChain].addAll(chains[oc]);
         chains[oc] = [];
       }

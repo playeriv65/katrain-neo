@@ -29,8 +29,13 @@ class JsonConfigStore implements ConfigStore {
   }
 
   @override
-  void put(String key, Map<String, dynamic> values) {
-    data[key] = Map.of(values);
+  void put(String key, Map<String, dynamic> values) => putAll({key: values});
+
+  @override
+  void putAll(Map<String, Map<String, dynamic>> sections) {
+    for (final MapEntry(:key, :value) in sections.entries) {
+      data[key] = Map.of(value);
+    }
     File(filename).writeAsStringSync(const JsonEncoder.withIndent('    ').convert(data));
   }
 }

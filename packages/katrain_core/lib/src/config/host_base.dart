@@ -40,6 +40,9 @@ abstract interface class ConfigStore {
 
   /// Replaces a section and saves it.
   void put(String key, Map<String, dynamic> values);
+
+  /// Replaces several sections and saves them at once.
+  void putAll(Map<String, Map<String, dynamic>> sections);
 }
 
 /// Settings kept in memory only, e.g. the defaults when no file can be used.
@@ -51,6 +54,13 @@ class MemoryConfigStore implements ConfigStore {
 
   @override
   void put(String key, Map<String, dynamic> values) => data[key] = Map.of(values);
+
+  @override
+  void putAll(Map<String, Map<String, dynamic>> sections) {
+    for (final MapEntry(:key, :value) in sections.entries) {
+      data[key] = Map.of(value);
+    }
+  }
 }
 
 /// Settings, logging and players. The program around a game (the GUI, or a headless runner) adds the rest of
@@ -85,9 +95,8 @@ abstract class HostBase implements GameHost {
   /// Saves one section, or all of them.
   void saveConfig([String? key]) {
     if (key == null) {
-      for (final e in _config.entries) {
-        configStore.put(e.key, (e.value as Map).cast<String, dynamic>());
-      }
+      // one write of the file, not one per section
+      configStore.putAll({for (final e in _config.entries) e.key: (e.value as Map).cast<String, dynamic>()});
     } else {
       configStore.put(key, (_config[key] as Map).cast<String, dynamic>());
     }
