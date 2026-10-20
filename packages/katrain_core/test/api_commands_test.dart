@@ -494,6 +494,9 @@ void main() {
       final listed = await run('tsumego.list', {'source': folder});
       expect(listed['total'], 3); // problems without an answer are left out
       expect((await run('tsumego.list', {'source': folder, 'answered': false}))['total'], 4);
+      // the scan is kept, but not past a change to the files
+      File('$folder/unanswered.sgf').writeAsStringSync('(;GM[1]FF[4]SZ[19]AB[aa][ba]AW[ca][cb]PL[B];B[da])');
+      expect((await run('tsumego.list', {'source': folder}))['total'], 4);
       expect([for (final p in listed['problems']) p['name']], ['center 3d', 'p-2', 'ten']);
       expect(listed['difficulties'], {'3d': 1, 'unknown': 2});
       expect((await run('tsumego.list', {'source': folder, 'set': 'cho'}))['total'], 2);

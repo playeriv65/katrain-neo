@@ -280,50 +280,76 @@ class TsumegoProblem {
 /// The problem set index next to [dir] or above it (`index.json` with `collections` and `problems`, as frank_go
 /// writes them), as entries by `file#tree`; and the index's level scale. Empty when there is none.
 (Map<String, Map<String, Object?>>, String?) _readIndex(String dir) {
-  final sep = Platform.pathSeparator;
+  final file = _indexFile(dir);
+  if (file == null) return (const {}, null);
+  final stamp = _stamp(file);
+  final cached = _indexes[file.path];
+  if (cached != null && cached.stamp == stamp) return cached.index;
+  final index = _parseIndex(file);
+  _indexes[file.path] = (stamp: stamp, index: index);
+  return index;
+}
+
+/// The `index.json` in [dir] or the nearest folder above it.
+File? _indexFile(String dir) {
   for (var d = Directory(dir); ; d = d.parent) {
-    final file = File('${d.path}${sep}index.json');
-    if (file.existsSync()) {
-      final Object? json;
-      try {
-        json = jsonDecode(file.readAsStringSync());
-      } on FormatException {
-        return (const {}, null);
-      }
-      if (json is! Map || json['collections'] is! Map || json['problems'] is! List) return (const {}, null);
-      final collections = (json['collections'] as Map).cast<String, Object?>();
-      final byKey = <String, Map<String, Object?>>{};
-      final folders = <String, List<String>>{};
-      for (final entry in (json['problems'] as List).whereType<Map>()) {
-        final e = entry.cast<String, Object?>();
-        final where = (collections[e['collection']] as Map?)?['file'] as String?;
-        final n = (e['n'] as num?)?.toInt();
-        if (where == null || n == null || n < 1) continue;
-        final path = '${d.path}$sep${where.replaceAll('/', sep)}';
-        if (where.toLowerCase().endsWith('.sgf')) {
-          byKey['${File(path).absolute.path}#${n - 1}'] = e; // the n-th tree of a collection file
-        } else {
-          // the n-th file of a folder of problems
-          final files = folders.putIfAbsent(path, () {
-            final dir = Directory(path);
-            if (!dir.existsSync()) return const [];
-            final found = [
-              for (final f in dir.listSync())
-                if (f is File && f.path.toLowerCase().endsWith('.sgf')) f.absolute.path,
-            ];
-            stableSortBy(found, (f) => _SortKey(_naturalKey(f)));
-            return found;
-          });
-          if (n <= files.length) byKey['${files[n - 1]}#0'] = e;
-        }
-      }
-      return (byKey, json['levelScale'] as String?);
-    }
-    if (d.parent.path == d.path) return (const {}, null);
+    final file = File('${d.path}${Platform.pathSeparator}index.json');
+    if (file.existsSync()) return file;
+    if (d.parent.path == d.path) return null;
   }
 }
 
-/// All problems in a file or folder (in a stable order).
+/// When and how big [file] is: a file whose stamp is unchanged need not be read again.
+String _stamp(File file) {
+  final stat = file.statSync();
+  return '${stat.modified.microsecondsSinceEpoch}:${stat.size}';
+}
+
+/// Parsed indexes and scanned sources, kept while their files are unchanged: a practice goes through one set
+/// problem after problem, and an index can be megabytes.
+final _indexes = <String, ({String stamp, (Map<String, Map<String, Object?>>, String?) index})>{};
+final _scans = <String, ({String stamp, List<TsumegoProblem> problems})>{};
+
+(Map<String, Map<String, Object?>>, String?) _parseIndex(File file) {
+  final sep = Platform.pathSeparator;
+  final d = file.parent;
+  final Object? json;
+  try {
+    json = jsonDecode(file.readAsStringSync());
+  } on FormatException {
+    return (const {}, null);
+  }
+  if (json is! Map || json['collections'] is! Map || json['problems'] is! List) return (const {}, null);
+  final collections = (json['collections'] as Map).cast<String, Object?>();
+  final byKey = <String, Map<String, Object?>>{};
+  final folders = <String, List<String>>{};
+  for (final entry in (json['problems'] as List).whereType<Map>()) {
+    final e = entry.cast<String, Object?>();
+    final where = (collections[e['collection']] as Map?)?['file'] as String?;
+    final n = (e['n'] as num?)?.toInt();
+    if (where == null || n == null || n < 1) continue;
+    final path = '${d.path}$sep${where.replaceAll('/', sep)}';
+    if (where.toLowerCase().endsWith('.sgf')) {
+      byKey['${File(path).absolute.path}#${n - 1}'] = e; // the n-th tree of a collection file
+    } else {
+      // the n-th file of a folder of problems
+      final files = folders.putIfAbsent(path, () {
+        final dir = Directory(path);
+        if (!dir.existsSync()) return const [];
+        final found = [
+          for (final f in dir.listSync())
+            if (f is File && f.path.toLowerCase().endsWith('.sgf')) f.absolute.path,
+        ];
+        stableSortBy(found, (f) => _SortKey(_naturalKey(f)));
+        return found;
+      });
+      if (n <= files.length) byKey['${files[n - 1]}#0'] = e;
+    }
+  }
+  return (byKey, json['levelScale'] as String?);
+}
+
+/// All problems in a file or folder (in a stable order); read again only when a file in it or its index changed.
 List<TsumegoProblem> scanProblems(String source) {
   final src = absPath(source);
   final sep = Platform.pathSeparator;
@@ -342,7 +368,12 @@ List<TsumegoProblem> scanProblems(String source) {
   } else {
     throw ApiError('not_found', '$src does not exist');
   }
-  final (index, _) = _readIndex(Directory(src).existsSync() ? src : base);
+  final indexDir = Directory(src).existsSync() ? src : base;
+  final indexFile = _indexFile(indexDir);
+  final stamp = [for (final f in files) '$f=${_stamp(File(f))}', if (indexFile != null) _stamp(indexFile)].join('|');
+  final cached = _scans[src];
+  if (cached != null && cached.stamp == stamp) return cached.problems;
+  final (index, _) = _readIndex(indexDir);
   final problems = <TsumegoProblem>[];
   for (final path in files) {
     final text = _read(path);
@@ -374,7 +405,9 @@ List<TsumegoProblem> scanProblems(String source) {
       );
     }
   }
-  return problems;
+  final scanned = List<TsumegoProblem>.unmodifiable(problems);
+  _scans[src] = (stamp: stamp, problems: scanned);
+  return scanned;
 }
 
 class _SortKey implements Comparable<_SortKey> {
