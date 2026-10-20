@@ -618,7 +618,8 @@ Command<int> _tsumegoCommands() {
       'level',
       valueHelp: 'N|LO-HI',
       help: "only problems of this level in the set's index.json, e.g. 3 or 2-4",
-    );
+    )
+    ..addFlag('unanswered', negatable: false, help: 'also problems without an answer (they cannot be judged)');
   int engineTimeout(Args a) => a.timeout ?? analysisTimeout;
 
   return CommandGroup('tsumego', 'life-and-death problems', [
@@ -630,6 +631,7 @@ Command<int> _tsumegoCommands() {
         'set': a.string('set'),
         'difficulty': a.string('difficulty'),
         'level': a.string('level'),
+        if (a.flag('unanswered')) 'answered': false,
         'limit': a.integer('limit'),
       }),
       params: const [Param('source', help: 'SGF file or folder (searched recursively)')],
@@ -647,6 +649,7 @@ Command<int> _tsumegoCommands() {
         'set': a.string('set'),
         'difficulty': a.string('difficulty'),
         'level': a.string('level'),
+        if (a.flag('unanswered')) 'answered': false,
         'frame': a.onOff('frame'),
         'margin': a.integer('margin'),
         'ko': a.flag('ko'),

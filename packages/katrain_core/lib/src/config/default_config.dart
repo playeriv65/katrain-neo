@@ -47,6 +47,11 @@ const String defaultConfigJson = r'''
         "main_time": 0,
         "sound": true
     },
+    "tsumego": {
+        "source": "",
+        "level": "",
+        "index": 0
+    },
     "game": {
         "size": "19",
         "komi": 6.5,

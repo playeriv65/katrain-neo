@@ -10,10 +10,12 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:katrain_core/api.dart' show ApiState, viewRegion;
+import 'package:katrain_core/api.dart'
+    show ApiError, ApiState, CommandHandler, TsumegoProgress, bookReply, tsumegoProgress, viewRegion;
 import 'package:katrain_core/io.dart';
 import 'package:katrain_core/katrain_core.dart';
 
+import 'api_host.dart';
 import 'board_state.dart';
 import 'dialogs.dart';
 import 'game_clock.dart';
@@ -78,6 +80,15 @@ class AppController extends HostBase with ChangeNotifier {
 
   /// A tsumego problem is being solved against the AI: nothing on screen may give its answer away.
   bool get solvingTsumego => apiState.tsumego != null && mode == modePlay;
+
+  /// Where the problem on the board stands against its answer; null when no problem is loaded.
+  TsumegoProgress? get problemProgress {
+    final ts = apiState.tsumego;
+    final g = game;
+    if (ts == null || g == null || !identical(g.root, ts.problemRoot)) return null;
+    return tsumegoProgress(ts, g.currentNode);
+  }
+
   GameNode? moveTreeSelectedNode;
 
   Future<void> _queue = Future.value();
@@ -253,12 +264,19 @@ class AppController extends HostBase with ChangeNotifier {
         g.analyzeUndo(cn);
       }
       // The AI moves at the end of a line, and after a human move even where the line goes on from an earlier try
-      // (an undo, then the same move again); not where browsing the game stops.
-      if (cn.analysisComplete &&
-          nextPlayer.ai &&
-          (cn.children.isEmpty || identical(cn, _answerDue)) &&
-          g.endResult == null &&
-          !(teachingUndo && cn.autoUndo == null)) {
+      // (an undo, then the same move again); not where browsing the game stops. In a tsumego problem the answer
+      // replies while the moves follow it, and nobody moves once it says the problem is solved or failed.
+      final aiTurn = nextPlayer.ai && (cn.children.isEmpty || identical(cn, _answerDue)) && g.endResult == null;
+      final ts = solvingTsumego ? apiState.tsumego : null;
+      final progress = ts == null ? null : problemProgress;
+      final reply = ts == null || !aiTurn ? null : bookReply(ts, cn);
+      if (progress?.result != null) {
+        _answerDue = null;
+      } else if (reply != null) {
+        _answerDue = null;
+        g.play(reply, analyze: false);
+        Timer(const Duration(milliseconds: 250), _playStoneSound);
+      } else if (aiTurn && cn.analysisComplete && !(teachingUndo && cn.autoUndo == null)) {
         _answerDue = null;
         await _aiMove(g, cn); // only for this position: an undo in between stops it
         Timer(const Duration(milliseconds: 250), _playStoneSound);
@@ -399,7 +417,10 @@ class AppController extends HostBase with ChangeNotifier {
     board.pv = null;
     try {
       final captured = g.prisonerCount['W']! + g.prisonerCount['B']!;
-      g.play(Move(coords: coords, player: nextPlayerInfo.player));
+      final move = Move(coords: coords, player: nextPlayerInfo.player);
+      // a move the problem's answer covers needs no search: the answer replies and judges it
+      final onBook = solvingTsumego && (problemProgress?.book?.children.any((c) => c.move == move) ?? false);
+      g.play(move, analyze: !onBook);
       _answerDue = g.currentNode;
       if (captured < g.prisonerCount['W']! + g.prisonerCount['B']!) {
         sounds.play(KThemeSounds.capturing);
@@ -683,6 +704,61 @@ class AppController extends HostBase with ChangeNotifier {
     noteText = currentNode.note;
   }
 
+  // -- tsumego practice
+
+  /// The practice runs on the same commands as the local API, so the app and agents see one problem state.
+  late final CommandHandler _commands = CommandHandler(AppApiHost(this), apiState);
+
+  /// The practice settings: the problem folder or file, the level filter (`3`, `2-4` or empty) and the last problem.
+  String get practiceSource => (config('tsumego/source') as String?) ?? '';
+  String get practiceLevel => (config('tsumego/level') as String?) ?? '';
+  int get practiceIndex => (config('tsumego/index') as int?) ?? 0;
+
+  /// How many problems with an answer [source] has at [level], and which levels it has.
+  Future<({int total, Map<String, int> levels})> practiceCount(String source, String level) async {
+    if (source.trim().isEmpty) return (total: 0, levels: const <String, int>{}); // not the working folder
+    final listed = await _commands.dispatch('tsumego.list', {'source': source, 'level': level, 'limit': 1}) as Map;
+    return (total: listed['total'] as int, levels: ((listed['levels'] as Map?) ?? const {}).cast<String, int>());
+  }
+
+  /// Loads problem [index] of the practice set (counting round), against the strongest AI, and remembers where the
+  /// practice is; a problem that cannot be loaded is reported in the status line.
+  Future<void> startPractice({String? source, String? level, int? index}) async {
+    final src = source ?? practiceSource;
+    final lvl = level ?? practiceLevel;
+    try {
+      final total = (await practiceCount(src, lvl)).total;
+      if (total == 0) {
+        setStatus(i18n.tr('tsumego:none'), statusError);
+        return;
+      }
+      final i = (index ?? practiceIndex) % total;
+      await _commands.dispatch('tsumego.load', {'source': src, 'level': lvl, 'index': i});
+      final section = (configStore.data['tsumego'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+      configStore.data['tsumego'] = section..addAll({'source': src, 'level': lvl, 'index': i});
+      saveConfig('tsumego');
+    } on ApiError catch (e) {
+      setStatus(e.message, statusError);
+    }
+  }
+
+  /// The next (or with a negative [step], an earlier) problem of the set the problem shown comes from, however it
+  /// was loaded (the practice dialog, or an agent through the API).
+  Future<void> nextProblem([int step = 1]) {
+    final ts = apiState.tsumego;
+    if (ts == null || ts.source == null) return startPractice(index: practiceIndex + step);
+    return startPractice(source: ts.source, level: ts.level ?? '', index: ts.index + step);
+  }
+
+  /// The problem's start again, the tries removed.
+  Future<void> retryProblem() async {
+    try {
+      await _commands.dispatch('tsumego.reset', const {});
+    } on ApiError catch (e) {
+      setStatus(e.message, statusError);
+    }
+  }
+
   // -- clock
 
   void tickClock() {
@@ -700,7 +776,7 @@ class AppController extends HostBase with ChangeNotifier {
         sound: config('timer/sound') == true,
       ),
       sounds,
-      running: mode == modePlay && !popupOpen,
+      running: mode == modePlay && !popupOpen && problemProgress == null, // problems are not timed
     );
   }
 

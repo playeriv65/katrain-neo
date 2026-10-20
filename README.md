@@ -20,6 +20,9 @@ with or endorsed by the KaTrain project; KaTrain's copyright notice and credits 
   board size, and a byo-yomi clock.
 - **Teaching:** moves that lose more than you allow are undone, with the AI's comments; a game report with accuracy
   and point loss per player.
+- **Life & death practice:** problems from any folder of SGF files that come with answers, by level, against the
+  strongest AI: the answer replies while your moves follow it and says at once when it is solved or failed; off the
+  answer, KataGo answers (and plays the kill out). The problems are not included.
 - **Files:** SGF, NGF and GIB, in legacy encodings too (GBK, Big5, Shift_JIS, EUC-KR, ...); drag and drop and the
   clipboard.
 - **Agents:** a local API and the `katrain-neo` command let coding agents read and steer the running app.

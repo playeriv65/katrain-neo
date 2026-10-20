@@ -144,7 +144,7 @@ katrain-neo open "katrain://pv?from=45&moves=D4,C3&step=1"
 ## Life-and-death problems
 
 ```
-katrain-neo tsumego list ~/problems [--set cho --difficulty elementary --level 2-4]
+katrain-neo tsumego list ~/problems [--set cho --difficulty elementary --level 2-4] [--unanswered]
 katrain-neo tsumego load ~/problems --index 3          # hides the SGF answer, adds a tsumego frame + region
 katrain-neo tsumego target --goal kill --group C2      # goal for the player to move; group = any stone of the target
 katrain-neo tsumego try B2                             # any legal move; KataGo evaluates and answers locally
@@ -172,7 +172,15 @@ problem whose source does not state one has `goal: null` until `tsumego target -
 
 Loading a problem makes the player to move a human against the strongest AI, switches to play mode and turns off
 everything that would give the answer away (hints, policy, ownership, evaluation, children); the score graph and
-move statistics are hidden while it is solved. Going back stops at the problem's start.
+move statistics are hidden while it is solved. Going back stops at the problem's start. Problems load under
+Tromp-Taylor rules, so KataGo captures a dead group instead of passing over it.
+
+Only problems with an answer (any move in the SGF) are listed and loaded; `--unanswered` lists the others too. While
+the moves follow the answer tree, the app's AI replies with the answer's main line, without searching;
+`tsumego status` has `progress`: `on_book`, `result` (`solved` at a node the answer marks correct — Correct, RIGHT,
+正解, TE — or at the end of an unmarked answer's main line; `failed` where an answer line ends without that) and the
+answer's `comment` there. Off the answer (`on_book: false`) KataGo answers and nothing is judged yet. The app's
+"Life & death practice" (menu) loads problems from a folder by level, with Retry and Next on the problem card.
 
 ## Good habits
 

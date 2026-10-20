@@ -1,7 +1,8 @@
 // Life-and-death problem mode, built on the tsumego frame and region-of-interest search.
 //
-// The solver may play any legal move; KataGo answers inside the problem region instead of following a fixed answer
-// tree. The SGF's own solution tree, when present, is kept aside as a reference and never shown unless asked for.
+// Only problems that come with an answer are practised. The SGF's answer tree is kept aside, never shown unless
+// asked for: while the solver's moves follow it, the opponent answers from it, and it says when the problem is
+// solved or failed. Once the moves leave it, KataGo answers inside the problem region.
 
 import 'package:collection/collection.dart';
 
@@ -130,6 +131,9 @@ List<(String?, String)> problemTexts(String text) {
 
 String? _firstMoveColor(String text) => RegExp(r'(?<![A-Za-z\\])([BW])\[[a-zA-Z]{0,2}\]').firstMatch(text)?[1];
 
+/// Whether [text] has a stone played (not only setup stones, nor only passes).
+bool _hasMove(String text) => RegExp(r'(?<![A-Za-z\\])[BW]\[[a-zA-Z]{2}\]').hasMatch(text);
+
 String _firstCommentLine(String tree) => (_prop(_firstNode(tree), 'C') ?? '').trim().split('\n')[0].trim();
 
 String? _read(String path) {
@@ -222,6 +226,9 @@ class TsumegoProblem {
   final String? title;
   final int? level;
   final String? category;
+
+  /// Whether the SGF has an answer (any move after the setup); only such problems are practised.
+  final bool hasAnswer;
   const TsumegoProblem({
     required this.file,
     required this.treeIndex,
@@ -232,6 +239,7 @@ class TsumegoProblem {
     this.title,
     this.level,
     this.category,
+    this.hasAnswer = true,
   });
 
   /// `live` or `kill` when the index's category says so.
@@ -253,6 +261,7 @@ class TsumegoProblem {
           title: entry['title'] as String?,
           level: (entry['level'] as num?)?.toInt(),
           category: entry['category'] as String?,
+          hasAnswer: hasAnswer,
         );
 
   Map<String, Object?> toJson() => {
@@ -264,6 +273,7 @@ class TsumegoProblem {
     if (title != null) 'title': title,
     if (level != null) 'level': level,
     if (category != null) 'category': category,
+    'has_answer': hasAnswer,
   };
 }
 
@@ -359,6 +369,7 @@ List<TsumegoProblem> scanProblems(String source) {
           name: name == null || name.isEmpty ? stem : name,
           difficulty: _difficulty(tree, rel, header),
           toPlay: pl != null && pl.isNotEmpty ? pl : _firstMoveColor(tree),
+          hasAnswer: _hasMove(tree),
         )._withIndex(index['${File(path).absolute.path}#$j']),
       );
     }
@@ -374,17 +385,19 @@ class _SortKey implements Comparable<_SortKey> {
 }
 
 /// The problems in [set] (a part of the set or name), of [difficulty], and with a [level] in `lo-hi` (or one level),
-/// as the set's index gives it.
+/// as the set's index gives it; with [answered], only those that come with an answer.
 List<TsumegoProblem> filterProblems(
   List<TsumegoProblem> problems, {
   String? set,
   String? difficulty,
   (int, int)? level,
+  bool answered = false,
 }) => [
   for (final p in problems)
     if ((set == null || '${p.set}/${p.name}'.toLowerCase().contains(set.toLowerCase())) &&
         (difficulty == null || p.difficulty?.toLowerCase() == difficulty.toLowerCase()) &&
-        (level == null || (p.level != null && p.level! >= level.$1 && p.level! <= level.$2)))
+        (level == null || (p.level != null && p.level! >= level.$1 && p.level! <= level.$2)) &&
+        (!answered || p.hasAnswer))
       p,
 ];
 
@@ -407,16 +420,22 @@ String? _goalFromText(String? text) {
 /// Loading moves SGF C[] comments into the note, so read both.
 String _comment(GameNode node) => [node.note, ...?node.properties['C']].join(' ');
 
-/// RIGHT/WRONG label of a solution line, from common SGF conventions.
+final _wrongWords = RegExp(r'\b(wrong|incorrect|failure)\b|失败|错误');
+final _correctWords = RegExp(r'\b(right|correct)\b|正解|正确');
+
+/// RIGHT/WRONG mark of one answer node, from common SGF conventions: its comment, or a TE/BM property.
+String? _nodeLabel(GameNode n) {
+  final text = _comment(n).toLowerCase();
+  if (n.properties.containsKey('BM') || _wrongWords.hasMatch(text)) return 'wrong';
+  if (n.properties.containsKey('TE') || _correctWords.hasMatch(text)) return 'correct';
+  return null;
+}
+
+/// RIGHT/WRONG label of a solution line: the first mark along its first variation.
 String? _lineLabel(GameNode node) {
   for (final n in [node, ..._firstLine(node)]) {
-    final text = _comment(n).toLowerCase();
-    if (n.properties.containsKey('BM') || const ['wrong', 'incorrect', '失败', '错误'].any(text.contains)) {
-      return 'wrong';
-    }
-    if (n.properties.containsKey('TE') || const ['right', 'correct', '正解', '正确'].any(text.contains)) {
-      return 'correct';
-    }
+    final label = _nodeLabel(n);
+    if (label != null) return label;
   }
   return null;
 }
@@ -445,6 +464,53 @@ List<GameNode> _firstLine(GameNode node) {
     line.add(n);
   }
   return line;
+}
+
+// -- following the answer
+
+/// How the solver stands against the problem's answer: where the position shown is in the answer tree (null once
+/// the moves left it; KataGo answers then), and whether the answer says the problem is solved or failed there.
+class TsumegoProgress {
+  final GameNode? book;
+
+  /// `solved`, `failed`, or null while the problem goes on.
+  final String? result;
+
+  /// The answer's comment where the line ended.
+  final String? comment;
+  const TsumegoProgress(this.book, [this.result, this.comment]);
+  static const offBook = TsumegoProgress(null);
+
+  Map<String, Object?> toJson() => {'on_book': book != null, 'result': result, 'comment': ?comment};
+}
+
+/// Follows the moves from the problem's start to [node] through the answer tree: a node marked correct solves the
+/// problem; a line ending anywhere else, after the answer's refutation, fails it.
+TsumegoProgress tsumegoProgress(TsumegoState ts, GameNode node) {
+  final path = node.nodesFromRoot;
+  final from = path.indexWhere((n) => identical(n, ts.start));
+  if (from < 0) return TsumegoProgress.offBook;
+  var book = ts.solutionRoot;
+  for (final n in path.skip(from + 1)) {
+    final next = book.children.firstWhereOrNull((c) => c.move != null && c.move == n.move);
+    if (next == null) return TsumegoProgress.offBook;
+    book = next;
+  }
+  if (identical(book, ts.solutionRoot)) return TsumegoProgress(book);
+  final text = _comment(book).trim();
+  final comment = text.isEmpty ? null : text;
+  if (ts._isCorrect(book)) return TsumegoProgress(book, 'solved', comment);
+  if (book.children.isEmpty) return TsumegoProgress(book, 'failed', comment);
+  return TsumegoProgress(book);
+}
+
+/// The answer's move for the opponent to move at [node], from the answer tree's main line; null when the solver is
+/// to move, off the tree, or once the problem is over.
+Move? bookReply(TsumegoState ts, GameNode node) {
+  if (node.nextPlayer == ts.toPlay) return null;
+  final progress = tsumegoProgress(ts, node);
+  if (progress.result != null) return null;
+  return progress.book?.children.map((c) => c.move).firstWhereOrNull((m) => m?.player == node.nextPlayer);
 }
 
 const viewMargin = 2; // lines of empty board shown around the problem stones
@@ -539,8 +605,11 @@ class _Evaluation {
 
 class TsumegoState {
   final TsumegoProblem problem;
+
+  /// The problem's place in [source]'s problems at [level] (the filter it was loaded with), for going on.
   final int index;
   final String? source;
+  String? level;
   final GameNode solutionRoot; // the whole SGF tree with its answer branches (hidden)
   final GameNode problemRoot;
   final GameNode start;
@@ -554,6 +623,11 @@ class TsumegoState {
   /// The frame node (child of the problem root) holds only the frame's stones.
   final Set<(int, int)> frameCoords;
   final List<int> viewRegion;
+
+  /// Whether the answer marks its correct lines; when it marks none, the end of its main line is the answer.
+  late final bool _marked = solutionRoot.nodesInTree.any((n) => _nodeLabel(n) == 'correct');
+  late final GameNode _mainLineEnd = [solutionRoot, ..._firstLine(solutionRoot)].last;
+  bool _isCorrect(GameNode n) => _marked ? _nodeLabel(n) == 'correct' : identical(n, _mainLineEnd);
 
   TsumegoState(this.problem, this.index, this.source, this.solutionRoot, this.problemRoot, this.start, this.region)
     : toPlay = problemRoot.initialPlayer,
@@ -683,6 +757,7 @@ List<TsumegoProblem> _problems(ApiArgs a) => filterProblems(
   set: a.text('set'),
   difficulty: a.text('difficulty'),
   level: parseLevel(a.text('level')),
+  answered: a.flag('answered', orElse: true), // a problem without an answer cannot be judged
 );
 
 Object? _list(CommandHandler h, ApiArgs a) {
@@ -754,7 +829,7 @@ Object? _load(CommandHandler h, ApiArgs a) {
     game.currentNode,
     game.regionOfInterest,
   );
-  h.state.tsumego = ts;
+  h.state.tsumego = ts..level = a.text('level');
   ts.group = _defaultGroup(ts, ts.start);
   // The solver plays the side to move, against KataGo at full strength, which answers inside the problem's region;
   // in play mode, without the engine's answer on the board. This comes last: loading a game and framing it change
@@ -924,7 +999,12 @@ List<String> _colored(List<Move> moves) => [for (final m in moves) '${m.player}:
 
 Object? _status(CommandHandler h, ApiArgs a) => h.state.tsumego == null
     ? {'active': false}
-    : {'active': true, ..._ts(h).summary(), 'current': nodeRef(h.game.currentNode)};
+    : {
+        'active': true,
+        ..._ts(h).summary(),
+        'current': nodeRef(h.game.currentNode),
+        'progress': tsumegoProgress(_ts(h), h.game.currentNode).toJson(),
+      };
 
 final Map<String, ApiCommand> tsumegoCommands = {
   'tsumego.list': const ApiCommand(

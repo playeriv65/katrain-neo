@@ -30,6 +30,7 @@ final List<(String, IconData, String, void Function(AppController))> menuItems =
   ('menu:save', Icons.save_outlined, 'Ctrl+S', (a) => a.saveGame()),
   ('menu:save-as', Icons.save_as_outlined, 'Ctrl+D', (a) => a.openDialog(AppDialog.saveGameAs)),
   ('menu:load', Icons.folder_open_outlined, 'Ctrl+L', (a) => a.openDialog(AppDialog.loadGame)),
+  ('menu:tsumego', Icons.extension_outlined, '', (a) => a.openDialog(AppDialog.tsumegoPractice)),
   ('menu:clocksettings', Icons.timer_outlined, 'F5', (a) => a.openDialog(AppDialog.timer)),
   ('menu:teachsettings', Icons.school_outlined, 'F6', (a) => a.openDialog(AppDialog.teacher)),
   ('menu:aisettings', Icons.smart_toy_outlined, 'F7', (a) => a.openDialog(AppDialog.ai)),

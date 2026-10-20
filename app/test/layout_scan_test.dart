@@ -55,6 +55,12 @@ void main() {
     ];
     final settings = defaultConfig();
     final app = AppController(MemoryConfigStore(settings), resourceDir: '.');
+    final problemDir = Directory.systemTemp.createTempSync('neo_scan_tsumego_');
+    File('${problemDir.path}${Platform.pathSeparator}corner.sgf').writeAsStringSync(
+      '(;GM[1]FF[4]SZ[19]PL[B]GN[A corner problem with a long name to see it cut]'
+      'AB[pr][qq][rq][sq][or][nr]AW[qr][rr][pq][oq][nq][mr](;B[sr];W[rs];B[qs]C[Correct])'
+      '(;B[rs];W[sr]C[Black has only one eye left in the corner, so the whole group dies after White T2.]))',
+    );
     await app.start(engineWithoutIo: KataGoEngine(app.engineHost, (settings['engine'] as Map).cast<String, dynamic>()));
     app.loadSgfText(sgf);
     final boundary = GlobalKey();
@@ -151,6 +157,20 @@ void main() {
             check('$tag $mode');
             await save('${tag}_$mode');
           }
+          // a tsumego problem failed: the problem card, with the answer's comment, takes the clock's place
+          // on the test's clock, like the app's queue (the problem files are read synchronously)
+          app.startPractice(source: problemDir.path, level: '', index: 0);
+          await settle();
+          app.play(Move.fromGtp('S1').coords);
+          await settle();
+          check('$tag tsumego');
+          await save('${tag}_tsumego');
+          // back to the game, played by two humans: an AI to move would wait for an engine that never answers
+          for (final bw in const ['B', 'W']) {
+            app.updatePlayer(bw);
+          }
+          app.loadSgfText(sgf);
+          await settle();
           app.toggleMenu();
           await settle();
           check('$tag menu');
@@ -180,6 +200,7 @@ void main() {
     tester.view.reset();
     await app.shutdown();
     app.dispose();
+    problemDir.deleteSync(recursive: true);
     debugDefaultTargetPlatformOverride = null;
     if (out != null) File('$out/problems.txt').writeAsStringSync('${problems.toSet().join('\n')}\n');
     expect(problems.toSet(), isEmpty);

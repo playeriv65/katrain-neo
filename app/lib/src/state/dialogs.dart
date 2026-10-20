@@ -1,7 +1,19 @@
 // The dialogs the controller asks the screen to open.
 
 /// The dialogs of the app.
-enum AppDialog { newGame, loadGame, saveGameAs, timer, teacher, ai, settings, reanalyze, report, tsumegoFrame }
+enum AppDialog {
+  newGame,
+  loadGame,
+  saveGameAs,
+  timer,
+  teacher,
+  ai,
+  settings,
+  reanalyze,
+  report,
+  tsumegoFrame,
+  tsumegoPractice,
+}
 
 /// The engine failed to start or stopped working.
 class EngineFailure {

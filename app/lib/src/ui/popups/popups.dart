@@ -11,6 +11,7 @@ import 'files_report.dart';
 import 'new_game.dart';
 import 'simple_popups.dart';
 import 'teacher_ai.dart';
+import 'tsumego_practice.dart';
 
 /// Opens dialogs over [context]; the AI does not move while one is open.
 class PopupPresenter {
@@ -48,6 +49,8 @@ class PopupPresenter {
         await _show(GameReportDialog(app: app));
       case AppDialog.tsumegoFrame:
         await _show(TsumegoFrameDialog(app: app));
+      case AppDialog.tsumegoPractice:
+        await _show(TsumegoPracticeDialog(app: app));
     }
   }
 

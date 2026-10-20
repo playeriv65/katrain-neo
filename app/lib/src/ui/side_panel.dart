@@ -77,7 +77,10 @@ class SidePanel extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              if (app.mode == modePlay)
+              // a problem is not timed: its card takes the clock's place
+              if (app.mode == modePlay && app.problemProgress != null)
+                _ProblemCard(app: app)
+              else if (app.mode == modePlay)
                 _ClockCard(app: app)
               else
                 // takes the graph's room while the graph folds, in step with it
@@ -277,6 +280,115 @@ class _ClockCard extends StatelessWidget {
                     icon: const Icon(Icons.flag_outlined),
                     label: Text(i18n.tr('resign')),
                   ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The tsumego problem being solved: which one, who plays and what for, how it stands against its answer, and the
+/// buttons to try again or go on.
+class _ProblemCard extends StatelessWidget {
+  final AppController app;
+  const _ProblemCard({required this.app});
+
+  /// The answer's comment, unless it only says right or wrong (the card says that already).
+  static String? _explanation(String? comment) {
+    final text = comment?.trim() ?? '';
+    return text.isEmpty || RegExp(r'^(correct|right|wrong|incorrect)[.!]*$', caseSensitive: false).hasMatch(text)
+        ? null
+        : text;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ts = app.apiState.tsumego!;
+    final progress = app.problemProgress!;
+    final problem = ts.problem;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final colors = EvalColors.of(context);
+    final (IconData icon, Color color, String state) = switch (progress.result) {
+      'solved' => (Icons.check_circle, colors.better, i18n.tr('tsumego:solved')),
+      'failed' => (Icons.cancel, colors.worse, i18n.tr('tsumego:failed')),
+      _ when progress.book == null => (Icons.smart_toy_outlined, scheme.onSurfaceVariant, i18n.tr('tsumego:off book')),
+      _ => (Icons.radio_button_unchecked, scheme.onSurfaceVariant, i18n.tr('tsumego:your move')),
+    };
+    final explanation = progress.result == null ? null : _explanation(progress.comment);
+    final details = [
+      problem.set,
+      if (problem.level != null) fillTemplate(i18n.tr('tsumego:level n'), {'n': problem.level}),
+    ].join(' · ');
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      StoneAvatar(player: ts.toPlay, radius: 11),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          i18n.tr(ts.goal == null ? 'tsumego:${ts.toPlay}' : 'tsumego:${ts.toPlay}:${ts.goal}'),
+                          style: theme.textTheme.titleMedium,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(problem.title ?? problem.name, style: theme.textTheme.bodyMedium),
+                  Text(details, style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(icon, color: color, size: 20),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(state, style: theme.textTheme.titleSmall?.copyWith(color: color)),
+                      ),
+                    ],
+                  ),
+                  if (explanation != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(explanation, style: theme.textTheme.bodySmall),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            IntrinsicWidth(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: app.retryProblem,
+                    icon: const Icon(Icons.replay),
+                    label: Text(i18n.tr('tsumego:retry')),
+                  ),
+                  const SizedBox(height: 6),
+                  progress.result == 'solved'
+                      ? FilledButton.icon(
+                          onPressed: app.nextProblem,
+                          icon: const Icon(Icons.skip_next),
+                          label: Text(i18n.tr('tsumego:next')),
+                        )
+                      : OutlinedButton.icon(
+                          onPressed: app.nextProblem,
+                          icon: const Icon(Icons.skip_next),
+                          label: Text(i18n.tr('tsumego:next')),
+                        ),
                 ],
               ),
             ),

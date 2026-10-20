@@ -362,11 +362,52 @@ void main() {
     setUp(() async {
       await begin(size: 19);
       tmp = Directory.systemTemp.createTempSync('neo_tsumego_');
-      File('${tmp.path}${Platform.pathSeparator}corner.sgf')
-          .writeAsStringSync('(;GM[1]FF[4]SZ[19]PL[B]AB[pr][qq][rq][sq][or][nr]AW[qr][rr][pq][oq][nq][mr];B[sr])');
+      // the answer: T2, S1, R1 is correct; S1 first is refuted by T2
+      File('${tmp.path}${Platform.pathSeparator}corner.sgf').writeAsStringSync(
+        '(;GM[1]FF[4]SZ[19]PL[B]AB[pr][qq][rq][sq][or][nr]AW[qr][rr][pq][oq][nq][mr]'
+        '(;B[sr];W[rs];B[qs]C[Correct])(;B[rs];W[sr]))',
+      );
       api = CommandHandler(AppApiHost(app), app.apiState, dataFolder: tmp.path);
     });
     tearDown(() => tmp.deleteSync(recursive: true));
+
+    Future<void> load() async {
+      await api.dispatch('tsumego.load', {'source': tmp.path});
+      await kata.settle(app);
+    }
+
+    String lastMove() => '${app.game!.currentNode.move!.player}:${app.game!.currentNode.move!.gtp()}';
+
+    test('follows its answer: the answer replies, and a correct line ends it at once', () async {
+      await load();
+      expect(app.problemProgress!.result, isNull);
+      await app.play(at('T2'));
+      await kata.settle(app);
+      expect(lastMove(), 'W:S1'); // the answer's reply, not a search
+      await app.play(at('R1'));
+      await kata.settle(app);
+      expect(app.problemProgress!.result, 'solved');
+      expect(lastMove(), 'B:R1'); // nobody moves after the answer says it is solved
+    });
+
+    test('a wrong line fails once the answer has refuted it', () async {
+      await load();
+      await app.play(at('S1'));
+      await kata.settle(app);
+      expect(lastMove(), 'W:T2');
+      expect(app.problemProgress!.result, 'failed');
+    });
+
+    test('is practised from the settings, problem after problem', () async {
+      await app.startPractice(source: tmp.path, level: '', index: 0);
+      await kata.settle(app);
+      expect(app.problemProgress, isNotNull);
+      expect((app.practiceSource, app.practiceIndex), (tmp.path, 0));
+      await app.nextProblem(); // one problem: round again to it
+      await kata.settle(app);
+      expect(app.practiceIndex, 0);
+      expect(app.problemProgress!.book, isNotNull);
+    });
 
     test('is played against the AI with nothing given away, and going back stops at its start', () async {
       app.setAnalysisControl('hints', true);
@@ -380,8 +421,9 @@ void main() {
       final start = app.apiState.tsumego!.start;
       expect(app.game!.currentNode, same(start));
 
-      await app.play(at('S1'));
+      await app.play(at('Q1')); // not in the answer: KataGo answers
       await kata.settle(app);
+      expect(app.problemProgress!.book, isNull);
       expect(app.game!.currentNode.parent!.parent, same(start)); // the AI answered
 
       await app.undo(9999);

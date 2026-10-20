@@ -486,12 +486,14 @@ void main() {
       );
       File('$folder/cho/p-10.sgf').writeAsStringSync('(;GM[1]SZ[19]GN[ten]AB[cc][dc]AW[bc][bd]PL[W];W[db])');
       File('$folder/center.sgf')
-          .writeAsStringSync('(;GM[1]FF[4]SZ[19]GN[center 3d]AB[jj][jk][kj]AW[ij][ik][jl][kk][lj][ji]PL[B])');
+          .writeAsStringSync('(;GM[1]FF[4]SZ[19]GN[center 3d]AB[jj][jk][kj]AW[ij][ik][jl][kk][lj][ji]PL[B];B[jm])');
+      File('$folder/unanswered.sgf').writeAsStringSync('(;GM[1]FF[4]SZ[19]AB[aa][ba]AW[ca][cb]PL[B])');
     });
 
     test('listing', () async {
       final listed = await run('tsumego.list', {'source': folder});
-      expect(listed['total'], 3);
+      expect(listed['total'], 3); // problems without an answer are left out
+      expect((await run('tsumego.list', {'source': folder, 'answered': false}))['total'], 4);
       expect([for (final p in listed['problems']) p['name']], ['center 3d', 'p-2', 'ten']);
       expect(listed['difficulties'], {'3d': 1, 'unknown': 2});
       expect((await run('tsumego.list', {'source': folder, 'set': 'cho'}))['total'], 2);
@@ -532,6 +534,17 @@ void main() {
       final reset = await run('tsumego.reset');
       expect(reset['attempts'], 0);
       expect((await run('tsumego.status'))['current'], reset['start']);
+      // the answer tree judges the moves: a line marked correct solves the problem, one that ends elsewhere fails it
+      expect((await run('tsumego.status'))['progress'], {'on_book': true, 'result': null});
+      await run('play', {'moves': 'T2'});
+      expect((await run('tsumego.status'))['progress'], {'on_book': true, 'result': 'solved', 'comment': 'Correct'});
+      await run('tsumego.reset');
+      await run('play', {'moves': 'Q1'});
+      expect((await run('tsumego.status'))['progress'], {'on_book': true, 'result': 'failed', 'comment': 'Wrong'});
+      await run('tsumego.reset');
+      await run('play', {'moves': 'S1'});
+      expect((await run('tsumego.status'))['progress'], {'on_book': false, 'result': null});
+      await run('tsumego.reset');
       // a move played through the API is analysed only inside the problem, so the AI never answers in the frame
       final engine = host.testEngine as FakeEngine;
       engine.requests.clear();
