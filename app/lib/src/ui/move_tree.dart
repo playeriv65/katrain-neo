@@ -147,10 +147,13 @@ class _MoveTreeState extends State<MoveTree> {
                       final node = nodeAt(d.localPosition);
                       if (node != null && !node.isRoot) _contextMenu(d.globalPosition, node);
                     },
-                    child: CustomPaint(
-                      // at least the panel's size, so the wheel steps through moves anywhere in it
-                      size: Size(math.max(width, c.maxWidth), math.max(height, c.maxHeight)),
-                      painter: _MoveTreePainter(app, positions, xy, moveSize, Theme.of(context).colorScheme),
+                    // its own layer: scrolling or dragging moves the drawn tree instead of painting it again
+                    child: RepaintBoundary(
+                      child: CustomPaint(
+                        // at least the panel's size, so the wheel steps through moves anywhere in it
+                        size: Size(math.max(width, c.maxWidth), math.max(height, c.maxHeight)),
+                        painter: _MoveTreePainter(app, positions, xy, moveSize, Theme.of(context).colorScheme),
+                      ),
                     ),
                   ),
                 ),

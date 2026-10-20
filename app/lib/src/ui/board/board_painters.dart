@@ -15,6 +15,22 @@ import '../app_theme.dart' show fontFallback;
 import 'board_geometry.dart';
 import 'board_images.dart';
 
+/// Texts laid out, by what they show and how, the least recently drawn first. The board, its hints and the move
+/// tree draw the same labels on every repaint (a hover, a scroll, an analysis update), and the layout is the
+/// expensive part of drawing a text.
+final _laidOut = <String, TextPainter>{};
+const _laidOutKept = 3000;
+
+/// The laid out [span] for [key] (which names everything that shapes it), from the cache when it was drawn before.
+TextPainter laidOutText(String key, InlineSpan Function() span) {
+  var painter = _laidOut.remove(key); // put back below: the most recently drawn last
+  if (painter == null) {
+    painter = TextPainter(text: span(), textDirection: TextDirection.ltr, textAlign: TextAlign.center)..layout();
+    if (_laidOut.length >= _laidOutKept) _laidOut.remove(_laidOut.keys.first)!.dispose();
+  }
+  return _laidOut[key] = painter;
+}
+
 /// Draws [text] centred on [pos], bold, as all text on the board.
 void drawText(
   Canvas canvas,
@@ -26,8 +42,9 @@ void drawText(
   List<String>? fallback,
 }) {
   if (fontSize <= 0) return;
-  final painter = TextPainter(
-    text: TextSpan(
+  final painter = laidOutText(
+    '$text\u0000$fontSize\u0000${color.toARGB32()}\u0000$font\u0000${fallback?.join(',')}',
+    () => TextSpan(
       text: text,
       style: TextStyle(
         fontFamily: font,
@@ -38,9 +55,7 @@ void drawText(
         height: 1.0,
       ),
     ),
-    textDirection: TextDirection.ltr,
-    textAlign: TextAlign.center,
-  )..layout();
+  );
   painter.paint(canvas, pos - Offset(painter.width / 2, painter.height / 2));
 }
 
@@ -818,8 +833,9 @@ class BoardHoverPainter extends CustomPainter {
   }
 
   void _drawHintText(Canvas canvas, Offset pos, List<(String, double)> lines) {
-    final painter = TextPainter(
-      text: TextSpan(
+    final painter = laidOutText(
+      'hint\u0000${[for (final (text, size) in lines) '$text\u0000$size'].join('\u0000')}',
+      () => TextSpan(
         children: [
           for (var i = 0; i < lines.length; i++)
             TextSpan(
@@ -834,9 +850,7 @@ class BoardHoverPainter extends CustomPainter {
           height: 0.85,
         ),
       ),
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    )..layout();
+    );
     painter.paint(canvas, pos - Offset(painter.width / 2, painter.height / 2));
   }
 
