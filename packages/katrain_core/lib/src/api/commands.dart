@@ -193,7 +193,7 @@ class CommandHandler {
         nodeId(node); // number new nodes in move order
         created += 1;
         state.created.add(node);
-        if (analyze != 'none') node.analyze(game.engines[node.nextPlayer]!, analyzeFast: analyze == 'fast');
+        if (analyze != 'none') game.analyzeNew(node, fast: analyze == 'fast'); // keeps to a tsumego's region
       }
       nodes.add(node);
     }

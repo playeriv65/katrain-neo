@@ -723,12 +723,15 @@ Object? _load(CommandHandler h, ApiArgs a) {
   } on Object catch (e) {
     throw ApiError('sgf_parse_error', '${problem.file}: $e');
   }
-  // the problem without its answer tree and comments (they often give the answer away)
+  // The problem without its answer tree and comments (they often give the answer away), under Tromp-Taylor
+  // rules: dead stones count until they are captured, so after a wrong move KataGo plays the kill out instead of
+  // passing over a group it already sees as dead, and the solver sees why the move failed.
   final problemRoot = GameNode(
     properties: {
       for (final MapEntry(:key, :value) in solutionRoot.properties.entries)
         if (key != 'C') key: List.of(value),
       'PL': [solutionRoot.initialPlayer],
+      'RU': ['tromp-taylor'],
     },
   );
   if (problemRoot.placements.isEmpty) throw ApiError('bad_problem', 'problem has no setup stones');

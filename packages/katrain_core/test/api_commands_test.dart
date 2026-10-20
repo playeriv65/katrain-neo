@@ -9,6 +9,7 @@ import 'package:katrain_core/katrain_core.dart';
 import 'package:test/test.dart';
 
 import 'support/api_host.dart';
+import 'support/fake_engine.dart';
 
 const game =
     '(;GM[1]FF[4]SZ[19]KM[6.5]PB[Shin]PW[Iyama];B[pd]C[first];W[dp];B[pq];W[dd];B[fq]'
@@ -512,6 +513,8 @@ void main() {
       for (final key in spoilers) {
         expect(host.controls[key], isFalse, reason: key);
       }
+      // dead stones have to be captured, so KataGo plays a kill out rather than passing
+      expect(host.game!.root.ruleset, 'tromp-taylor');
       final eval = await run('tsumego.eval', {'visits': 40});
       expect(eval['solver'], 'B');
       expect(eval['target']['status'], isNotNull);
@@ -529,6 +532,14 @@ void main() {
       final reset = await run('tsumego.reset');
       expect(reset['attempts'], 0);
       expect((await run('tsumego.status'))['current'], reset['start']);
+      // a move played through the API is analysed only inside the problem, so the AI never answers in the frame
+      final engine = host.testEngine as FakeEngine;
+      engine.requests.clear();
+      await run('play', {'moves': 'T2'});
+      final region = host.game!.regionOfInterest;
+      expect(engine.requests, isNotEmpty);
+      expect([for (final r in engine.requests) r.regionOfInterest], everyElement(region));
+      await run('tsumego.reset');
       expect((await fails('tsumego.target', {'goal': 'win'})).code, 'bad_argument');
       expect((await fails('tsumego.target', {'group': 'A1'})).code, 'bad_argument');
       final zoom = await run('view.set', {'zoom': 'auto', 'hide_frame': false});

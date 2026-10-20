@@ -412,18 +412,24 @@ class Game extends BaseGame<GameNode> {
   GameNode? play(Move move, {bool ignoreKo = false, GameNode? expectedNode, bool analyze = true}) {
     final played = super.play(move, ignoreKo: ignoreKo, expectedNode: expectedNode);
     if (played == null) return null;
-    if (analyze) {
-      final engine = engines[played.nextPlayer]!;
-      if (regionOfInterest != null && regionRoot) {
-        played.analyze(engine, regionOfInterest: regionOfInterest, regionRoot: true);
-      } else if (regionOfInterest != null) {
-        played.analyze(engine, analyzeFast: true);
-        played.analyze(engine, regionOfInterest: regionOfInterest);
-      } else {
-        played.analyze(engine);
-      }
-    }
+    if (analyze) analyzeNew(played);
     return played;
+  }
+
+  /// Asks for the analysis of a node just added: within the region of interest when one is set (only there when
+  /// it is the root's region, as for a tsumego frame, whose outside is noise the AI must not answer in), otherwise
+  /// the whole board; [fast] stops at the fast visits.
+  void analyzeNew(GameNode node, {bool fast = false}) {
+    final engine = engines[node.nextPlayer]!;
+    final region = regionOfInterest;
+    if (region != null && regionRoot) {
+      node.analyze(engine, analyzeFast: fast, regionOfInterest: region, regionRoot: true);
+    } else if (region != null) {
+      node.analyze(engine, analyzeFast: true);
+      if (!fast) node.analyze(engine, regionOfInterest: region);
+    } else {
+      node.analyze(engine, analyzeFast: fast);
+    }
   }
 
   /// Sets the region from two corners `[x1, x2, y1, y2]`; a single point or the whole board clears it.
