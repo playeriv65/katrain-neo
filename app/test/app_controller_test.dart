@@ -388,6 +388,13 @@ void main() {
       await kata.settle(app);
       expect(app.problemProgress!.result, 'solved');
       expect(lastMove(), 'B:R1'); // nobody moves after the answer says it is solved
+      // the answer's moves were not searched; the hints, once turned on, are
+      expect(app.game!.currentNode.analysisExists, isFalse);
+      app.setAnalysisControl('hints', true);
+      await kata.settle(app);
+      expect(app.game!.currentNode.analysisExists, isTrue);
+      expect(app.game!.currentNode.parent!.analysisExists, isTrue);
+      expect(lastMove(), 'B:R1');
     });
 
     test('a wrong line fails once the answer has refuted it', () async {

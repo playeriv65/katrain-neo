@@ -251,6 +251,9 @@ class AppController extends HostBase with ChangeNotifier {
 
   List<num> get _evalThresholds => (config('trainer/eval_thresholds') as List).cast<num>();
 
+  /// The board displays drawn from KataGo's analysis of the position.
+  static const _analysisDisplays = ['hints', 'policy', 'ownership', 'eval'];
+
   /// After every action: mistake sounds, teaching undos and AI moves in play mode, pondering, and the redraw.
   Future<void> _react({bool redrawBoard = false}) async {
     final g = game;
@@ -298,6 +301,14 @@ class AppController extends HostBase with ChangeNotifier {
         _answerDue = null;
         await _aiMove(g, cn); // only for this position: an undo in between stops it
         Timer(const Duration(milliseconds: 250), _playStoneSound);
+      }
+    }
+    // A problem's moves along its answer are not searched (the answer replies); once a display that shows the
+    // analysis is turned on, the positions it shows are searched after all: the current one and the one before it
+    // (for the last move's evaluation dot), not the board without the frame.
+    if (start != null && problemProgress != null && _analysisDisplays.any((k) => analysisControls[k] == true)) {
+      for (final n in [cn, if (!identical(cn, start)) ?cn.parent]) {
+        if (n.analysisVisitsRequested == 0 && !n.analysisExists) g.analyzeNew(n);
       }
     }
     if (engine != null) {
