@@ -541,6 +541,7 @@ const List<(List<String>, String, Map<String, Object?>, int)> _requests = [
   (['tsumego', 'eval', '-v', '100'], 'tsumego.eval', {'visits': 100, 'timeout': 300}, 330),
   (['tsumego', 'reset'], 'tsumego.reset', {}, 60),
   (['tsumego', 'solution'], 'tsumego.solution', {'show': false, 'timeout': 300}, 330),
+  (['tsumego', 'hint', '--level', '1'], 'tsumego.hint', {'level': 1, 'timeout': 300}, 330),
   (
     ['tsumego', 'solution', '--show', '-v', '200'],
     'tsumego.solution',

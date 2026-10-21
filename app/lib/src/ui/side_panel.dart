@@ -322,7 +322,10 @@ class _ProblemCard extends StatelessWidget {
     final details = [
       problem.set,
       if (problem.level != null) fillTemplate(i18n.tr('tsumego:level n'), {'n': problem.level}),
+      if (ts.hints > 0) fillTemplate(i18n.tr('tsumego:hints used'), {'n': ts.hints}),
     ].join(' · ');
+    // a hint while it is the solver's move and the problem goes on: the area first, then the move
+    final canHint = progress.result == null && app.game!.currentNode.nextPlayer == ts.toPlay && app.hintLevel < 2;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -389,6 +392,12 @@ class _ProblemCard extends StatelessWidget {
                           icon: const Icon(Icons.skip_next),
                           label: Text(i18n.tr('tsumego:next')),
                         ),
+                  const SizedBox(height: 6),
+                  OutlinedButton.icon(
+                    onPressed: canHint ? app.problemHint : null,
+                    icon: const Icon(Icons.lightbulb_outline),
+                    label: Text(i18n.tr(app.hintLevel == 1 ? 'tsumego:hint move' : 'tsumego:hint')),
+                  ),
                 ],
               ),
             ),

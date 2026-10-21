@@ -537,6 +537,14 @@ void main() {
       final reset = await run('tsumego.reset');
       expect(reset['attempts'], 0);
       expect((await run('tsumego.status'))['current'], reset['start']);
+      // a hint: first the area of the answer's move (holding it, not centred on it), then the move
+      final area = await run('tsumego.hint', {'level': 1});
+      expect((area['source'], area['hints']), ('answer', 1));
+      final box = parseRegion('${area['area']['from']}:${area['area']['to']}', (19, 19));
+      expect((box[0] <= 18 && 18 <= box[1], box[2] <= 1 && 1 <= box[3]), (true, true)); // T2
+      final point = await run('tsumego.hint', {'level': 2});
+      expect((point['move'], point['hints']), ('T2', 2));
+      expect(await run('mark.list'), hasLength(1)); // the point replaced the area
       // the answer tree judges the moves: a line marked correct solves the problem, one that ends elsewhere fails it
       expect((await run('tsumego.status'))['progress'], {'on_book': true, 'result': null});
       await run('play', {'moves': 'T2'});
@@ -547,7 +555,11 @@ void main() {
       await run('tsumego.reset');
       await run('play', {'moves': 'S1'});
       expect((await run('tsumego.status'))['progress'], {'on_book': false, 'result': null});
+      await run('play', {'moves': 'pass'});
+      expect((await run('tsumego.hint', {'visits': 40}))['source'], 'katago'); // off the answer
+      expect((await fails('tsumego.hint', {'level': 3})).code, 'bad_argument');
       await run('tsumego.reset');
+      expect((await run('tsumego.status'))['hints'], 0);
       // a move played through the API is analysed only inside the problem, so the AI never answers in the frame
       final engine = host.testEngine as FakeEngine;
       engine.requests.clear();

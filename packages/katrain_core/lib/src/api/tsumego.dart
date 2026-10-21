@@ -19,7 +19,9 @@ import '../utils/format.dart';
 import 'args.dart';
 import 'commands.dart';
 import 'model.dart';
+import 'overlay.dart';
 import 'protocol.dart';
+import 'state.dart';
 
 const levelWords = [
   'elementary',
@@ -537,6 +539,18 @@ TsumegoProgress tsumegoProgress(TsumegoState ts, GameNode node) {
   return TsumegoProgress(book);
 }
 
+/// The answer's next move for the solver at [node]: the first of the answer's moves there that leads on to a correct
+/// end. Null when the opponent is to move, off the answer, once the problem is over, or when every answer line from
+/// here is wrong.
+Move? answerHint(TsumegoState ts, GameNode node) {
+  if (node.nextPlayer != ts.toPlay) return null;
+  final progress = tsumegoProgress(ts, node);
+  if (progress.result != null) return null;
+  return progress.book?.children
+      .firstWhereOrNull((c) => c.move?.player == ts.toPlay && c.nodesInTree.any(ts._isCorrect))
+      ?.move;
+}
+
 /// The answer's move for the opponent to move at [node], from the answer tree's main line; null when the solver is
 /// to move, off the tree, or once the problem is over.
 Move? bookReply(TsumegoState ts, GameNode node) {
@@ -653,6 +667,10 @@ class TsumegoState {
   final Map<GameNode, _Evaluation> _evals = Map.identity();
   int attempts = 0;
 
+  /// The hints given since the problem's start, and the marks showing the last one.
+  int hints = 0;
+  List<int> _hintMarks = const [];
+
   /// The frame node (child of the problem root) holds only the frame's stones.
   final Set<(int, int)> frameCoords;
   final List<int> viewRegion;
@@ -682,6 +700,7 @@ class TsumegoState {
     'region': regionJson(region),
     'has_reference_solution': solutionRoot.children.isNotEmpty,
     'attempts': attempts,
+    'hints': hints,
     'view': regionJson(viewRegion),
   };
 }
@@ -991,8 +1010,70 @@ Object? _reset(CommandHandler h, ApiArgs a) {
   h.goto(ts.start);
   ts._evals.removeWhere((node, _) => !identical(node, ts.start));
   ts.attempts = 0;
+  ts.hints = 0;
   h.state.marks = [];
   return ts.summary();
+}
+
+/// A hint for the solver's move: [level] 1 marks a 4x4 area holding it, 2 the point. The move is the answer's while
+/// the moves follow it, otherwise KataGo's best local move. The mark is on this position only, so the next move
+/// takes it away.
+Future<Object?> _hint(CommandHandler h, ApiArgs a) async {
+  final ts = _ts(h);
+  final node = h.game.currentNode;
+  if (node.nextPlayer != ts.toPlay) throw ApiError('not_your_move', 'the opponent is to move');
+  final level = a.integer('level', orElse: 2, min: 1)!;
+  if (level > 2) throw ApiError('bad_argument', 'level must be 1 (an area) or 2 (the point)');
+  var move = answerHint(ts, node);
+  var source = 'answer';
+  if (move == null) {
+    final ev = await _evaluate(h, ts, node, _visits(h, a), a.integer('timeout', orElse: 300, min: 1)!);
+    final best = ev.moves.firstOrNull?.move;
+    if (best == null) throw ApiError('no_hint', 'KataGo has no move here');
+    move = Move.fromGtp(best, player: ts.toPlay);
+    source = 'katago';
+  }
+  ts.hints += 1;
+  final c = move.coords;
+  final out = <String, Object?>{'level': level, 'source': source, 'hints': ts.hints};
+  if (c == null) return {...out, 'move': 'pass'}; // nothing to mark
+  final scope = nodeId(node);
+  final mark = level == 1
+      ? Mark(
+          id: h.state.nextMarkId(),
+          type: 'area',
+          region: _hintArea(c, node.boardSize),
+          rgb: parseMarkColor('yellow')!,
+          color: 'yellow',
+          nodeId: scope,
+        )
+      : Mark(
+          id: h.state.nextMarkId(),
+          type: 'circle',
+          point: c,
+          rgb: parseMarkColor('green')!,
+          color: 'green',
+          nodeId: scope,
+        );
+  final old = ts._hintMarks.toSet();
+  h.state.marks = [
+    for (final m in h.state.marks)
+      if (!old.contains(m.id)) m,
+    mark,
+  ];
+  ts._hintMarks = [mark.id];
+  h.host.redrawOverlay();
+  return {...out, if (level == 2) 'move': gtp(c), if (level == 1) 'area': regionJson(mark.region)};
+}
+
+/// A 4x4 area on the board holding [c], with [c] placed in it by where it is (so the area does not give it away).
+List<int> _hintArea((int, int) c, (int, int) boardSize) {
+  const side = 4;
+  int start(int v, int offset, int size) => (v - offset).clamp(0, size - side);
+  final (x, y) = c;
+  final xmin = start(x, (x * 3 + y) % side, boardSize.$1);
+  final ymin = start(y, (x + y * 3) % side, boardSize.$2);
+  return [xmin, xmin + side - 1, ymin, ymin + side - 1];
 }
 
 Future<Object?> _solution(CommandHandler h, ApiArgs a) async {
@@ -1064,6 +1145,11 @@ final Map<String, ApiCommand> tsumegoCommands = {
     waitsForEngine: true,
   ),
   'tsumego.reset': const ApiCommand(_reset, 'Back to the starting position; attempt moves are removed.'),
+  'tsumego.hint': const ApiCommand(
+    _hint,
+    "A hint for the solver's move (level=1 an area, 2 the point): the answer's, or KataGo's best local move.",
+    waitsForEngine: true,
+  ),
   'tsumego.solution': const ApiCommand(
     _solution,
     "Reference answer lines from the SGF (labelled correct/wrong when marked) plus KataGo's local line.",

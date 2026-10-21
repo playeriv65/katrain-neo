@@ -397,6 +397,20 @@ void main() {
       expect(lastMove(), 'B:R1');
     });
 
+    test('gives a hint: the area of the answer, then its move, gone with the next move', () async {
+      await load();
+      await app.problemHint();
+      expect((app.hintLevel, app.apiState.marks.single.type), (1, 'area'));
+      await app.problemHint();
+      final mark = app.apiState.marks.single;
+      expect((app.hintLevel, mark.type, mark.point), (2, 'circle', at('T2')));
+      expect(app.apiState.tsumego!.hints, 2);
+      await app.play(at('T2'));
+      await kata.settle(app);
+      expect(app.hintLevel, 0);
+      expect(visibleMarks(app.apiState.marks, app.game!.currentNode), isEmpty);
+    });
+
     test('a wrong line fails once the answer has refuted it', () async {
       await load();
       await app.play(at('S1'));

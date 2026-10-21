@@ -703,6 +703,19 @@ Command<int> _tsumegoCommands() {
     ),
     apiCommand('reset', 'back to the starting position', (_) => const ApiCall('tsumego.reset', {})),
     apiCommand(
+      'hint',
+      "mark where the solver's move is (--level 1, an area) or the move (2): the answer's, else KataGo's",
+      (a) => ApiCall('tsumego.hint', {
+        'level': a.integer('level'),
+        'visits': a.integer('visits'),
+        'timeout': engineTimeout(a),
+      }, engineTimeout(a)),
+      options: (p) {
+        p.addOption('level', valueHelp: '1|2', defaultsTo: '2', help: '1: a 4x4 area holding the move; 2: the move');
+        _visits(p);
+      },
+    ),
+    apiCommand(
       'solution',
       "reference solution from the SGF, or KataGo's line",
       (a) => ApiCall('tsumego.solution', {

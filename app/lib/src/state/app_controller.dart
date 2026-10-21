@@ -779,6 +779,26 @@ class AppController extends HostBase with ChangeNotifier {
     return startPractice(source: ts.source, level: ts.level ?? '', index: ts.index + step);
   }
 
+  /// The hint shown on the position on the board: 1 the area of the move, 2 the move; 0 when none is.
+  int get hintLevel => identical(_hintAt, game?.currentNode) ? _hintLevel : 0;
+  GameNode? _hintAt;
+  int _hintLevel = 0;
+
+  /// A hint for the solver's move: the first asks for its area, the next one for the move itself.
+  Future<void> problemHint() async {
+    final node = game?.currentNode;
+    if (node == null) return;
+    final level = hintLevel >= 1 ? 2 : 1;
+    try {
+      await _commands.dispatch('tsumego.hint', {'level': level});
+      _hintAt = node;
+      _hintLevel = level;
+      notifyListeners();
+    } on ApiError catch (e) {
+      setStatus(e.message, statusError);
+    }
+  }
+
   /// The problem's start again, the tries removed.
   Future<void> retryProblem() async {
     try {

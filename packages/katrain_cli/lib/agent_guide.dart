@@ -151,6 +151,7 @@ katrain-neo tsumego try B2                             # any legal move; KataGo 
 katrain-neo tsumego eval                               # target status (alive/dead/unsettled) + best local moves
 katrain-neo tsumego solution [--show]                  # SGF reference lines (correct/wrong) and KataGo's line
 katrain-neo tsumego reset                              # back to the start, attempt moves removed
+katrain-neo tsumego hint [--level 1|2]                 # mark the move's 4x4 area (1) or the move (2); counted
 ```
 
 `tsumego load` also zooms the board to the problem (like a book diagram) and hides the frame stones; KataGo still
@@ -180,7 +181,8 @@ the moves follow the answer tree, the app's AI replies with the answer's main li
 `tsumego status` has `progress`: `on_book`, `result` (`solved` at a node the answer marks correct — Correct, RIGHT,
 正解, TE — or at the end of an unmarked answer's main line; `failed` where an answer line ends without that) and the
 answer's `comment` there. Off the answer (`on_book: false`) KataGo answers and nothing is judged yet. The app's
-"Life & death practice" (menu) loads problems from a folder by level, with Retry and Next on the problem card.
+"Life & death practice" (menu) loads problems from a folder by level, with Retry, Next and Hint (the area, then
+the move) on the problem card.
 
 ## Good habits
 
